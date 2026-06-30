@@ -77,7 +77,7 @@ Turbo orders `^build` before each task, so the `deployoor` core builds before pl
 
 ## Releasing (Changesets)
 
-Every PR that changes a publishable package must include a changeset (`pnpm changeset` → pick packages + bump + summary). CI enforces this: the `changeset` job in `ci.yml` runs `changeset status --since=origin/<base>` and fails a PR that lacks one (use `pnpm changeset --empty` for no-release changes). Changelogs are generated per package via `@changesets/changelog-github` (PR/author links).
+Every PR that changes a publishable package must include a changeset (`pnpm changeset` → pick packages + bump + summary). CI enforces this: the `changeset` job in `ci.yml` runs `changeset status --since=origin/<base>` and fails a PR that lacks one (use `pnpm changeset --empty` for no-release changes). Changelogs are generated per package by Changesets' default generator (network-free; we deliberately avoid `@changesets/changelog-github` because its per-release GitHub GraphQL call failed reliably in CI with "Premature close").
 
 Release flow (`release.yml`, on push to `main`): the `changesets/action` opens/updates a "Version Packages" PR that bumps versions + writes `CHANGELOG.md`; merging it runs `pnpm release` (`turbo build && changeset publish`) and publishes to npm **with provenance** (repo is public; `id-token: write` + `NPM_CONFIG_PROVENANCE`). Auth is the `NPM_TOKEN` repo secret (a granular `@deployoor` token); once packages exist, you can switch to npm **trusted publishing (OIDC)** per package and drop the token.
 
