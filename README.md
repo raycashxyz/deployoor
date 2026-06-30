@@ -1,58 +1,79 @@
 <div align="center">
 
-# cudo
+# deployoor
 
-**viem-first contract deployment — deploy once, use your contracts as typed objects.**
+**viem-first smart-contract deployment. Deploy once, use your contracts as typed objects.**
 
-Works with Hardhat and Foundry.
+The generated code depends only on `viem` — never on deployoor. Works with Hardhat and Foundry.
 
 </div>
 
 ---
 
-`cudo` (Latin _cūdō_, "to forge / to mint") is a dev tool, like `@wagmi/cli` or Prisma: you run it, and the code it generates depends only on `viem` — never on `cudo`.
+## The problem
+
+Deploying contracts to an EVM chain is solved. _Using_ them from your app is where it falls apart.
+
+- **Addresses and ABIs get copy-pasted and go stale.** The address ends up in a deploy script, the ABI in some JSON file, and you paste both into your app by hand. Redeploy, and every copy silently drifts out of sync.
+- **Provider/client wiring is manual boilerplate.** You re-thread the same client, address, and ABI into every contract, on every network.
+- **There's no single source of truth** for what is deployed where — with which ABI, constructor args, tx hash, and compiler — across networks.
+- **Deploy scripts aren't idempotent.** Re-running either redeploys or throws, when all you wanted was the contract you already deployed.
+- **Tools couple your app to themselves.** You want generated code that depends only on `viem`, so you can drop the tool later with zero lock-in.
+
+## The fix
+
+deployoor makes a plain `deployments/` folder the single source of truth, and generates the wiring for you:
+
+- Every deploy is recorded to `deployments/<network>/<Contract>.json` — address, ABI, chainId, args, tx, compiler. No copy-paste, no drift.
+- Generated deployers inject the address and ABI for you. You add a client; nothing else.
+- `getOrDeploy<Name>` is **idempotent**: first call deploys and records; later calls return the existing contract with no tx; `force: true` redeploys; `register(...)` records an external contract (e.g. USDC) with no tx.
+- The code you ship depends only on `viem`. Delete deployoor and your app keeps working.
+
+The name is the crypto-degen `-oor` agent-noun of "deploy" (like buidloor / hodloor) — literally "the thing that deploys."
+
+## How it works
+
+Two parts, with a plain `deployments/` folder as the stable contract between them. deployoor owns Part 1 (deploy + the `deployments/` record + lifecycle hooks). Part 2 delegates to `@wagmi/cli` — it doesn't reinvent consumption codegen, it feeds it.
+
+```mermaid
+flowchart TD
+    A["artifacts<br/>(Hardhat artifacts/ or Foundry out/)"]
+    B["deployments/&lt;network&gt;/&lt;Contract&gt;.json<br/>source of truth: address · abi · chainId · args · tx · compiler"]
+    C["typed viem access / React hooks<br/>address + abi already injected — you just add a client"]
+
+    A -- "Part 1 — deployoor generate + your deploy script" --> B
+    B -- "Part 2 — @wagmi/cli + @deployoor/wagmi" --> C
+```
+
+## Quickstart
 
 ```bash
-npx cudo init && npx cudo generate
+npx deployoor init && npx deployoor generate
 ```
 
 ```ts
-// deploy once; every run after that returns the same contract
+// deploy once; every run after this returns the same contract
 const token = await getOrDeployToken({ walletClient, publicClient, args: [owner] });
 await token.write.transfer([to, amount]);
 ```
 
-You get a single source of truth for every address, ABI, and chain — and contracts you can import as fully-typed viem objects, with no copied addresses, no stale ABIs, and no provider wiring. See [`packages/cudo`](packages/cudo) for the full guide.
+`deployoor generate` reads your artifacts and emits one typed `getOrDeploy<Name>` per contract. Config lives in `deployoor.config.ts`. Plugins are deploy-lifecycle hooks authored against the `deployoor/plugin` SDK.
 
 ## Packages
 
-| Package                                      | Description                                                                                                                                                       |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`cudo`](packages/cudo)                      | The deploy engine + codegen + CLI (`cudo generate` / `cudo init`). Reads Hardhat/Foundry artifacts, emits typed deployers, records each deploy to `deployments/`. |
-| [`@cudo/wagmi`](packages/cudo-wagmi)         | A [`@wagmi/cli`](https://wagmi.sh/cli) plugin sourcing contracts from `deployments/` — typed contract objects for your app.                                       |
-| [`@cudo/etherscan`](packages/cudo-etherscan) | Verify on Etherscan V2 (one key, all chains; also Blockscout/Routescan).                                                                                          |
-| [`@cudo/sourcify`](packages/cudo-sourcify)   | Verify on Sourcify (v2, keyless).                                                                                                                                 |
-| [`@cudo/slack`](packages/cudo-slack)         | Notify a Slack channel on each deploy.                                                                                                                            |
+| Package                                                | Description                                                                                                                                                                 |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`deployoor`](packages/deployoor)                      | The deploy engine + codegen + CLI (`deployoor generate` / `deployoor init`). Reads Hardhat/Foundry artifacts, emits typed deployers, records each deploy to `deployments/`. |
+| [`@deployoor/wagmi`](packages/deployoor-wagmi)         | A [`@wagmi/cli`](https://wagmi.sh/cli) plugin sourcing contracts from `deployments/` — typed contract objects for your app.                                                 |
+| [`@deployoor/etherscan`](packages/deployoor-etherscan) | Verify on Etherscan V2 (one key, all chains; also Blockscout/Routescan).                                                                                                    |
+| [`@deployoor/sourcify`](packages/deployoor-sourcify)   | Verify on Sourcify (v2, keyless).                                                                                                                                           |
+| [`@deployoor/slack`](packages/deployoor-slack)         | Notify a Slack channel on each deploy.                                                                                                                                      |
 
-Plugins are deploy-lifecycle hooks authored against the `cudo/plugin` SDK; each ships as its own package.
-
-## How it works
-
-Two parts, with a plain `deployments/` folder as the contract between them:
-
-```
-artifacts (Hardhat artifacts/ or Foundry out/)
-        │  Part 1 — cudo generate + your deploy script
-        ▼
-deployments/<network>/<Contract>.json   ← source of truth: address, abi, chainId, args, tx, compiler
-        │  Part 2 — @wagmi/cli + @cudo/wagmi
-        ▼
-typed viem access / React hooks          ← you add a client; address + abi are already injected
-```
-
-`cudo` owns Part 1 (deploy + the `deployments/` record). Part 2 reuses `@wagmi/cli` — we don't reinvent codegen, we feed it.
+Plugins are deploy-lifecycle hooks; each ships as its own package and depends only on `deployoor/plugin`.
 
 ## Development
+
+This is a pnpm + Turborepo monorepo.
 
 ```bash
 pnpm install      # install everything
@@ -63,7 +84,7 @@ pnpm lint         # oxlint
 pnpm format       # prettier --write
 ```
 
-This is a pnpm + Turborepo monorepo. Releases are managed with [Changesets](https://github.com/changesets/changesets): add one with `pnpm changeset`, and merging the resulting "Version Packages" PR publishes to npm with provenance.
+Releases are managed with [Changesets](https://github.com/changesets/changesets): add one with `pnpm changeset`; merging the auto-opened "Version Packages" PR publishes to npm with provenance.
 
 ## Status
 
