@@ -12,15 +12,15 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      id-token: write # npm provenance
+      id-token: write # OIDC trusted publishing + provenance
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22 # >= 22.14 for OIDC
           cache: pnpm
-          registry-url: "https://registry.npmjs.org"
+      - run: npm install -g npm@latest # OIDC trusted publishing needs npm >= 11.5.1
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       # Opens a "Version Packages" PR when changesets exist; publishes on merge.
@@ -29,9 +29,7 @@ jobs:
           publish: pnpm release
           version: pnpm version-packages
         env:
+          # Tokenless: each package has a trusted publisher configured on npm.
+          # With no NPM_TOKEN and id-token: write, changesets/action publishes via
+          # OIDC trusted publishing; provenance is then generated automatically.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # changesets/action reads NPM_TOKEN; without it (and with id-token) it
-          # falls back to OIDC trusted publishing, which can't do a first publish.
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_PROVENANCE: "true"
