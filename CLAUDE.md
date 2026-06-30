@@ -1,24 +1,24 @@
 # CLAUDE.md
 
-Guidance for AI agents (and humans) working in the **cudo** monorepo.
+Guidance for AI agents (and humans) working in the **deployoor** monorepo.
 
-## What cudo is
+## What deployoor is
 
-`cudo` (Latin _cūdō_, "to forge / to mint") is a **viem-first contract deployment** dev tool — like `@wagmi/cli` or Prisma. You run it; the code it generates depends only on `viem`, never on `cudo`. Deploy once, then use your contracts as fully-typed objects with no copied addresses, stale ABIs, or provider wiring.
+`deployoor` (the crypto-degen `-oor` agent-noun of "deploy" — like buidloor/hodloor — literally "the thing that deploys"; the project was prototyped under the name `cudo`, Latin _cūdō_ "to forge/mint") is a **viem-first contract deployment** dev tool — like `@wagmi/cli` or Prisma. You run it; the code it generates depends only on `viem`, never on `deployoor`. Deploy once, then use your contracts as fully-typed objects with no copied addresses, stale ABIs, or provider wiring.
 
 **Two parts, with a plain `deployments/` folder as the stable contract between them:**
 
 ```
 artifacts (Hardhat artifacts/ or Foundry out/)
-        │  Part 1 — `cudo generate` + your deploy script
+        │  Part 1 — `deployoor generate` + your deploy script
         ▼
 deployments/<network>/<Contract>.json   ← source of truth: address, abi, chainId, args, tx, compiler
-        │  Part 2 — @wagmi/cli + @cudo/wagmi
+        │  Part 2 — @wagmi/cli + @deployoor/wagmi
         ▼
 typed viem access / React hooks          ← you add a client; address + abi are already injected
 ```
 
-cudo owns Part 1 (deploy + the `deployments/` record + lifecycle hooks). Part 2 **delegates to `@wagmi/cli`** — we don't reinvent consumption codegen, we feed it.
+deployoor owns Part 1 (deploy + the `deployments/` record + lifecycle hooks). Part 2 **delegates to `@wagmi/cli`** — we don't reinvent consumption codegen, we feed it.
 
 North star: "contracts as plain TypeScript objects." On the deploy side, `getOrDeployToken(...)` returns a viem contract object (`token.read.*` / `token.write.*`).
 
@@ -26,15 +26,15 @@ North star: "contracts as plain TypeScript objects." On the deploy side, `getOrD
 
 ```
 packages/
-  cudo/            — the engine: codegen + CLI (`cudo generate` / `cudo init`) + the deploy pipeline. Exports `cudo` (main) and `cudo/plugin` (the plugin SDK subpath).
-  cudo-wagmi/      — @cudo/wagmi: a @wagmi/cli plugin sourcing contracts from deployments/
-  cudo-etherscan/  — @cudo/etherscan: Etherscan V2 verifier (one key, all chains; also Blockscout/Routescan via apiUrl)
-  cudo-sourcify/   — @cudo/sourcify: Sourcify v2 verifier (keyless)
-  cudo-slack/      — @cudo/slack: Slack notifier
+  deployoor/            — the engine: codegen + CLI (`deployoor generate` / `deployoor init`) + the deploy pipeline. Exports `deployoor` (main) and `deployoor/plugin` (the plugin SDK subpath).
+  deployoor-wagmi/      — @deployoor/wagmi: a @wagmi/cli plugin sourcing contracts from deployments/
+  deployoor-etherscan/  — @deployoor/etherscan: Etherscan V2 verifier (one key, all chains; also Blockscout/Routescan via apiUrl)
+  deployoor-sourcify/   — @deployoor/sourcify: Sourcify v2 verifier (keyless)
+  deployoor-slack/      — @deployoor/slack: Slack notifier
 apps/              — (placeholder) docs/marketing site goes here (vocs is the planned choice)
 ```
 
-Plugins are **deploy-lifecycle hooks** authored against `cudo/plugin`; each is its own npm package, peer-depends on `cudo`, and imports **only** from `cudo/plugin`.
+Plugins are **deploy-lifecycle hooks** authored against `deployoor/plugin`; each is its own npm package, peer-depends on `deployoor`, and imports **only** from `deployoor/plugin`.
 
 ## Commands
 
@@ -47,18 +47,18 @@ pnpm lint        # oxlint
 pnpm format      # prettier --write .   (format:check in CI)
 ```
 
-Turbo orders `^build` before each task, so the `cudo` core builds before plugin tests/typechecks (plugins resolve `cudo/plugin` from cudo's **dist**). Per-package: `pnpm --filter @cudo/etherscan test`.
+Turbo orders `^build` before each task, so the `deployoor` core builds before plugin tests/typechecks (plugins resolve `deployoor/plugin` from deployoor's **dist**). Per-package: `pnpm --filter @deployoor/etherscan test`.
 
 ## Architecture & key decisions (read before changing things)
 
 - **Effect is fully internal.** The engine uses Effect (`Context.Tag` services, `Layer` DI, `Data.TaggedError`, `Effect.gen` pipelines). The **public API is Promise-only** — no `.effect` namespace. The single Effect→Promise crossing is in `createDeployer` (`Effect.runPromiseExit` + `Cause.squash`, so it rejects with the clean tagged error, not a FiberFailure).
-- **The user never calls `createDeployer`.** `cudo generate` emits one `export const getOrDeploy<Name> = defineDeployer(<name>Artifact, config)` per contract; the user imports it and calls `await getOrDeployToken({ walletClient, publicClient, args })`. The store + plugins are internal, derived from the project's `cudo.config.ts`.
+- **The user never calls `createDeployer`.** `deployoor generate` emits one `export const getOrDeploy<Name> = defineDeployer(<name>Artifact, config)` per contract; the user imports it and calls `await getOrDeployToken({ walletClient, publicClient, args })`. The store + plugins are internal, derived from the project's `deployoor.config.ts`.
 - **`getOrDeploy` is idempotent by design:** first call deploys + records; later calls return the existing contract with no tx; `force: true` redeploys; `register({ name, address, abi, chainId })` records an external contract (e.g. USDC) with no tx.
 - **Zod 4** (pinned). **Do NOT use `abitype/zod` for schemas** — abitype 1.2.x's zod types are written against zod 3 (`Address` is `z.ZodEffects<...>`, removed in zod 4), so `z.infer` over them collapses to `any` under zod 4 (runtime validation works; only the types break — this was verified). Instead, `Address`/`Abi`/`Hex` are small **local `z.custom`** validators in `src/schemas.ts` that infer precisely. abitype's `Abi` _type_ (via viem) is still the source of truth for the abi shape.
 - **Boundary types are explicit interfaces, not `z.infer`** (`DeploymentRecord`, `Libraries`, `TypedArtifact`). The Zod schemas validate at runtime; the exported _types_ are hand-written so they're documented, stable, and survive `.d.ts` bundling. Keep schema and interface in sync.
 - **Deployment records are vanilla JSON** (a one-line bigint→string replacer in `fsStore`, no superjson) — they're committed to the user's repo and read by humans, Part 2, and other tools, so they must be flat/portable.
 - **Real-EVM tests via tevm** (`test/evm-clients.ts`'s `makeEvmClients()` → tevm `createMemoryClient` exposed as viem clients over `custom(memory, { retryCount: 0 })`). No fake clients. `makeEvmClients` has an **explicit viem return-type annotation** — don't remove it (the inferred tevm chain type pulls in `@ethereumjs/common`, which isn't nameable under `declaration: true` → TS2742).
-- **Codegen is proven by a tsc-over-emitted spine** (`packages/cudo/test/codegen/emitted-typecheck.test.ts`): builds dist, generates into a temp project, runs `tsc` over the emitted deployers, asserts zero diagnostics.
+- **Codegen is proven by a tsc-over-emitted spine** (`packages/deployoor/test/codegen/emitted-typecheck.test.ts`): builds dist, generates into a temp project, runs `tsc` over the emitted deployers, asserts zero diagnostics.
 
 ## Build/CI gotchas (already fixed — don't regress)
 
@@ -77,20 +77,18 @@ Turbo orders `^build` before each task, so the `cudo` core builds before plugin 
 
 ## Releasing (Changesets)
 
-Packages are currently **`private: true`** as a publish gate — `changeset publish` skips them, so the Release workflow is a clean no-op. To do the first real release:
+Every PR that changes a publishable package must include a changeset (`pnpm changeset` → pick packages + bump + summary). CI enforces this: the `changeset` job in `ci.yml` runs `changeset status --since=origin/<base>` and fails a PR that lacks one (use `pnpm changeset --empty` for no-release changes). Changelogs are generated per package via `@changesets/changelog-github` (PR/author links).
 
-1. Set `"private": false` on the package(s) to publish.
-2. Add an `NPM_TOKEN` repo secret, **or** configure npm **trusted publishing (OIDC)** for the `@cudo` scope (the workflow already requests `id-token`; publishes with provenance).
-3. `pnpm changeset` (pick packages + bump), merge the auto-opened "Version Packages" PR → it publishes.
+Release flow (`release.yml`, on push to `main`): the `changesets/action` opens/updates a "Version Packages" PR that bumps versions + writes `CHANGELOG.md`; merging it runs `pnpm release` (`turbo build && changeset publish`) and publishes to npm **with provenance** (repo is public; `id-token: write` + `NPM_CONFIG_PROVENANCE`). Auth is the `NPM_TOKEN` repo secret (a granular `@deployoor` token); once packages exist, you can switch to npm **trusted publishing (OIDC)** per package and drop the token.
 
-The `@cudo` npm org/scope is unclaimed as of extraction — claim it before first publish.
+The `@deployoor` npm org is **claimed**; all packages are `private: false`. Versioning is independent per package (`fixed`/`linked` empty); internal deps bump via `updateInternalDependencies: patch`. Pre-1.0, treat minor bumps as potentially breaking.
 
 ## Status & next steps
 
 Early. Deploy core + plugin model + wagmi bridge are stabilizing. Hardhat v2 today (v3 port later if adoption warrants).
 
 - Docs site in `apps/` (vocs — the framework behind viem.sh/wagmi.sh — is the planned choice).
-- More plugins as needed: lift Tenderly → `@cudo/tenderly`; a gas/cost report; an `.env`/address-book writer (would exercise the `onGenerated` hook once wired).
+- More plugins as needed: lift Tenderly → `@deployoor/tenderly`; a gas/cost report; an `.env`/address-book writer (would exercise the `onGenerated` hook once wired).
 - A `createContracts({ client })` runtime helper was **deliberately rejected** — it would kill tree-shaking. The tree-shakeable path to viem-object ergonomics is per-contract generated factories, but `@wagmi/cli`'s per-export output already covers typed access.
 
-Repo: https://github.com/valerioleo/cudo · the full dev history lives on branch `audit-hardhat-viem-deploy` of the `fellow-monorepo` repo (where it was prototyped before extraction).
+Repo: https://github.com/valerioleo/deployoor · the full dev history lives on branch `audit-hardhat-viem-deploy` of the `fellow-monorepo` repo (where it was prototyped before extraction).

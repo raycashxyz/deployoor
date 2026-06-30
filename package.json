@@ -1,18 +1,18 @@
 {
-  "name": "cudo-monorepo",
+  "name": "deployoor-monorepo",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "description": "viem-first contract deployment: deploy once, use contracts as typed objects.",
   "license": "MIT",
   "author": "Valerio Leo",
-  "homepage": "https://github.com/valerioleo/cudo#readme",
+  "homepage": "https://github.com/valerioleo/deployoor#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/valerioleo/cudo.git"
+    "url": "git+https://github.com/valerioleo/deployoor.git"
   },
   "bugs": {
-    "url": "https://github.com/valerioleo/cudo/issues"
+    "url": "https://github.com/valerioleo/deployoor/issues"
   },
   "packageManager": "pnpm@10.18.3",
   "engines": {
@@ -30,6 +30,7 @@
     "release": "turbo run build && changeset publish"
   },
   "devDependencies": {
+    "@changesets/changelog-github": "^0.7.0",
     "@changesets/cli": "^2.31.0",
     "oxlint": "^1.71.0",
     "prettier": "^3.9.1",

@@ -1,0 +1,58 @@
+{
+  "name": "@deployoor/slack",
+  "version": "0.0.0",
+  "private": false,
+  "type": "module",
+  "description": "Notify a Slack channel when deployoor deploys a contract.",
+  "license": "MIT",
+  "author": "Valerio Leo",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "deployoor": "*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "deployoor": "workspace:*",
+    "tsdown": "^0.22.3",
+    "typescript": "catalog:",
+    "unrun": "^0.3.1",
+    "vitest": "catalog:"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/valerioleo/deployoor.git",
+    "directory": "packages/deployoor-slack"
+  },
+  "homepage": "https://github.com/valerioleo/deployoor/tree/main/packages/deployoor-slack#readme",
+  "bugs": {
+    "url": "https://github.com/valerioleo/deployoor/issues"
+  }
+}
