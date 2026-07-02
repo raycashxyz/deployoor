@@ -1,6 +1,6 @@
 {
   "name": "@example/foundry",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
   "type": "module",
   "description": "deployoor with a Foundry project: forge build → deployoor generate → deploy & test on an in-memory EVM.",

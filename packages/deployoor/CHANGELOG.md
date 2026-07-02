@@ -1,5 +1,29 @@
 # deployoor
 
+## 0.2.0
+
+### Minor Changes
+
+- 2a34f70: Harden deployment records and test helpers: records now carry `schemaVersion: 1`, use chain-id-based filesystem keys, guard chainId mismatches on reuse, warn on stale bytecode/constructor args, and write filesystem records atomically under a lock. `@deployoor/testing` now exposes tevm, cheatcodes, fixtures, and deployment-record seeding (seeded records are remapped onto the in-memory chain so `getOrDeploy` reuses them). Verifier plugins can retry reused deployments when artifact metadata is available, Slack can notify failed deploys, and the wagmi plugin uses Zod 4-safe validators with ABI drift checks.
+
+  **BREAKING (pre-1.0):** the record folder layout changed from `deployments/<chain name>/` to `deployments/<chainId>-<slug>/` (e.g. `deployments/sepolia/` → `deployments/11155111-sepolia/`), and the record's `networkName` field now holds that composite key. Records written by 0.1.x are not read from the old location — move each folder to its new name (and update `networkName` inside the files, or let the next deploy rewrite them) before re-running deploy scripts, or `getOrDeploy` will redeploy.
+
+- 2a34f70: Expose `register` and `reset` as project-level entry points. `deployoor generate` now emits both in the deployers index (config-bound, scoped to the client's chain): `register({ walletClient, publicClient, deploymentName, address, abi })` records a contract you didn't deploy (e.g. USDC) with no transaction and returns its viem object, and `reset({ publicClient, deploymentName? })` forgets recorded deployment(s) so the next `getOrDeploy` redeploys. Adds the public factories `defineRegister` / `defineReset`. The older `name` spelling is accepted as a compatibility alias.
+
+  Registered records are marked `kind: "external"`, and `register` will not overwrite a real deployment at the same `(chain, name)` — it fails with `DeploymentExists` (reset it first, or use a different name); re-registering an external record updates it. `reset` is a pure local-records operation and needs only a `publicClient` (no signer).
+
+  Also documents `deploymentName` (defaults to the contract name) for deploying and tracking multiple instances of the same contract.
+
+- c12b352: `getOrDeploy` and `register` now resolve to a `DeployResult` — `{ contract, deployment, freshDeploy, receipt? }` — instead of the bare viem contract. `contract` is the typed viem object (same one as before); `freshDeploy` is `true` only when the call broadcast a deploy transaction (so it is `false` on idempotent reuse and always for `register`); `receipt` is the deploy receipt, present only on a fresh deploy; `deployment` is the full record. This lets a deploy script run one-time setup only when it actually deployed.
+
+  **BREAKING (pre-1.0):** callers that used the return value as a contract must destructure it — `const token = await getOrDeployToken(...)` becomes `const { contract: token } = await getOrDeployToken(...)`.
+
+  Also adds the `deployoor/generate` subpath, exporting `generateDeployers({ root })` — the programmatic form of `deployoor generate` (discover config → read artifacts → write typed deployers) so a build tool can run generation in process. `@deployoor/hardhat` uses it.
+
+### Patch Changes
+
+- 4e505d0: Compat hardening from packaging/resolution audit: `sideEffects: false` on all publishable packages; `typesVersions` on `deployoor/plugin` and `deployoor/generate` for legacy `moduleResolution: "node"`; Node `>=20` engines on tevm-dependent packages; align tevm as a hard dependency and declare `viem >=2.49` where tevm requires it; document TypeScript-first codegen and CJS/ESM caveats; add a Windows CI smoke job.
+
 ## 0.1.0
 
 ### Minor Changes
