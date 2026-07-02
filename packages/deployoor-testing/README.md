@@ -2,6 +2,8 @@
 
 > Test your deployoor deploys against a real in-memory EVM (via tevm) — no local node.
 
+**Requires Node ≥ 20.** tevm's CJS build depends on ESM-only packages that break under `require()` on Node 18; the ESM import path works on Node 18, but CJS consumers need Node ≥ 20.19.
+
 `createTestClients()` boots [tevm](https://tevm.sh) in-process and hands you ordinary viem wallet/public clients. Pass them straight to a generated deployer and your test deploys real contracts to a real EVM — no `hardhat node`, no anvil, no RPC. The tevm version is pinned by this package, so you never fight a version mismatch.
 
 ```bash

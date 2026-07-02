@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": false,
   "type": "module",
+  "sideEffects": false,
   "description": "Notify a Slack channel when deployoor deploys a contract.",
   "keywords": [
     "ethereum",

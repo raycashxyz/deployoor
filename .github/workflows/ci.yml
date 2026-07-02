@@ -38,6 +38,19 @@ jobs:
       - run: pnpm lint
       - run: pnpm format:check
 
+  # Smoke-test fs-store/lock paths on Windows (ubuntu-only matrix misses platform-specific bugs).
+  test-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+
   # Fails a PR that changes a publishable package without a changeset.
   # For changes that need no release, add an empty one: `pnpm changeset --empty`.
   changeset:

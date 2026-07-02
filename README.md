@@ -96,6 +96,8 @@ Deploy more contracts, or to more networks, and you get `deployments/11155111-se
 
 `deployoor generate` reads your artifacts and emits one typed `getOrDeploy<Name>` per contract. Config lives in `deployoor.config.ts`. Plugins are deploy-lifecycle hooks authored against the `deployoor/plugin` SDK.
 
+Generated deployers are **TypeScript** (`.ts`). The CLI and config work in JS projects, but you need `tsx`, Bun, or vitest to run deploy scripts that import them — bare `node` won't load `.ts` without a runner.
+
 > **Using an AI agent?** [`skills/deployoor-integration`](skills/deployoor-integration/SKILL.md) is a SKILL an LLM can follow to wire deployoor into a project end-to-end.
 
 ## Testing
@@ -122,6 +124,12 @@ test("transfer moves the balance", async () => {
 
 Same `getOrDeployToken` you ship — here it targets a throwaway in-process chain and an in-memory store, so each run is clean and nothing is written to `deployments/`. Multiple parties? `clients.walletClientFor(account)`. Want a real node instead? Build the clients against a local anvil or a fork; nothing else changes.
 
+## Compatibility
+
+- **Node.js:** Core `deployoor` and all plugins target **Node ≥ 18**. [`@deployoor/testing`](packages/deployoor-testing) and [`fhevm-tevm-mocks`](packages/fhevm-tevm-mocks) require **Node ≥ 20** because tevm's CJS build pulls in ESM-only dependencies that only work under `require()` on Node ≥ 20.19 (the ESM path works on Node 18).
+- **TypeScript-first:** The CLI and `deployoor.config.ts` work in any project (jiti loads the config), but **`deployoor generate` emits TypeScript deployers** (`.ts`). Plain JavaScript projects should run deploy scripts with `tsx`, Bun, or vitest — not bare `node`.
+- **CJS vs ESM:** All packages ship dual CJS/ESM builds. Prefer ESM on Node 18 if you hit `ERR_REQUIRE_ESM` from tevm-dependent packages.
+
 ## Packages
 
 | Package                                                | Description                                                                                                                                                                 |
@@ -133,6 +141,7 @@ Same `getOrDeployToken` you ship — here it targets a throwaway in-process chai
 | [`@deployoor/sourcify`](packages/deployoor-sourcify)   | Verify on Sourcify (v2, keyless).                                                                                                                                           |
 | [`@deployoor/slack`](packages/deployoor-slack)         | Notify a Slack channel on each deploy.                                                                                                                                      |
 | [`@deployoor/testing`](packages/deployoor-testing)     | `createTestClients()` — an in-memory EVM (tevm) as viem clients + an in-memory store, to test deploys with no local node.                                                   |
+| [`fhevm-tevm-mocks`](packages/fhevm-tevm-mocks)        | Tevm-native adapter for Zama FHEVM mock tests — you own the Tevm instance; this package wires FHE host contracts and relayer handlers.                                      |
 
 Plugins are deploy-lifecycle hooks; each ships as its own package and depends only on `deployoor/plugin`.
 

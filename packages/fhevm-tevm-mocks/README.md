@@ -2,6 +2,8 @@
 
 Tevm-native adapter primitives for running Zama FHEVM mock tests in an in-memory EVM.
 
+**Requires Node ≥ 20.** tevm's CJS build depends on ESM-only packages that break under `require()` on Node 18; the ESM import path works on Node 18, but CJS consumers need Node ≥ 20.19.
+
 This is an independent, unscoped package named `fhevm-tevm-mocks`. It builds on top of
 `@fhevm/mock-utils`; it does not create or emulate a Hardhat Runtime Environment.
 
@@ -13,8 +15,7 @@ You own the Tevm instance. Pass it in.
 environment where Tevm state, accounts, chain config, snapshots, and other test helpers are already owned by the
 caller.
 
-Because you construct the Tevm instance, `tevm` is a peer dependency: install it (pinned to the version this package
-targets) alongside `fhevm-tevm-mocks` and `viem`, so a single Tevm copy is shared between your code and this adapter.
+Because you construct the Tevm instance, install `fhevm-tevm-mocks` and `viem` — tevm is pinned by this package so you never fight a version mismatch. You still pass your own Tevm `MemoryClient` into the adapter so test state stays under your control.
 
 ```ts
 import { createMemoryClient } from "tevm";

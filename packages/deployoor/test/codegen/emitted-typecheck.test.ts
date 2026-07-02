@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,7 +9,14 @@ import { runGenerate } from "../../src/cli/generate";
 const pkgRoot = join(import.meta.dirname, "..", "..");
 const hhRoot = join(pkgRoot, "test", "fixtures", "hh");
 const distTypes = join(pkgRoot, "dist", "index.d.mts");
-const tscBin = createRequire(import.meta.url).resolve("typescript/bin/tsc");
+const requireFromTest = createRequire(import.meta.url);
+const tscBin = requireFromTest.resolve("typescript/bin/tsc");
+const tsdownBin = requireFromTest.resolve("tsdown/run");
+
+const ensureBuilt = (): void => {
+  if (existsSync(distTypes)) return;
+  execFileSync(process.execPath, [tsdownBin], { cwd: pkgRoot, stdio: "ignore" });
+};
 
 // The codegen spine: prove the emitted deployers + artifact modules + the config
 // import actually compile against deployoor's published types (catches template bugs a
@@ -17,7 +24,7 @@ const tscBin = createRequire(import.meta.url).resolve("typescript/bin/tsc");
 describe("generated deployers type-check against deployoor", () => {
   beforeAll(() => {
     // dist/index.d.mts is what the emitted code resolves `deployoor` to.
-    execFileSync("pnpm", ["build"], { cwd: pkgRoot, stdio: "ignore" });
+    ensureBuilt();
   }, 120_000);
 
   it("compiles the emitted deployers, artifact modules, and config", () => {
