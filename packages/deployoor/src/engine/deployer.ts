@@ -9,7 +9,7 @@ import type { ContractConstructorArgs } from "viem";
 import type { Libraries, TypedArtifact } from "../schemas";
 import type { AnyDeployPlugin, PluginDeps, PluginOverrides } from "../plugin";
 import type { OnPluginError } from "./plugins";
-import { fsStore, type StoreAdapter } from "../store";
+import { fsStore, networkKeyForChain, type StoreAdapter } from "../store";
 import type { Config } from "../config";
 
 export interface GetOrDeployArgs<A extends Abi, P extends readonly AnyDeployPlugin[]> {
@@ -142,34 +142,40 @@ export const defineDeployer = <A extends Abi, const P extends readonly AnyDeploy
     });
 };
 
+type DeploymentNameOption =
+  | { readonly deploymentName: string; readonly name?: string }
+  | { readonly name: string; readonly deploymentName?: string };
+
 /** Options a generated `register(...)` accepts: clients + the external contract's identity. */
-export interface RegisterCallOptions<A extends Abi> {
+export type RegisterCallOptions<A extends Abi> = DeploymentNameOption & {
   readonly walletClient: WalletClient;
   readonly publicClient: PublicClient;
-  readonly name: string;
   readonly address: Address;
   readonly abi: A;
   /** Override the store (default: fsStore at the config's deploymentsPath). */
   readonly store?: StoreAdapter;
-}
+};
 
 /**
  * Build a project-level `register` from the config. `deployoor generate` emits one in the
  * deployers index; the user records a contract they did NOT deploy (e.g. USDC, a partner
  * contract) on the client's chain — no transaction — and gets back the same viem contract
- * object `getOrDeploy` returns. `name` is the deployment name (use distinct names to track
- * several instances).
+ * object `getOrDeploy` returns. `deploymentName` is the record key (use distinct names to track
+ * several instances); `name` is accepted as a compatibility alias.
  */
 export const defineRegister = <const P extends readonly AnyDeployPlugin[]>(config: Config<P>) => {
   const store = fsStore(resolve(config.deploymentsPath ?? "./deployments"));
-  return <A extends Abi>(opts: RegisterCallOptions<A>): Promise<DeployedContract<A>> =>
-    createDeployer({
+  return <A extends Abi>(opts: RegisterCallOptions<A>): Promise<DeployedContract<A>> => {
+    const deploymentName = opts.deploymentName ?? opts.name;
+    if (deploymentName === undefined) throw new Error("register requires deploymentName");
+    return createDeployer({
       walletClient: opts.walletClient,
       publicClient: opts.publicClient,
       store: opts.store ?? store,
       plugins: config.plugins,
       onPluginError: config.onPluginError,
-    }).register({ name: opts.name, address: opts.address, abi: opts.abi });
+    }).register({ name: deploymentName, address: opts.address, abi: opts.abi });
+  };
 };
 
 /** Options a generated `reset(...)` accepts: a public client (for the chain) + an optional name. */
@@ -177,6 +183,8 @@ export interface ResetCallOptions {
   readonly publicClient: PublicClient;
   /** Forget just this deployment; omit to forget every deployment on the client's chain. */
   readonly name?: string;
+  /** Preferred spelling for the deployment record key; `name` remains a compatibility alias. */
+  readonly deploymentName?: string;
   /** Override the store (default: fsStore at the config's deploymentsPath). */
   readonly store?: StoreAdapter;
 }
@@ -193,12 +201,13 @@ export const defineReset = <const P extends readonly AnyDeployPlugin[]>(config: 
     const chain = opts.publicClient.chain;
     if (chain === undefined) throw new NoChainOnClient();
     const active = opts.store ?? store;
-    const network = chain.name.toLowerCase();
-    if (opts.name === undefined) {
+    const network = networkKeyForChain(chain);
+    const deploymentName = opts.deploymentName ?? opts.name;
+    if (deploymentName === undefined) {
       const all = await active.list(network);
       await Promise.all(all.map((r) => active.remove(network, r.deploymentName)));
     } else {
-      await active.remove(network, opts.name);
+      await active.remove(network, deploymentName);
     }
   };
 };

@@ -23,10 +23,12 @@ describe("runGenerate", () => {
     expect(deployer).toContain('import config from "../deployoor.config"'); // deployers/ → ../deployoor.config
   });
 
-  it("honors an include filter", () => {
+  it("fails when an include filter matches no deployable contracts", () => {
     const project = mkdtempSync(join(tmpdir(), "deployoor-gen-"));
     const out = join(project, "deployers");
-    runGenerate({ root: hhRoot, out, configPath: join(project, "deployoor.config.ts"), include: ["Nope"] });
+    expect(() =>
+      runGenerate({ root: hhRoot, out, configPath: join(project, "deployoor.config.ts"), include: ["Nope"] }),
+    ).toThrow(/matched none/);
     expect(existsSync(join(out, "Counter.ts"))).toBe(false);
   });
 });

@@ -67,6 +67,7 @@ export const Libraries = z.record(z.string(), Address);
 export type Libraries = Record<string, `0x${string}`>;
 
 export const DeploymentRecord = z.object({
+  schemaVersion: z.literal(1).default(1),
   contractName: z.string(),
   deploymentName: z.string(),
   address: Address,
@@ -87,6 +88,7 @@ export const DeploymentRecord = z.object({
 // documented, stable, bundle-safe public boundary. The Zod schema above validates
 // at runtime and its output is assignable to this.
 export interface DeploymentRecord {
+  readonly schemaVersion: 1;
   readonly contractName: string;
   readonly deploymentName: string;
   readonly address: `0x${string}`;

@@ -4,6 +4,17 @@
   "private": false,
   "type": "module",
   "description": "viem-first contract deployment: deploy once, use contracts as typed objects.",
+  "keywords": [
+    "ethereum",
+    "evm",
+    "viem",
+    "deploy",
+    "deployment",
+    "smart-contracts",
+    "hardhat",
+    "foundry",
+    "wagmi"
+  ],
   "license": "MIT",
   "author": "Valerio Leo",
   "main": "./dist/index.cjs",

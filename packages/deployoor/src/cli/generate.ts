@@ -26,7 +26,17 @@ const configSpecifier = (fromDir: string, configPath: string): string => {
 
 /** detect → read → filter → generate. The testable core of `deployoor generate`. */
 export const runGenerate = (opts: RunGenerateOptions): ReadonlyArray<GeneratedFile> => {
-  const artifacts = readArtifacts(opts.root).filter((a) => matches(a.name, opts.include));
+  const all = readArtifacts(opts.root);
+  const artifacts = all.filter((a) => matches(a.name, opts.include));
+  if (artifacts.length === 0) {
+    const includeHint =
+      opts.include === undefined
+        ? ""
+        : ` Check deployoor.config.ts include; matched none of ${JSON.stringify(all.map((a) => a.name))}.`;
+    throw new Error(
+      `No deployable contracts matched. Compile first (forge build or npx hardhat compile), then run deployoor generate.${includeHint}`,
+    );
+  }
   return generate(artifacts, {
     outDir: opts.out,
     configImport: configSpecifier(opts.out, opts.configPath),

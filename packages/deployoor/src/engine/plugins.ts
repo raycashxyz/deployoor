@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { PluginFailed } from "../errors";
-import type { AnyDeployPlugin, DeployedContext, PluginDeps } from "../plugin";
+import type { AnyDeployPlugin, DeployedContext, DeployFailedContext, PluginDeps } from "../plugin";
 
 export type OnPluginError = "warn" | "throw";
 
@@ -63,4 +63,31 @@ export const runOnContractDeployed = (
     if (onError === "throw" && failed.length > 0) {
       return yield* Effect.fail(new PluginFailed({ plugins: failed }));
     }
+  });
+
+/** Run failure hooks without masking the original deploy error. */
+export const runOnDeployFailed = (
+  active: ReadonlyArray<ActivePlugin>,
+  base: Omit<DeployFailedContext, "options">,
+  deps: PluginDeps,
+): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    yield* Effect.forEach(active, ({ plugin, options }) => {
+      const hook = plugin.onDeployFailed;
+      if (hook === undefined) return Effect.void;
+      return Effect.tryPromise({
+        try: async () => {
+          await hook({ ...base, options }, deps);
+        },
+        catch: (cause) => cause,
+      }).pipe(
+        Effect.matchEffect({
+          onSuccess: () => Effect.void,
+          onFailure: (cause) =>
+            Effect.sync(() => {
+              deps.log.warn(`[${plugin.name}] ${describe(cause)}`);
+            }),
+        }),
+      );
+    });
   });

@@ -5,8 +5,7 @@ import type { ContractMetadata, DeploymentRecord } from "./schemas";
  * Plugin SDK surface. Hooks are plain async (or sync) — the engine lifts them
  * into Effect and runs them best-effort. Plugin authors never touch Effect.
  *
- * Milestone 2 wires exactly one hook: `onContractDeployed`. More hooks are
- * added only when the engine wires them (no dangling, unwired surface).
+ * Hooks are added only when the engine wires them (no dangling, unwired surface).
  */
 
 export type Awaitable<T> = T | Promise<T>;
@@ -30,9 +29,20 @@ export interface DeployedContext<Options = unknown> {
   readonly options: Options;
 }
 
+export interface DeployFailedContext<Options = unknown> {
+  readonly contractName: string;
+  readonly deploymentName: string;
+  readonly chainId: number;
+  readonly networkName: string;
+  readonly cause: unknown;
+  /** Per-deploy config addressed to this plugin (merged from `plugins[name]`). */
+  readonly options: Options;
+}
+
 export interface DeployPlugin<Options = unknown> {
   readonly name: string;
   readonly onContractDeployed?: (ctx: DeployedContext<Options>, deps: PluginDeps) => Awaitable<void>;
+  readonly onDeployFailed?: (ctx: DeployFailedContext<Options>, deps: PluginDeps) => Awaitable<void>;
 }
 
 /** Preserves the literal `name` and the `Options` type for typed per-deploy overrides. */

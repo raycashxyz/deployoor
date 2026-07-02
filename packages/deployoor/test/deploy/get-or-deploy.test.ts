@@ -5,7 +5,7 @@ import { join } from "node:path";
 import type { Address, PublicClient, WalletClient } from "viem";
 import { definePlugin } from "../../src/index";
 import { createDeployer } from "../../src/engine/deployer";
-import { memoryStore, fsStore } from "../../src/store";
+import { memoryStore, fsStore, networkKeyForChain } from "../../src/store";
 import { counterArtifact, reverterArtifact, libArtifact } from "../fixtures";
 import { makeEvmClients } from "../evm-clients";
 
@@ -18,6 +18,11 @@ beforeAll(async () => {
   ({ address: account, walletClient, publicClient } = await makeEvmClients());
 });
 const nonce = () => publicClient.getTransactionCount({ address: account });
+const network = () => {
+  const chain = walletClient.chain;
+  if (chain === undefined) throw new Error("walletClient missing chain");
+  return networkKeyForChain(chain);
+};
 
 describe("getOrDeploy", () => {
   it("deploys on the first call and writes a deployment record", async () => {
@@ -30,8 +35,9 @@ describe("getOrDeploy", () => {
     });
 
     expect(await contract.read.count()).toBe(5n);
-    const record = await store.read(walletClient.chain!.name.toLowerCase(), "Counter_a");
+    const record = await store.read(network(), "Counter_a");
     expect(record?.address).toBe(contract.address);
+    expect(record?.schemaVersion).toBe(1);
   });
 
   it("returns the existing contract with no transaction on the second call", async () => {
@@ -159,7 +165,60 @@ describe("getOrDeploy", () => {
     await expect(
       deployer.getOrDeploy(counterArtifact, { args: [5n, account], deploymentName: "Counter_f" }),
     ).rejects.toMatchObject({ _tag: "PluginFailed", plugins: ["boom"] });
-    expect(await store.read(walletClient.chain!.name.toLowerCase(), "Counter_f")).not.toBeNull();
+    expect(await store.read(network(), "Counter_f")).not.toBeNull();
+  });
+
+  it("rejects a reused record whose chainId does not match the active chain", async () => {
+    const store = memoryStore([
+      {
+        schemaVersion: 1,
+        contractName: "Counter",
+        deploymentName: "Counter_wrong_chain",
+        address: "0x00000000000000000000000000000000000000c0",
+        chainId: 1,
+        networkName: network(),
+        abi: counterArtifact.abi,
+        bytecode: counterArtifact.bytecode,
+        constructorArgs: [5n, account],
+        transactionHash: "0x",
+        deployer: account,
+        deployedAt: 0,
+        compiler: { version: "0.8.35" },
+        kind: "standard",
+      },
+    ]);
+    const deployer = createDeployer({ walletClient, publicClient, store });
+
+    await expect(
+      deployer.getOrDeploy(counterArtifact, {
+        args: [5n, account],
+        deploymentName: "Counter_wrong_chain",
+      }),
+    ).rejects.toMatchObject({ _tag: "DeploymentChainMismatch" });
+  });
+
+  it("warns when reusing a record with different bytecode or constructor args", async () => {
+    const warn = vi.fn();
+    const store = memoryStore();
+    const deployer = createDeployer({
+      walletClient,
+      publicClient,
+      store,
+      deps: { log: { info: () => {}, warn } },
+    });
+
+    await deployer.getOrDeploy(counterArtifact, {
+      args: [5n, account],
+      deploymentName: "Counter_stale",
+    });
+    await deployer.getOrDeploy(
+      { ...counterArtifact, bytecode: "0x60" },
+      { args: [6n, account], deploymentName: "Counter_stale" },
+    );
+
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn.mock.calls.map((call) => String(call[0])).join("\n")).toContain("bytecode differs");
+    expect(warn.mock.calls.map((call) => String(call[0])).join("\n")).toContain("constructor args differ");
   });
 
   it("skips a plugin for this deploy when plugins[name] is false", async () => {
@@ -205,9 +264,7 @@ describe("getOrDeploy", () => {
     const big = 123_456_789_012_345_678_901_234_567_890n;
     await deployer.getOrDeploy(counterArtifact, { args: [big, account], deploymentName: "Counter_i" });
 
-    const parsed = JSON.parse(
-      readFileSync(join(dir, walletClient.chain!.name.toLowerCase(), "Counter_i.json"), "utf8"),
-    );
+    const parsed = JSON.parse(readFileSync(join(dir, network(), "Counter_i.json"), "utf8"));
     expect(parsed.address).toMatch(/^0x/);
     expect(parsed.abi).toBeInstanceOf(Array);
     expect(parsed.constructorArgs[0]).toBe(big.toString());

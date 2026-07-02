@@ -2,9 +2,16 @@ import { describe, it, expect } from "vitest";
 import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { Chain } from "viem";
 import { defineConfig, defineDeployer, defineRegister, defineReset } from "../../src/index";
+import { networkKeyForChain } from "../../src/store";
 import { counterArtifact } from "../fixtures";
 import { makeEvmClients } from "../evm-clients";
+
+const network = (chain: Chain | undefined): string => {
+  if (chain === undefined) throw new Error("client missing chain");
+  return networkKeyForChain(chain);
+};
 
 // Exercises the actual user flow: `deployoor generate` would emit a file equivalent to
 //   export const getOrDeployCounter = defineDeployer(counterArtifact, config)
@@ -18,7 +25,7 @@ describe("defineDeployer (the generated-deployer entry point)", () => {
     const counter = await getOrDeployCounter({ walletClient, publicClient, args: [42n, account] });
 
     expect(await counter.read.count()).toBe(42n);
-    const chainDir = join(deploymentsPath, walletClient.chain!.name.toLowerCase());
+    const chainDir = join(deploymentsPath, network(walletClient.chain));
     expect(existsSync(join(chainDir, "Counter.json"))).toBe(true);
   });
 
@@ -47,7 +54,7 @@ describe("defineRegister / defineReset (project-level entry points)", () => {
     const usdc = await register({
       walletClient,
       publicClient,
-      name: "USDC",
+      deploymentName: "USDC",
       address: account,
       abi: counterArtifact.abi,
     });
@@ -55,7 +62,7 @@ describe("defineRegister / defineReset (project-level entry points)", () => {
 
     expect(usdc.address).toBe(account);
     expect(after).toBe(before); // recorded, not deployed — no tx
-    const chainDir = join(deploymentsPath, walletClient.chain!.name.toLowerCase());
+    const chainDir = join(deploymentsPath, network(walletClient.chain));
     expect(existsSync(join(chainDir, "USDC.json"))).toBe(true);
   });
 
@@ -67,12 +74,12 @@ describe("defineRegister / defineReset (project-level entry points)", () => {
 
     const { address: account, walletClient, publicClient } = await makeEvmClients();
     const clients = { walletClient, publicClient };
-    const chainDir = join(deploymentsPath, walletClient.chain!.name.toLowerCase());
+    const chainDir = join(deploymentsPath, network(walletClient.chain));
 
     const first = await getOrDeployCounter({ ...clients, args: [1n, account] });
     expect(existsSync(join(chainDir, "Counter.json"))).toBe(true);
 
-    await reset({ publicClient, name: "Counter" }); // reset needs only a public client — no signer
+    await reset({ publicClient, deploymentName: "Counter" }); // reset needs only a public client — no signer
     expect(existsSync(join(chainDir, "Counter.json"))).toBe(false);
 
     const second = await getOrDeployCounter({ ...clients, args: [1n, account] });

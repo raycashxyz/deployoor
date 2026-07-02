@@ -33,15 +33,17 @@ export { Address, Hex, AbiSchema, Artifact, ContractMetadata, DeploymentRecord, 
 
 // Store — the pluggable persistence adapter. Inject a custom `StoreAdapter` via a
 // deployer's `store` call option (e.g. `memoryStore()` in tests); `fsStore` is the default.
-export { fsStore, memoryStore } from "./store";
-export type { StoreAdapter } from "./store";
+export { fsStore, memoryStore, networkKeyForChain, networkSlug } from "./store";
+export type { StoreAdapter, ChainIdentity } from "./store";
 
 // Tagged errors (users match `err._tag` on a rejected promise)
 export {
   DeploymentFailed,
+  DeploymentChainMismatch,
   LibrariesUnlinked,
   ArtifactsNotFound,
   NoChainOnClient,
   InvalidDeploymentRecord,
   PluginFailed,
+  DeploymentExists,
 } from "./errors";
