@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { DeploymentRecord, Address } from "../../src/schemas";
+import { DeploymentRecord, Address, Bytecode, Hex } from "../../src/schemas";
 
 const valid = {
   contractName: "Token",
@@ -38,6 +38,16 @@ describe("DeploymentRecord schema", () => {
     const result = DeploymentRecord.safeParse({ ...valid, chainId: 0 });
     expect(result.success).toBe(false);
   });
+
+  it("accepts unlinked library bytecode and a libraries map (a library-linked deployment)", () => {
+    const parsed = DeploymentRecord.parse({
+      ...valid,
+      bytecode: "0x6080__$f2b8c1a0d3e4f5061728394a5b6c7d8e9f$__",
+      libraries: { MathLib: "0x" + "cd".repeat(20) },
+    });
+    expect(parsed.bytecode).toContain("__$"); // placeholder survives the round-trip through fsStore.read
+    expect(parsed.libraries?.MathLib).toBe("0x" + "cd".repeat(20));
+  });
 });
 
 describe("Address schema", () => {
@@ -47,5 +57,21 @@ describe("Address schema", () => {
 
   it("rejects a too-short address", () => {
     expect(Address.safeParse("0xabcd").success).toBe(false);
+  });
+});
+
+describe("Bytecode schema", () => {
+  const withPlaceholder = "0x6080__$f2b8c1a0d3e4f5061728394a5b6c7d8e9f$__";
+
+  it("accepts plain hex bytecode", () => {
+    expect(Bytecode.safeParse("0x6080604052").success).toBe(true);
+  });
+
+  it("accepts bytecode carrying an unlinked library placeholder", () => {
+    expect(Bytecode.safeParse(withPlaceholder).success).toBe(true);
+  });
+
+  it("does not loosen the strict Hex validator (tx hashes still reject placeholders)", () => {
+    expect(Hex.safeParse(withPlaceholder).success).toBe(false);
   });
 });

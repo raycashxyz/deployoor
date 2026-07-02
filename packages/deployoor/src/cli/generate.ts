@@ -39,6 +39,17 @@ export const runGenerate = (opts: RunGenerateOptions): ReadonlyArray<GeneratedFi
       `No deployable contracts matched. Compile first (forge build or npx hardhat compile), then run deployoor generate.${includeHint}`,
     );
   }
+  // Surface explicitly-requested names that produced no deployer (a typo, or a contract
+  // that failed to compile) — otherwise the drop is silent.
+  if (Array.isArray(opts.include)) {
+    const emitted = new Set(artifacts.map((a) => a.name));
+    const missing = opts.include.filter((name) => !emitted.has(name));
+    if (missing.length > 0) {
+      console.warn(
+        `[deployoor] generate: no deployable contract matched ${JSON.stringify(missing)} — check the name(s) and that those contracts compiled.`,
+      );
+    }
+  }
   return generate(artifacts, {
     outDir: opts.out,
     configImport: configSpecifier(opts.out, opts.configPath),

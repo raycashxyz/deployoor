@@ -124,6 +124,9 @@ export const getOrDeploy = <A extends Abi>(
           version: artifact.metadata.compilerVersion,
           settings: artifact.metadata.standardJsonInput.settings,
         },
+        // Record the linked libraries so a library-dependent deployment round-trips
+        // (the stored bytecode keeps solc's placeholders; the addresses live here).
+        ...(opts.libraries === undefined ? {} : { libraries: opts.libraries }),
         kind: "standard",
       };
       yield* store.write(record);

@@ -1,5 +1,5 @@
 import { Context, Effect, Layer } from "effect";
-import { getContract } from "viem";
+import { getContract, zeroAddress } from "viem";
 import type {
   Abi,
   Address,
@@ -73,6 +73,42 @@ export const clientsLayer = (
         waitForReceipt: (hash) => publicClient.waitForTransactionReceipt({ hash }),
         contractAt: (address, abi) =>
           getContract({ address, abi, client: { public: publicClient, wallet: walletClient } }),
+      } satisfies ClientsService;
+    }),
+  );
+
+/**
+ * Clients for `register`, which records an already-deployed / external address and never
+ * broadcasts a transaction — so a public client (for the chain) is all it needs. The wallet
+ * client is optional: pass one to record it as the registrant and get a writable contract
+ * back; omit it and the deployer is recorded as the zero address and the contract is
+ * read-only. `deploy` / `waitForReceipt` are never reached on the register path.
+ */
+export const registerClientsLayer = (
+  publicClient: PublicClient,
+  walletClient?: WalletClient,
+): Layer.Layer<Clients, NoChainOnClient> =>
+  Layer.effect(
+    Clients,
+    Effect.gen(function* () {
+      const chain = walletClient?.chain ?? publicClient.chain;
+      if (chain === undefined) return yield* Effect.fail(new NoChainOnClient());
+      const notDeploying = (): never => {
+        throw new Error("register records an existing address and never deploys");
+      };
+      return {
+        chain,
+        account: walletClient?.account?.address ?? zeroAddress,
+        deploy: notDeploying,
+        waitForReceipt: notDeploying,
+        contractAt: (address, abi) =>
+          (walletClient === undefined
+            ? getContract({ address, abi, client: publicClient })
+            : getContract({
+                address,
+                abi,
+                client: { public: publicClient, wallet: walletClient },
+              })) as DeployedContract<typeof abi>,
       } satisfies ClientsService;
     }),
   );
