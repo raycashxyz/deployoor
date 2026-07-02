@@ -2,11 +2,10 @@
   "name": "@example/hardhat",
   "version": "0.0.0",
   "private": true,
-  "description": "deployoor end-to-end on a Hardhat project: compile → auto-generate typed deployers → deploy (recorded to deployments/) → consume with wagmi. Also tests on an in-memory EVM.",
+  "description": "deployoor on a Hardhat project: compile → auto-generate typed deployers → deploy, recorded to deployments/. Also tests on an in-memory EVM.",
   "scripts": {
     "generate": "hardhat compile",
     "deploy": "tsx --env-file-if-exists=.env scripts/deploy.ts",
-    "wagmi:generate": "wagmi generate",
     "e2e": "hardhat compile && vitest run"
   },
   "dependencies": {
@@ -16,9 +15,7 @@
   "devDependencies": {
     "@deployoor/hardhat": "workspace:*",
     "@deployoor/testing": "workspace:*",
-    "@deployoor/wagmi": "workspace:*",
     "@types/node": "catalog:",
-    "@wagmi/cli": "catalog:",
     "hardhat": "^2.22.0",
     "tsx": "^4.22.4",
     "typescript": "catalog:",

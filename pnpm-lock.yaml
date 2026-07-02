@@ -82,15 +82,9 @@ importers:
       '@deployoor/testing':
         specifier: workspace:*
         version: link:../../packages/deployoor-testing
-      '@deployoor/wagmi':
-        specifier: workspace:*
-        version: link:../../packages/deployoor-wagmi
       '@types/node':
         specifier: 'catalog:'
         version: 22.20.0
-      '@wagmi/cli':
-        specifier: 'catalog:'
-        version: 2.10.0(typescript@5.9.3)
       hardhat:
         specifier: ^2.22.0
         version: 2.28.6(typescript@5.9.3)
@@ -313,6 +307,12 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 22.20.0
+      deployoor:
+        specifier: workspace:*
+        version: link:../deployoor
+      solc:
+        specifier: 0.8.24
+        version: 0.8.24
       tsdown:
         specifier: ^0.22.3
         version: 0.22.3(tsx@4.22.4)(typescript@5.9.3)(unrun@0.3.1)
@@ -3945,6 +3945,11 @@ packages:
 
   solc-typed-ast@18.2.6:
     resolution: {integrity: sha512-JObIRpPYO4zvQkAgr3koBr5Du+IkYzVNofykZpGv/44iJ0VRsaEq/X+LrrFD0SDqFcnyYcBOPWDiOXwNOStKlg==}
+    hasBin: true
+
+  solc@0.8.24:
+    resolution: {integrity: sha512-G5yUqjTUPc8Np74sCFwfsevhBPlUifUOfhYrgyu6CmYlC6feSw0YS6eZW47XDT23k3JYdKx5nJ+Q7whCEmNcoA==}
+    engines: {node: '>=10.0.0'}
     hasBin: true
 
   solc@0.8.25:
@@ -9976,6 +9981,18 @@ snapshots:
       - supports-color
       - typescript
       - zod
+
+  solc@0.8.24:
+    dependencies:
+      command-exists: 1.2.9
+      commander: 8.3.0
+      follow-redirects: 1.16.0(debug@4.4.3)
+      js-sha3: 0.8.0
+      memorystream: 0.3.1
+      semver: 5.7.2
+      tmp: 0.0.33
+    transitivePeerDependencies:
+      - debug
 
   solc@0.8.25:
     dependencies:

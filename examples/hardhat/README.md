@@ -1,6 +1,6 @@
-# example: Hardhat + deployoor (end-to-end)
+# example: Hardhat + deployoor
 
-The full deployoor journey on a normal Hardhat (v2) project — **compile → generate → deploy → record → consume** — plus a node-free test. This is the flagship example: everything below actually runs.
+deployoor on a normal Hardhat (v2) project, focused on the deploy side: **compile → generate → deploy → committed record** — plus a node-free test. Everything below actually runs.
 
 ```
 contracts/Counter.sol                     the contract
@@ -10,9 +10,6 @@ deployers/Counter.ts                      typed getOrDeployCounter (generated, g
         │  scripts/deploy.ts
         ▼
 deployments/31337-foundry/Counter.json    the source of truth — committed to the repo
-        │  wagmi generate  (@deployoor/wagmi)
-        ▼
-src/generated.ts                          typed ABIs + per-chain addresses for your app
 ```
 
 ## 1. Compile → generate (one step)
@@ -45,26 +42,6 @@ deployments/
 
 (A local `anvil` is a throwaway chain, so its committed record is illustrative — re-running against a fresh anvil finds the old address; `reset({ publicClient })` or `force: true` redeploys. On a testnet the address persists, so the record stays valid across runs.)
 
-## 3. Consume with wagmi (optional)
-
-`wagmi.config.ts` sources the committed `deployments/` via [`@deployoor/wagmi`](../../packages/deployoor-wagmi):
-
-```bash
-pnpm --filter @example/hardhat wagmi:generate
-```
-
-`src/generated.ts` now exports typed access — no address pasted anywhere:
-
-```ts
-import { getContract } from "viem";
-import { counterAbi, counterAddress } from "./generated";
-
-const counter = getContract({ abi: counterAbi, address: counterAddress[31337], client });
-await counter.read.number();
-```
-
-Consuming the records needs only `viem`; wagmi is one convenient consumer.
-
 ## Test — no node, no disk
 
 The same generated `getOrDeployCounter` runs in a vitest test against an in-memory EVM ([tevm](https://tevm.sh), via [`@deployoor/testing`](../../packages/deployoor-testing)). Spreading `clients` passes the in-memory store, so tests never touch `deployments/`.
@@ -72,3 +49,5 @@ The same generated `getOrDeployCounter` runs in a vitest test against an in-memo
 ```bash
 pnpm --filter @example/hardhat e2e   # hardhat compile → (auto-generate) → vitest
 ```
+
+> Consuming the committed `deployments/` records from an app needs only `viem` (or the optional [`@deployoor/wagmi`](../../packages/deployoor-wagmi) bridge for `@wagmi/cli`) — see the [deployoor README](../../packages/deployoor#using-your-contracts) for that side.
