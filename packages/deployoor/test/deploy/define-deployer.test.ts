@@ -22,8 +22,13 @@ describe("defineDeployer (the generated-deployer entry point)", () => {
     const getOrDeployCounter = defineDeployer(counterArtifact, defineConfig({ deploymentsPath }));
 
     const { address: account, walletClient, publicClient } = await makeEvmClients();
-    const counter = await getOrDeployCounter({ walletClient, publicClient, args: [42n, account] });
+    const { contract: counter, freshDeploy } = await getOrDeployCounter({
+      walletClient,
+      publicClient,
+      args: [42n, account],
+    });
 
+    expect(freshDeploy).toBe(true);
     expect(await counter.read.count()).toBe(42n);
     const chainDir = join(deploymentsPath, network(walletClient.chain));
     expect(existsSync(join(chainDir, "Counter.json"))).toBe(true);
@@ -39,7 +44,9 @@ describe("defineDeployer (the generated-deployer entry point)", () => {
     const second = await getOrDeployCounter({ walletClient, publicClient, args: [1n, account] });
     const after = await publicClient.getTransactionCount({ address: account });
 
-    expect(second.address).toBe(first.address);
+    expect(first.freshDeploy).toBe(true);
+    expect(second.freshDeploy).toBe(false);
+    expect(second.contract.address).toBe(first.contract.address);
     expect(after).toBe(before);
   });
 });
@@ -51,7 +58,11 @@ describe("defineRegister / defineReset (project-level entry points)", () => {
 
     const { address: account, walletClient, publicClient } = await makeEvmClients();
     const before = await publicClient.getTransactionCount({ address: account });
-    const usdc = await register({
+    const {
+      contract: usdc,
+      freshDeploy,
+      receipt,
+    } = await register({
       walletClient,
       publicClient,
       deploymentName: "USDC",
@@ -61,6 +72,8 @@ describe("defineRegister / defineReset (project-level entry points)", () => {
     const after = await publicClient.getTransactionCount({ address: account });
 
     expect(usdc.address).toBe(account);
+    expect(freshDeploy).toBe(false); // register never deploys
+    expect(receipt).toBeUndefined();
     expect(after).toBe(before); // recorded, not deployed — no tx
     const chainDir = join(deploymentsPath, network(walletClient.chain));
     expect(existsSync(join(chainDir, "USDC.json"))).toBe(true);
@@ -83,7 +96,8 @@ describe("defineRegister / defineReset (project-level entry points)", () => {
     expect(existsSync(join(chainDir, "Counter.json"))).toBe(false);
 
     const second = await getOrDeployCounter({ ...clients, args: [1n, account] });
-    expect(second.address).not.toBe(first.address); // record gone → fresh deploy
+    expect(second.freshDeploy).toBe(true); // record gone → fresh deploy
+    expect(second.contract.address).not.toBe(first.contract.address);
   });
 
   it("register refuses to overwrite a real deployment", async () => {
@@ -109,6 +123,6 @@ describe("defineRegister / defineReset (project-level entry points)", () => {
     const clients = { walletClient, publicClient };
     await register({ ...clients, name: "USDC", address: account, abi: counterArtifact.abi });
     const again = await register({ ...clients, name: "USDC", address: account, abi: counterArtifact.abi });
-    expect(again.address).toBe(account); // re-registering an external record is allowed
+    expect(again.contract.address).toBe(account); // re-registering an external record is allowed
   });
 });

@@ -1,6 +1,6 @@
 import { Effect, Option } from "effect";
 import type { Abi, Address } from "viem";
-import { Clients, type DeployedContract } from "../services/clients";
+import { Clients, type DeployResult } from "../services/clients";
 import { Store } from "../services/store";
 import { DeploymentChainMismatch, DeploymentExists, DeploymentFailed } from "../errors";
 import type { InvalidDeploymentRecord, LibrariesUnlinked, PluginFailed } from "../errors";
@@ -50,7 +50,7 @@ export const getOrDeploy = <A extends Abi>(
   plugins: ReadonlyArray<AnyDeployPlugin>,
   deps: PluginDeps,
 ): Effect.Effect<
-  DeployedContract<A>,
+  DeployResult<A>,
   DeploymentChainMismatch | DeploymentFailed | LibrariesUnlinked | InvalidDeploymentRecord | PluginFailed,
   Clients | Store
 > =>
@@ -82,7 +82,11 @@ export const getOrDeploy = <A extends Abi>(
           deps,
           onError,
         );
-        return clients.contractAt(existing.value.address, artifact.abi);
+        return {
+          contract: clients.contractAt(existing.value.address, artifact.abi),
+          deployment: existing.value,
+          freshDeploy: false,
+        };
       }
 
       const bytecode = yield* linkLibraries(artifact, opts.libraries);
@@ -129,7 +133,12 @@ export const getOrDeploy = <A extends Abi>(
         deps,
         onError,
       );
-      return clients.contractAt(address, artifact.abi);
+      return {
+        contract: clients.contractAt(address, artifact.abi),
+        deployment: record,
+        freshDeploy: true,
+        receipt,
+      };
     }).pipe(
       Effect.catchTag("DeploymentFailed", (error) =>
         runOnDeployFailed(
@@ -165,7 +174,7 @@ export interface RegisterEntry<A extends Abi = Abi> {
 export const register = <A extends Abi>(
   entry: RegisterEntry<A>,
   deps: PluginDeps,
-): Effect.Effect<DeployedContract<A>, DeploymentExists | InvalidDeploymentRecord, Clients | Store> =>
+): Effect.Effect<DeployResult<A>, DeploymentExists | InvalidDeploymentRecord, Clients | Store> =>
   Effect.gen(function* () {
     const clients = yield* Clients;
     const store = yield* Store;
@@ -174,7 +183,7 @@ export const register = <A extends Abi>(
     if (Option.isSome(existing) && existing.value.kind !== "external") {
       return yield* Effect.fail(new DeploymentExists({ network, name: entry.name }));
     }
-    yield* store.write({
+    const record: DeploymentRecord = {
       schemaVersion: 1,
       contractName: entry.name,
       deploymentName: entry.name,
@@ -189,6 +198,12 @@ export const register = <A extends Abi>(
       deployedAt: deps.now(),
       compiler: { version: "" },
       kind: "external",
-    });
-    return clients.contractAt(entry.address, entry.abi);
+    };
+    yield* store.write(record);
+    // register never broadcasts a transaction, so freshDeploy is always false and there is no receipt.
+    return {
+      contract: clients.contractAt(entry.address, entry.abi),
+      deployment: record,
+      freshDeploy: false,
+    };
   });

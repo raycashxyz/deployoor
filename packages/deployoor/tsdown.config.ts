@@ -5,7 +5,7 @@ import { defineConfig } from "tsdown";
 // bundling internal modules removes the extensionless-import problem; effect/zod/
 // viem/abitype stay external.
 export default defineConfig({
-  entry: ["src/index.ts", "src/cli.ts", "src/plugin-sdk.ts"],
+  entry: ["src/index.ts", "src/cli.ts", "src/plugin-sdk.ts", "src/generate.ts"],
   format: ["esm", "cjs"],
   dts: true,
   clean: true,

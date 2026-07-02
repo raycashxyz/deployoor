@@ -22,6 +22,8 @@ export type { Config } from "./config";
 // Generated-deployer factories (emitted by `deployoor generate`; users call their results)
 export { defineDeployer, defineRegister, defineReset } from "./engine/deployer";
 export type { DeployerCallOptions, RegisterCallOptions, ResetCallOptions } from "./engine/deployer";
+// What a generated `getOrDeploy<Name>` / `register` resolves to: { contract, deployment, freshDeploy, receipt? }.
+export type { DeployResult } from "./services/clients";
 
 // Plugin SDK
 export { definePlugin } from "./plugin";

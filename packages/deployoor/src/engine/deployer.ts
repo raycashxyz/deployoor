@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
 import { Cause, Effect, Exit, Layer } from "effect";
 import type { Abi, Address, PublicClient, WalletClient } from "viem";
-import { Clients, clientsLayer, type DeployedContract } from "../services/clients";
+import { Clients, clientsLayer, type DeployResult } from "../services/clients";
 import { Store, layerFromAdapter } from "../services/store";
 import { getOrDeploy, register, type RegisterEntry } from "./pipeline";
 import { NoChainOnClient } from "../errors";
@@ -26,8 +26,8 @@ export interface Deployer<P extends readonly AnyDeployPlugin[]> {
   readonly getOrDeploy: <A extends Abi>(
     artifact: TypedArtifact<A>,
     opts: GetOrDeployArgs<A, P>,
-  ) => Promise<DeployedContract<A>>;
-  readonly register: <A extends Abi>(entry: RegisterEntry<A>) => Promise<DeployedContract<A>>;
+  ) => Promise<DeployResult<A>>;
+  readonly register: <A extends Abi>(entry: RegisterEntry<A>) => Promise<DeployResult<A>>;
 }
 
 export interface CreateDeployerConfig<P extends readonly AnyDeployPlugin[]> {
@@ -125,7 +125,7 @@ export const defineDeployer = <A extends Abi, const P extends readonly AnyDeploy
   config: Config<P>,
 ) => {
   const store = fsStore(resolve(config.deploymentsPath ?? "./deployments"));
-  return (opts: DeployerCallOptions<A, P>): Promise<DeployedContract<A>> =>
+  return (opts: DeployerCallOptions<A, P>): Promise<DeployResult<A>> =>
     createDeployer({
       walletClient: opts.walletClient,
       publicClient: opts.publicClient,
@@ -165,7 +165,7 @@ export type RegisterCallOptions<A extends Abi> = DeploymentNameOption & {
  */
 export const defineRegister = <const P extends readonly AnyDeployPlugin[]>(config: Config<P>) => {
   const store = fsStore(resolve(config.deploymentsPath ?? "./deployments"));
-  return <A extends Abi>(opts: RegisterCallOptions<A>): Promise<DeployedContract<A>> => {
+  return <A extends Abi>(opts: RegisterCallOptions<A>): Promise<DeployResult<A>> => {
     const deploymentName = opts.deploymentName ?? opts.name;
     if (deploymentName === undefined) throw new Error("register requires deploymentName");
     return createDeployer({
