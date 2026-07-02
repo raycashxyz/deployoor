@@ -4,7 +4,7 @@
 
 **Deploy EVM contracts once. Use them everywhere as typed viem objects.**
 
-Idempotent, typed deploys with a plain-JSON source of truth and a modular plugin model. The generated code depends only on `viem` — portable to any app, any chain, with zero lock-in. Works with Hardhat and Foundry.
+Idempotent, typed deploys with a plain-JSON source of truth and a modular plugin model. Keep track of which contract is deployed on which chain, then consume those records from any viem app with zero lock-in. Works with Hardhat and Foundry.
 
 </div>
 
@@ -18,28 +18,28 @@ Deploying contracts to an EVM chain is solved. _Using_ them from your app is whe
 - **Provider/client wiring is manual boilerplate.** You re-thread the same client, address, and ABI into every contract, on every network.
 - **There's no single source of truth** for what is deployed where — with which ABI, constructor args, tx hash, and compiler — across networks.
 - **Deploy scripts aren't idempotent.** Re-running either redeploys or throws, when all you wanted was the contract you already deployed.
-- **Tools couple your app to themselves.** You want generated code that depends only on `viem`, so you can drop the tool later with zero lock-in.
+- **Tools couple your app to themselves.** You want deployment records and app-facing access that remain useful even if you drop the deploy tool later.
 
 ## The fix
 
 deployoor makes a plain `deployments/` folder the single source of truth, and generates the wiring for you:
 
-- Every deploy is recorded to `deployments/<network>/<Contract>.json` — address, ABI, chainId, args, tx, compiler. No copy-paste, no drift.
+- Every deploy is recorded to `deployments/<chainId>-<network>/<Contract>.json` — address, ABI, chainId, args, tx, compiler. No copy-paste, no drift.
 - Generated deployers inject the address and ABI for you. You add a client; nothing else.
 - `getOrDeploy<Name>` is **idempotent and re-runnable**: first call deploys and records, later calls return the existing contract with no tx. `force: true` redeploys; `deploymentName` (default: the contract name) tracks multiple instances of one contract; `register(...)` records an external contract (e.g. USDC) and `reset(...)` forgets records — both with no tx.
 - **Bring any signer, any RPC** — deployoor only ever sees a viem `WalletClient` + `PublicClient`, so a CI private key, an injected browser wallet, a Ledger, or a hosted wallet like Privy or Turnkey all work the same way. The library stays dependency-light; the signer and the RPC are whatever you hand it.
-- **Zero lock-in** — the record (plain JSON) and the typed viem access depend on nothing but `viem`. Keep them in their own package, separate from your contracts, as the single source of truth for every network — and import them anywhere, even the browser. Delete deployoor and your app keeps working.
+- **Zero lock-in** — the record is plain JSON, and the app-facing viem/wagmi output does not require deployoor at runtime. Keep the records in their own package, separate from your contracts, as the single source of truth for every network — and import them anywhere, even the browser.
 
 The name is the crypto-degen `-oor` agent-noun of "deploy" (like buidloor / hodloor) — literally "the thing that deploys."
 
 ## How it works
 
-deployoor reads your compiled artifacts, deploys idempotently, and records each deploy to `deployments/<network>/<Contract>.json` — a plain-JSON source of truth for every address, ABI, chain, constructor args, tx, and compiler setting.
+deployoor reads your compiled artifacts, deploys idempotently, and records each deploy to `deployments/<chainId>-<network>/<Contract>.json` — a plain-JSON source of truth for every address, ABI, chain, constructor args, tx, and compiler setting.
 
 ```mermaid
 flowchart TD
     A["artifacts<br/>(Hardhat artifacts/ or Foundry out/)"]
-    B["deployments/&lt;network&gt;/&lt;Contract&gt;.json<br/>the source of truth: address · abi · chainId · args · tx · compiler"]
+    B["deployments/&lt;chainId&gt;-&lt;network&gt;/&lt;Contract&gt;.json<br/>the source of truth: address · abi · chainId · args · tx · compiler"]
     C["your app<br/>typed viem objects"]
 
     A -- "deployoor generate + your deploy script" --> B
@@ -51,7 +51,10 @@ That `deployments/` folder is the product: universally-portable vanilla JSON, co
 ## Quickstart
 
 ```bash
-npx deployoor init && npx deployoor generate
+pnpm add -D deployoor viem
+npx deployoor init
+forge build                    # or: npx hardhat compile
+npx deployoor generate
 ```
 
 ```ts
@@ -65,18 +68,19 @@ Running it writes one record per contract — this is your committed source of t
 
 ```
 deployments/
-└─ sepolia/
+└─ 11155111-sepolia/
    └─ Token.json
 ```
 
 ```jsonc
-// deployments/sepolia/Token.json
+// deployments/11155111-sepolia/Token.json
 {
+  "schemaVersion": 1,
   "contractName": "Token",
   "deploymentName": "Token", // defaults to contractName; set your own to track multiple instances
   "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
   "chainId": 11155111,
-  "networkName": "sepolia",
+  "networkName": "11155111-sepolia",
   "abi": [/* the full ABI, exactly as deployed */],
   "bytecode": "0x60806040...",
   "constructorArgs": ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"],
@@ -91,7 +95,7 @@ deployments/
 }
 ```
 
-Deploy more contracts, or to more networks, and you get `deployments/sepolia/Vault.json`, `deployments/base/Token.json`, and so on — one file per (network, contract). That folder is what your app (or `@deployoor/wagmi`) reads. `bigint` args are stored as strings, so the file is plain, greppable JSON.
+Deploy more contracts, or to more networks, and you get `deployments/11155111-sepolia/Vault.json`, `deployments/8453-base/Token.json`, and so on — one file per (chain, contract). The folder key is the chain id plus a slugged chain name, so viem display names like "Arbitrum One" become filesystem-safe and cannot collide by name alone. That folder is what your app (or `@deployoor/wagmi`) reads. `bigint` args are stored as strings, so the file is plain, greppable JSON.
 
 `deployoor generate` reads your artifacts and emits one typed `getOrDeploy<Name>` per contract. Config lives in `deployoor.config.ts`. Plugins are deploy-lifecycle hooks authored against the `deployoor/plugin` SDK.
 
@@ -151,7 +155,9 @@ Releases are managed with [Changesets](https://github.com/changesets/changesets)
 
 ## Status
 
-Early. The deploy core, the plugin model, and the wagmi bridge are stabilizing. Hardhat v2 is supported today; a Hardhat v3 port will follow if adoption warrants it.
+Early. The deploy core, the plugin model, and the wagmi bridge are stabilizing. Foundry and Hardhat v2 are supported today; Hardhat v3 support is a priority compatibility item.
+
+Pre-1.0, minor releases may include breaking API changes. Deployment records carry `schemaVersion: 1`; record-format changes will be versioned and documented because committed JSON is the portability boundary.
 
 ## Roadmap
 
@@ -159,11 +165,14 @@ Early. The deploy core, the plugin model, and the wagmi bridge are stabilizing. 
 | ------ | ---------------------------------------------------------------------- | ----------- |
 | Compat | Hardhat v2 **and** v3 (Foundry already supported)                      | Planned     |
 | Deploy | Detect bytecode changes and redeploy (opt-in)                          | Planned     |
+| Deploy | Pending transaction recovery from interrupted deploys                  | Planned     |
 | Deploy | Proxies & diamonds (upgradeable contracts)                             | Planned     |
 | Deploy | Deterministic addresses (CREATE2 / CREATE3)                            | Exploring   |
 | Stores | Pluggable `StoreAdapter` + in-memory store **shipped**; HTTP + browser | In progress |
-| Verify | More explorers (Blockscout-native, OKLink, custom endpoints)           | Exploring   |
-| DX     | `--watch`, `deployoor list` / `status`, import existing deployments    | Considering |
+| Verify | `deployoor verify` from committed records + more explorer adapters     | Planned     |
+| DX     | `--watch`, `deployoor list` / `status`                                 | Considering |
+| DX     | Import existing hardhat-deploy / Foundry / Ignition records            | Planned     |
+| DX     | Migration guide + comparison table                                     | Planned     |
 | AI     | Upgrade-safety diff, deployments MCP server (opt-in, separate package) | Considering |
 
 Full detail and rationale in [TODO.md](TODO.md).
