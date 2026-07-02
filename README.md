@@ -141,7 +141,7 @@ Same `getOrDeployToken` you ship — here it targets a throwaway in-process chai
 | [`@deployoor/sourcify`](packages/deployoor-sourcify)   | Verify on Sourcify (v2, keyless).                                                                                                                                           |
 | [`@deployoor/slack`](packages/deployoor-slack)         | Notify a Slack channel on each deploy.                                                                                                                                      |
 | [`@deployoor/testing`](packages/deployoor-testing)     | `createTestClients()` — an in-memory EVM (tevm) as viem clients + an in-memory store, to test deploys with no local node.                                                   |
-| [`fhevm-tevm-mocks`](packages/fhevm-tevm-mocks)         | Tevm-native adapter for Zama FHEVM mock tests — you own the Tevm instance; this package wires FHE host contracts and relayer handlers.                                      |
+| [`fhevm-tevm-mocks`](packages/fhevm-tevm-mocks)        | Tevm-native adapter for Zama FHEVM mock tests — you own the Tevm instance; this package wires FHE host contracts and relayer handlers.                                      |
 
 Plugins are deploy-lifecycle hooks; each ships as its own package and depends only on `deployoor/plugin`.
 
