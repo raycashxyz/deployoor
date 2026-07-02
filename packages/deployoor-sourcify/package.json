@@ -4,6 +4,14 @@
   "private": false,
   "type": "module",
   "description": "Verify contracts on Sourcify (v2, keyless) when deployoor deploys them.",
+  "keywords": [
+    "ethereum",
+    "evm",
+    "sourcify",
+    "verification",
+    "deployments",
+    "smart-contracts"
+  ],
   "license": "MIT",
   "author": "Valerio Leo",
   "main": "./dist/index.cjs",

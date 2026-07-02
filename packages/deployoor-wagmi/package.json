@@ -4,6 +4,14 @@
   "private": false,
   "type": "module",
   "description": "Source deployoor deployments into @wagmi/cli — typed contract objects for your app.",
+  "keywords": [
+    "ethereum",
+    "evm",
+    "viem",
+    "wagmi",
+    "deployments",
+    "smart-contracts"
+  ],
   "license": "MIT",
   "author": "Valerio Leo",
   "main": "./dist/index.cjs",
@@ -33,7 +41,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "abitype": "^1.2.4",
     "zod": "^4.4.3"
   },
   "peerDependencies": {

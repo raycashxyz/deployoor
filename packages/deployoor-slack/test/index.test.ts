@@ -3,6 +3,7 @@ import type { DeployedContext, DeploymentRecord, PluginDeps } from "deployoor/pl
 import { slack, type SlackDeployOptions } from "../src/index";
 
 const deployment: DeploymentRecord = {
+  schemaVersion: 1,
   contractName: "Token",
   deploymentName: "Token",
   address: "0x00000000000000000000000000000000000000c0",
@@ -72,6 +73,29 @@ describe("slack plugin", () => {
     await expect(run(slack({ webhook: "https://hooks.slack.test/abc" }), makeCtx(), deps)).rejects.toThrow(
       /429/,
     );
+  });
+
+  it("posts a message when a deploy fails", async () => {
+    const { deps, fetch } = makeDeps(new Response("ok", { status: 200 }));
+    const plugin = slack({ webhook: "https://hooks.slack.test/abc" });
+    const hook = plugin.onDeployFailed;
+    if (hook === undefined) throw new Error("slack plugin must define onDeployFailed");
+
+    await hook(
+      {
+        contractName: "Token",
+        deploymentName: "Token",
+        chainId: 8453,
+        networkName: "8453-base",
+        cause: new Error("nonce too low"),
+        options: {},
+      },
+      deps,
+    );
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(postedBody(fetch).text).toContain("failed to deploy");
+    expect(postedBody(fetch).text).toContain("nonce too low");
   });
 
   it("prefers a per-deploy text override over the default message", async () => {

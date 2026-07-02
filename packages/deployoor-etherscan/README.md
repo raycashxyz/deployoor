@@ -2,7 +2,7 @@
 
 > Verify contracts on Etherscan when [deployoor](../deployoor) deploys them.
 
-A deployoor verifier is just a deploy-lifecycle hook. On each fresh deploy this plugin submits the contract's standard-json-input to the **Etherscan V2 API** (one endpoint, one key, every supported chain) and polls until the explorer confirms it.
+A deployoor verifier is just a deploy-lifecycle hook. On each deploy this plugin submits the contract's standard-json-input to the **Etherscan V2 API** (one endpoint, one key, every supported chain) and polls until the explorer confirms it. It also runs on **reused** deployments when the current artifact metadata is available — so if verification failed the first time (rate limit, indexing lag), just re-run your deploy script to retry, no redeploy needed.
 
 ## Install
 
@@ -22,7 +22,7 @@ export default defineConfig({
 });
 ```
 
-It reads everything it needs from the deployment — address, chainId, ABI, constructor args — plus the compiler metadata deployoor captures at deploy time (fully-qualified name, compiler version, standard-json input). Constructor arguments are ABI-encoded automatically. Reused deployments (no transaction) are skipped.
+It reads everything it needs from the deployment — address, chainId, ABI, constructor args — plus the compiler metadata deployoor captures at deploy time (fully-qualified name, compiler version, standard-json input). Constructor arguments are ABI-encoded automatically. Already-verified contracts are detected and skipped, so retrying on reuse is a no-op once verification has succeeded.
 
 A verification failure throws, so it obeys the deployer's `onPluginError` policy — `"warn"` (default) logs and continues, `"throw"` fails the run. Skip a contract with a per-deploy override:
 

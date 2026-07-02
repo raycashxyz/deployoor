@@ -45,9 +45,9 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 const isAlreadyVerified = (result: string): boolean => /already verified/i.test(result);
 
 /**
- * Verify deployed contracts on Etherscan V2 via standard-json-input. Runs on a
- * fresh deploy only (a reused deployment carries no compiler metadata to verify);
- * submits the source, then polls until the explorer confirms or rejects it.
+ * Verify deployed contracts on Etherscan V2 via standard-json-input. When a
+ * reused deployment still has artifact metadata, this hook can retry verification
+ * without forcing a redeploy; otherwise it skips.
  * A verification failure throws, so it obeys the deployer's `onPluginError` policy.
  *
  * @example
@@ -61,7 +61,7 @@ export const etherscan = (options: EtherscanOptions) =>
   definePlugin<"etherscan", Record<string, never>>({
     name: "etherscan",
     onContractDeployed: async (ctx, { fetch, log }) => {
-      if (ctx.reused || ctx.metadata === undefined) return; // nothing freshly compiled to verify
+      if (ctx.metadata === undefined) return; // no compiler input available to verify
 
       const base = options.apiUrl ?? ETHERSCAN_V2_URL;
       const pollIntervalMs = options.pollIntervalMs ?? 2_000;

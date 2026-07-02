@@ -230,9 +230,6 @@ importers:
 
   packages/deployoor-wagmi:
     dependencies:
-      abitype:
-        specifier: ^1.2.4
-        version: 1.2.4(typescript@5.9.3)(zod@4.4.3)
       zod:
         specifier: ^4.4.3
         version: 4.4.3

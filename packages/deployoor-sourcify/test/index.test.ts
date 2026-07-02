@@ -3,6 +3,7 @@ import type { ContractMetadata, DeployedContext, DeploymentRecord, PluginDeps } 
 import { sourcify, type SourcifyOptions } from "../src/index";
 
 const deployment: DeploymentRecord = {
+  schemaVersion: 1,
   contractName: "Token",
   deploymentName: "Token",
   address: "0x00000000000000000000000000000000000000c0",
@@ -127,7 +128,17 @@ describe("sourcify plugin", () => {
     await expect(run(plugin(), makeCtx(), deps)).rejects.toThrow(/not supported/i);
   });
 
-  it("skips verification when the deployment was reused (no metadata)", async () => {
+  it("verifies a reused deployment when metadata is available", async () => {
+    const { deps, fetch } = makeDeps();
+    fetch.mockResolvedValueOnce(reply({ verificationId: "v1" }, 202));
+    fetch.mockResolvedValueOnce(reply({ isJobCompleted: true, contract: { match: "match" } }));
+
+    await run(plugin(), makeCtx({ reused: true }), deps);
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("skips verification when no metadata is available", async () => {
     const { deps, fetch } = makeDeps();
     await run(plugin(), makeCtx({ reused: true, metadata: undefined }), deps);
     expect(fetch).not.toHaveBeenCalled();

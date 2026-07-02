@@ -1,8 +1,15 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { Plugin, ContractConfig } from "@wagmi/cli";
-import { Address as AddressSchema, Abi as AbiSchema } from "abitype/zod";
 import { z } from "zod";
+
+const addressRe = /^0x[0-9a-fA-F]{40}$/;
+const AddressSchema = z.custom<`0x${string}`>(
+  (v) => typeof v === "string" && addressRe.test(v),
+  "invalid address",
+);
+
+const AbiSchema = z.custom<ContractConfig["abi"]>((v) => Array.isArray(v), "invalid abi");
 
 // The slice of a deployoor deployment record this plugin needs. deployoor writes the full
 // record; we validate (and ignore) only what wagmi consumes, so the two packages
@@ -36,6 +43,11 @@ export const readDeploymentContracts = (deploymentsPath: string): ContractConfig
 
   const byName = records.reduce<Record<string, ContractConfig>>((acc, rec) => {
     const prior = acc[rec.deploymentName];
+    if (prior !== undefined && JSON.stringify(prior.abi) !== JSON.stringify(rec.abi)) {
+      throw new Error(
+        `Deployment "${rec.deploymentName}" has different ABIs across chains; use distinct deploymentName values.`,
+      );
+    }
     const address = {
       ...(typeof prior?.address === "object" ? prior.address : {}),
       [rec.chainId]: rec.address,

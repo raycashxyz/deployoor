@@ -2,7 +2,7 @@
 
 > Verify contracts on [Sourcify](https://sourcify.dev) when [deployoor](../deployoor) deploys them.
 
-A deployoor verifier is just a deploy-lifecycle hook. On each fresh deploy this plugin submits the contract's standard-json-input to the **Sourcify v2 API** — keyless, one host for every supported chain — and polls the verification job until it settles.
+A deployoor verifier is just a deploy-lifecycle hook. On each deploy this plugin submits the contract's standard-json-input to the **Sourcify v2 API** — keyless, one host for every supported chain — and polls the verification job until it settles. It also runs on **reused** deployments when the current artifact metadata is available — so a failed verification can be retried by simply re-running your deploy script, no redeploy needed.
 
 ## Install
 
@@ -22,7 +22,7 @@ export default defineConfig({
 });
 ```
 
-It reads everything from the deployment and the compiler metadata deployoor captures at deploy time — chainId, address, fully-qualified name, compiler version, standard-json input, and the creation transaction hash (which lets Sourcify fetch creation bytecode reliably). Reused deployments are skipped. A verification failure throws, so it obeys the deployer's `onPluginError` policy.
+It reads everything from the deployment and the compiler metadata deployoor captures at deploy time — chainId, address, fully-qualified name, compiler version, standard-json input, and the creation transaction hash (which lets Sourcify fetch creation bytecode reliably). A verification failure throws, so it obeys the deployer's `onPluginError` policy.
 
 Stack it with `@deployoor/etherscan` to publish to both — they're independent hooks:
 
