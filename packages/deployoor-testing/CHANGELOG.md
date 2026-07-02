@@ -1,5 +1,11 @@
 # @deployoor/testing
 
+## 0.2.1
+
+### Patch Changes
+
+- 5b411a5: Docs: include peer deps (`deployoor`, `viem`) in the `@deployoor/testing` install command, and fix the broken relative `deployoor` link in the `@deployoor/hardhat` README so it resolves on the npm package page.
+
 ## 0.2.0
 
 ### Minor Changes
