@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
@@ -11,13 +11,22 @@ const hhRoot = join(pkgRoot, "test", "fixtures", "hh");
 const distTypes = join(pkgRoot, "dist", "index.d.mts");
 const tscBin = createRequire(import.meta.url).resolve("typescript/bin/tsc");
 
+const runPnpm = (args: ReadonlyArray<string>, cwd: string): void => {
+  const cmd = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+  const result = spawnSync(cmd, args, { cwd, stdio: "ignore" });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`pnpm ${args.join(" ")} failed with exit code ${result.status ?? "unknown"}`);
+  }
+};
+
 // The codegen spine: prove the emitted deployers + artifact modules + the config
 // import actually compile against deployoor's published types (catches template bugs a
 // content assertion can't — wrong imports, a broken `satisfies`, signature drift).
 describe("generated deployers type-check against deployoor", () => {
   beforeAll(() => {
     // dist/index.d.mts is what the emitted code resolves `deployoor` to.
-    execFileSync("pnpm", ["build"], { cwd: pkgRoot, stdio: "ignore" });
+    runPnpm(["build"], pkgRoot);
   }, 120_000);
 
   it("compiles the emitted deployers, artifact modules, and config", () => {

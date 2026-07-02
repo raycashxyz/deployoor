@@ -20,7 +20,9 @@ const matches = (name: string, include?: ReadonlyArray<string> | RegExp): boolea
 
 /** Compute the import specifier from a generated deployer file to the user's config. */
 const configSpecifier = (fromDir: string, configPath: string): string => {
-  const rel = relative(fromDir, configPath).replace(/\.[mc]?[jt]s$/, "");
+  const rel = relative(fromDir, configPath)
+    .replace(/\\/g, "/")
+    .replace(/\.[mc]?[jt]s$/, "");
   return rel.startsWith(".") ? rel : `./${rel}`;
 };
 
