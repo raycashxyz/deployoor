@@ -47,7 +47,8 @@
     "viem": ">=2.49"
   },
   "dependencies": {
-    "tevm": "1.0.0-next.149"
+    "tevm": "1.0.0-next.149",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "catalog:",
