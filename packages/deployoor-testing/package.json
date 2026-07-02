@@ -4,6 +4,15 @@
   "private": false,
   "type": "module",
   "description": "Test your deployoor deploys against a real in-memory EVM (tevm) exposed as viem clients — no local node, no RPC.",
+  "keywords": [
+    "ethereum",
+    "evm",
+    "viem",
+    "tevm",
+    "testing",
+    "smart-contracts",
+    "deployments"
+  ],
   "license": "MIT",
   "author": "Valerio Leo",
   "main": "./dist/index.cjs",
