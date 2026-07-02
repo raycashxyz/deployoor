@@ -53,8 +53,10 @@ jobs:
 
   # Fails a PR that changes a publishable package without a changeset.
   # For changes that need no release, add an empty one: `pnpm changeset --empty`.
+  # Skipped on the Changesets "Version Packages" PR (branch `changeset-release/*`): it
+  # consumes the changeset files by design, so this gate would always (wrongly) fail there.
   changeset:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'changeset-release/')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
