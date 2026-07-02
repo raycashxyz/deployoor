@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,15 +9,13 @@ import { runGenerate } from "../../src/cli/generate";
 const pkgRoot = join(import.meta.dirname, "..", "..");
 const hhRoot = join(pkgRoot, "test", "fixtures", "hh");
 const distTypes = join(pkgRoot, "dist", "index.d.mts");
-const tscBin = createRequire(import.meta.url).resolve("typescript/bin/tsc");
+const requireFromTest = createRequire(import.meta.url);
+const tscBin = requireFromTest.resolve("typescript/bin/tsc");
+const tsdownBin = requireFromTest.resolve("tsdown/run");
 
-const runPnpm = (args: ReadonlyArray<string>, cwd: string): void => {
-  const cmd = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-  const result = spawnSync(cmd, args, { cwd, stdio: "ignore" });
-  if (result.error) throw result.error;
-  if (result.status !== 0) {
-    throw new Error(`pnpm ${args.join(" ")} failed with exit code ${result.status ?? "unknown"}`);
-  }
+const ensureBuilt = (): void => {
+  if (existsSync(distTypes)) return;
+  execFileSync(process.execPath, [tsdownBin], { cwd: pkgRoot, stdio: "ignore" });
 };
 
 // The codegen spine: prove the emitted deployers + artifact modules + the config
@@ -26,7 +24,7 @@ const runPnpm = (args: ReadonlyArray<string>, cwd: string): void => {
 describe("generated deployers type-check against deployoor", () => {
   beforeAll(() => {
     // dist/index.d.mts is what the emitted code resolves `deployoor` to.
-    runPnpm(["build"], pkgRoot);
+    ensureBuilt();
   }, 120_000);
 
   it("compiles the emitted deployers, artifact modules, and config", () => {
