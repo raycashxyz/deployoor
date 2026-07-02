@@ -1,9 +1,9 @@
 import { resolve } from "node:path";
 import { Cause, Effect, Exit, Layer } from "effect";
 import type { Abi, Address, PublicClient, WalletClient } from "viem";
-import { Clients, clientsLayer, type DeployResult } from "../services/clients";
+import { Clients, clientsLayer, registerClientsLayer, type DeployResult } from "../services/clients";
 import { Store, layerFromAdapter } from "../services/store";
-import { getOrDeploy, register, type RegisterEntry } from "./pipeline";
+import { getOrDeploy, register } from "./pipeline";
 import { NoChainOnClient } from "../errors";
 import type { ContractConstructorArgs } from "viem";
 import type { Libraries, TypedArtifact } from "../schemas";
@@ -27,7 +27,6 @@ export interface Deployer<P extends readonly AnyDeployPlugin[]> {
     artifact: TypedArtifact<A>,
     opts: GetOrDeployArgs<A, P>,
   ) => Promise<DeployResult<A>>;
-  readonly register: <A extends Abi>(entry: RegisterEntry<A>) => Promise<DeployResult<A>>;
 }
 
 export interface CreateDeployerConfig<P extends readonly AnyDeployPlugin[]> {
@@ -48,8 +47,27 @@ const resolveDeps = (over?: Partial<PluginDeps>): PluginDeps => ({
 });
 
 /**
- * Build a deployer. This is the ONLY place Effect crosses to a Promise: the
- * pipeline programs are provided the Clients + Store layers and run here.
+ * The single Effect→Promise crossing: provide the Clients + Store layers and run the
+ * pipeline program. On failure, reject with the clean tagged error (squashed from the
+ * cause) rather than Effect's FiberFailure wrapper. Shared by the deploy and register
+ * entry points (register runs on a wallet-optional Clients layer).
+ */
+const runProgram = async <A, E, LE>(
+  program: Effect.Effect<A, E, Clients | Store>,
+  layer: Layer.Layer<Clients | Store, LE>,
+): Promise<A> => {
+  const exit = await Effect.runPromiseExit(Effect.provide(program, layer));
+  return Exit.match(exit, {
+    onSuccess: (value) => value,
+    onFailure: (cause) => {
+      throw Cause.squash(cause);
+    },
+  });
+};
+
+/**
+ * Build a deployer. Generated `getOrDeploy<Name>` functions call this internally; the
+ * user never wires it by hand.
  */
 export const createDeployer = <const P extends readonly AnyDeployPlugin[]>(
   config: CreateDeployerConfig<P>,
@@ -60,23 +78,11 @@ export const createDeployer = <const P extends readonly AnyDeployPlugin[]>(
     clientsLayer(config.walletClient, config.publicClient),
     layerFromAdapter(config.store),
   );
-  // The only Effect→Promise crossing. On failure, reject with the clean tagged
-  // error (squashed from the cause) rather than Effect's FiberFailure wrapper.
-  const run = async <A, E>(program: Effect.Effect<A, E, Clients | Store>): Promise<A> => {
-    const exit = await Effect.runPromiseExit(Effect.provide(program, layer));
-    return Exit.match(exit, {
-      onSuccess: (value) => value,
-      onFailure: (cause) => {
-        throw Cause.squash(cause);
-      },
-    });
-  };
-
   return {
     getOrDeploy: (artifact, opts) =>
       // viem types constructor args precisely per-abi; the engine treats them as
       // the runtime array form they always are.
-      run(
+      runProgram(
         getOrDeploy(
           artifact,
           {
@@ -87,8 +93,8 @@ export const createDeployer = <const P extends readonly AnyDeployPlugin[]>(
           plugins,
           deps,
         ),
+        layer,
       ),
-    register: (entry) => run(register(entry, deps)),
   };
 };
 
@@ -146,9 +152,14 @@ type DeploymentNameOption =
   | { readonly deploymentName: string; readonly name?: string }
   | { readonly name: string; readonly deploymentName?: string };
 
-/** Options a generated `register(...)` accepts: clients + the external contract's identity. */
+/** Options a generated `register(...)` accepts: a public client + the external contract's identity. */
 export type RegisterCallOptions<A extends Abi> = DeploymentNameOption & {
-  readonly walletClient: WalletClient;
+  /**
+   * Optional — `register` records an existing address and never sends a transaction, so a
+   * public client is enough. Pass a wallet to record it as the registrant and get a writable
+   * contract back; omit it and the deployer is recorded as the zero address (read-only contract).
+   */
+  readonly walletClient?: WalletClient;
   readonly publicClient: PublicClient;
   readonly address: Address;
   readonly abi: A;
@@ -168,13 +179,16 @@ export const defineRegister = <const P extends readonly AnyDeployPlugin[]>(confi
   return <A extends Abi>(opts: RegisterCallOptions<A>): Promise<DeployResult<A>> => {
     const deploymentName = opts.deploymentName ?? opts.name;
     if (deploymentName === undefined) throw new Error("register requires deploymentName");
-    return createDeployer({
-      walletClient: opts.walletClient,
-      publicClient: opts.publicClient,
-      store: opts.store ?? store,
-      plugins: config.plugins,
-      onPluginError: config.onPluginError,
-    }).register({ name: deploymentName, address: opts.address, abi: opts.abi });
+    // register never broadcasts a transaction, so it runs on a wallet-optional Clients
+    // layer — a public client alone is enough. Plugins don't run on register.
+    const layer = Layer.merge(
+      registerClientsLayer(opts.publicClient, opts.walletClient),
+      layerFromAdapter(opts.store ?? store),
+    );
+    return runProgram(
+      register({ name: deploymentName, address: opts.address, abi: opts.abi }, resolveDeps()),
+      layer,
+    );
   };
 };
 

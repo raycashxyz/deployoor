@@ -125,4 +125,24 @@ describe("defineRegister / defineReset (project-level entry points)", () => {
     const again = await register({ ...clients, name: "USDC", address: account, abi: counterArtifact.abi });
     expect(again.contract.address).toBe(account); // re-registering an external record is allowed
   });
+
+  it("register works with only a public client (no signer) and records the zero-address deployer", async () => {
+    const deploymentsPath = mkdtempSync(join(tmpdir(), "deployoor-"));
+    const register = defineRegister(defineConfig({ deploymentsPath }));
+
+    const { address: external, publicClient } = await makeEvmClients();
+    const { contract, freshDeploy, deployment } = await register({
+      publicClient, // no walletClient — register records an existing address, so a public client suffices
+      deploymentName: "USDC",
+      address: external,
+      abi: counterArtifact.abi,
+    });
+
+    expect(freshDeploy).toBe(false);
+    expect(contract.address).toBe(external);
+    expect(deployment.kind).toBe("external");
+    expect(deployment.deployer).toBe("0x0000000000000000000000000000000000000000");
+    const chainDir = join(deploymentsPath, network(publicClient.chain));
+    expect(existsSync(join(chainDir, "USDC.json"))).toBe(true);
+  });
 });
