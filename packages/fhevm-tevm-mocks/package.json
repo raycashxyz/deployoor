@@ -1,0 +1,78 @@
+{
+  "name": "fhevm-tevm-mocks",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "description": "Tevm-native adapter primitives for running Zama FHEVM mock tests in an in-memory EVM.",
+  "keywords": [
+    "ethereum",
+    "evm",
+    "fhevm",
+    "tevm",
+    "testing",
+    "zama"
+  ],
+  "license": "MIT",
+  "author": "Valerio Leo",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "tevm": "1.0.0-next.149",
+    "viem": ">=2"
+  },
+  "dependencies": {
+    "@fhevm/host-contracts": "0.10.0",
+    "@fhevm/mock-utils": "^0.4.2",
+    "@fhevm/solidity": "0.11.1",
+    "@zama-fhe/relayer-sdk": "0.4.1",
+    "ethers": "^6.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "deployoor": "workspace:*",
+    "solc": "0.8.24",
+    "tevm": "1.0.0-next.149",
+    "tsdown": "^0.22.3",
+    "typescript": "catalog:",
+    "unrun": "^0.3.1",
+    "viem": "catalog:",
+    "vitest": "catalog:"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/valerioleo/deployoor.git",
+    "directory": "packages/fhevm-tevm-mocks"
+  },
+  "homepage": "https://github.com/valerioleo/deployoor/tree/main/packages/fhevm-tevm-mocks#readme",
+  "bugs": {
+    "url": "https://github.com/valerioleo/deployoor/issues"
+  }
+}

@@ -300,9 +300,6 @@ importers:
       ethers:
         specifier: ^6.16.0
         version: 6.17.0
-      tevm:
-        specifier: 1.0.0-next.149
-        version: 1.0.0-next.149(@tevm/ts-plugin@1.0.0-rc.151(typescript@5.9.3)(viem@2.44.2(typescript@5.9.3)(zod@4.4.3))(zod@4.4.3))(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(rolldown@1.1.3)(rollup@4.62.2)(terser@5.48.0)(tsx@4.22.4)(typescript@5.9.3)(viem@2.44.2(typescript@5.9.3)(zod@4.4.3))(vite@7.3.6(@types/node@22.20.0)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4))(webpack@5.108.1(esbuild@0.28.1))(zod@4.4.3)
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -313,12 +310,18 @@ importers:
       solc:
         specifier: 0.8.24
         version: 0.8.24
+      tevm:
+        specifier: 1.0.0-next.149
+        version: 1.0.0-next.149(@tevm/ts-plugin@1.0.0-rc.151(typescript@5.9.3)(viem@2.44.2(typescript@5.9.3)(zod@4.4.3))(zod@4.4.3))(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(rolldown@1.1.3)(rollup@4.62.2)(terser@5.48.0)(tsx@4.22.4)(typescript@5.9.3)(viem@2.44.2(typescript@5.9.3)(zod@4.4.3))(vite@7.3.6(@types/node@22.20.0)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4))(webpack@5.108.1(esbuild@0.28.1))(zod@4.4.3)
       tsdown:
         specifier: ^0.22.3
         version: 0.22.3(tsx@4.22.4)(typescript@5.9.3)(unrun@0.3.1)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
+      unrun:
+        specifier: ^0.3.1
+        version: 0.3.1
       viem:
         specifier: 'catalog:'
         version: 2.44.2(typescript@5.9.3)(zod@4.4.3)
