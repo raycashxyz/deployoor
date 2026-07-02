@@ -20,14 +20,15 @@ typed viem access / React hooks          ← you add a client; address + abi are
 
 deployoor owns Part 1 (deploy + the `deployments/` record + lifecycle hooks). Part 2 **delegates to `@wagmi/cli`** — we don't reinvent consumption codegen, we feed it.
 
-North star: "contracts as plain TypeScript objects." On the deploy side, `getOrDeployToken(...)` returns a viem contract object (`token.read.*` / `token.write.*`).
+North star: "contracts as plain TypeScript objects." On the deploy side, `getOrDeployToken(...)` resolves to `{ contract, freshDeploy, receipt, deployment }` — the typed viem object is `result.contract` (`contract.read.*` / `contract.write.*`).
 
 ## Layout
 
 ```
 packages/
-  deployoor/            — the engine: codegen + CLI (`deployoor generate` / `deployoor init`) + the deploy pipeline. Exports `deployoor` (main) and `deployoor/plugin` (the plugin SDK subpath).
+  deployoor/            — the engine: codegen + CLI (`deployoor generate` / `deployoor init`) + the deploy pipeline. Exports `deployoor` (main), `deployoor/plugin` (the plugin SDK subpath), and `deployoor/generate` (the programmatic `generateDeployers`, used by `@deployoor/hardhat`).
   deployoor-wagmi/      — @deployoor/wagmi: a @wagmi/cli plugin sourcing contracts from deployments/
+  deployoor-hardhat/    — @deployoor/hardhat: a Hardhat plugin that runs `generateDeployers` after each `hardhat compile` (NOT a deploy-lifecycle plugin — a Hardhat-native task hook; peer-deps `hardhat` + `deployoor`, imports `deployoor/generate`)
   deployoor-etherscan/  — @deployoor/etherscan: Etherscan V2 verifier (one key, all chains; also Blockscout/Routescan via apiUrl)
   deployoor-sourcify/   — @deployoor/sourcify: Sourcify v2 verifier (keyless)
   deployoor-slack/      — @deployoor/slack: Slack notifier
@@ -57,7 +58,7 @@ Turbo orders `^build` before each task, so the `deployoor` core builds before pl
 
 - **Effect is fully internal.** The engine uses Effect (`Context.Tag` services, `Layer` DI, `Data.TaggedError`, `Effect.gen` pipelines). The **public API is Promise-only** — no `.effect` namespace. The single Effect→Promise crossing is in `createDeployer` (`Effect.runPromiseExit` + `Cause.squash`, so it rejects with the clean tagged error, not a FiberFailure).
 - **The user never calls `createDeployer`.** `deployoor generate` emits one `export const getOrDeploy<Name> = defineDeployer(<name>Artifact, config)` per contract; the user imports it and calls `await getOrDeployToken({ walletClient, publicClient, args })`. The store + plugins are internal, derived from the project's `deployoor.config.ts`.
-- **`getOrDeploy` is idempotent by design:** first call deploys + records; later calls return the existing contract with no tx; `force: true` redeploys; `register({ deploymentName, address, abi })` records an external contract (e.g. USDC) with no tx.
+- **`getOrDeploy` is idempotent by design:** first call deploys + records; later calls return the existing deployment with no tx; `force: true` redeploys; `register({ deploymentName, address, abi })` records an external contract (e.g. USDC) with no tx. Both resolve to a `DeployResult` — `{ contract, deployment, freshDeploy, receipt? }` — where `freshDeploy` is `true` only when the call broadcast a deploy tx (so `register` and reuse are `false`) and `receipt` is present only then. `reset` returns `void`.
 - **Zod 4** (pinned). **Do NOT use `abitype/zod` for schemas** — abitype 1.2.x's zod types are written against zod 3 (`Address` is `z.ZodEffects<...>`, removed in zod 4), so `z.infer` over them collapses to `any` under zod 4 (runtime validation works; only the types break — this was verified). Instead, `Address`/`Abi`/`Hex` are small **local `z.custom`** validators in `src/schemas.ts` that infer precisely. abitype's `Abi` _type_ (via viem) is still the source of truth for the abi shape.
 - **Boundary types are explicit interfaces, not `z.infer`** (`DeploymentRecord`, `Libraries`, `TypedArtifact`). The Zod schemas validate at runtime; the exported _types_ are hand-written so they're documented, stable, and survive `.d.ts` bundling. Keep schema and interface in sync.
 - **Deployment records are vanilla JSON** (a one-line bigint→string replacer in `fsStore`, no superjson) — they're committed to the user's repo and read by humans, Part 2, and other tools, so they must be flat/portable.

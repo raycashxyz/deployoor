@@ -8,7 +8,8 @@ describe("hardhat example", () => {
     // Spreading `clients` passes the in-memory store, so nothing is written to deployments/.
     const clients = await createTestClients();
 
-    const counter = await getOrDeployCounter({ ...clients, args: [7n] });
+    const { contract: counter, freshDeploy } = await getOrDeployCounter({ ...clients, args: [7n] });
+    expect(freshDeploy).toBe(true);
     expect(counter.address).toMatch(/^0x[0-9a-fA-F]{40}$/);
 
     expect(await counter.read.number()).toBe(7n);

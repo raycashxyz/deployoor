@@ -43,6 +43,16 @@
         "types": "./dist/plugin-sdk.d.cts",
         "default": "./dist/plugin-sdk.cjs"
       }
+    },
+    "./generate": {
+      "import": {
+        "types": "./dist/generate.d.mts",
+        "default": "./dist/generate.mjs"
+      },
+      "require": {
+        "types": "./dist/generate.d.cts",
+        "default": "./dist/generate.cjs"
+      }
     }
   },
   "files": [

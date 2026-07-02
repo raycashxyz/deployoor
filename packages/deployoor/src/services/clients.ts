@@ -11,11 +11,28 @@ import type {
   WalletClient,
 } from "viem";
 import { NoChainOnClient } from "../errors";
+import type { DeploymentRecord } from "../schemas";
 
 export type DeployedContract<A extends Abi> = GetContractReturnType<
   A,
   { public: PublicClient; wallet: WalletClient }
 >;
+
+/**
+ * What a generated `getOrDeploy<Name>` / `register` resolves to — more than just the
+ * contract, so a deploy script can branch on what actually happened:
+ *   - `contract`     — the typed viem object (`.read.*` / `.write.*` / `.address`).
+ *   - `deployment`   — the full record (address, chainId, tx, compiler, …).
+ *   - `freshDeploy`  — `true` only when this call broadcast a deploy transaction;
+ *                      `false` on idempotent reuse and for `register` (which never deploys).
+ *   - `receipt`      — the deploy receipt, present only when `freshDeploy` is `true`.
+ */
+export interface DeployResult<A extends Abi> {
+  readonly contract: DeployedContract<A>;
+  readonly deployment: DeploymentRecord;
+  readonly freshDeploy: boolean;
+  readonly receipt?: TransactionReceipt;
+}
 
 /**
  * The narrow chain capability the engine needs. viem's heavily-overloaded

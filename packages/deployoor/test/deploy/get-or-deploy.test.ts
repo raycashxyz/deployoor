@@ -29,11 +29,13 @@ describe("getOrDeploy", () => {
     const store = memoryStore();
     const deployer = createDeployer({ walletClient, publicClient, store });
 
-    const contract = await deployer.getOrDeploy(counterArtifact, {
+    const { contract, freshDeploy, receipt } = await deployer.getOrDeploy(counterArtifact, {
       args: [5n, account],
       deploymentName: "Counter_a",
     });
 
+    expect(freshDeploy).toBe(true);
+    expect(receipt?.contractAddress).toBe(contract.address);
     expect(await contract.read.count()).toBe(5n);
     const record = await store.read(network(), "Counter_a");
     expect(record?.address).toBe(contract.address);
@@ -54,7 +56,10 @@ describe("getOrDeploy", () => {
     });
     const after = await nonce();
 
-    expect(second.address).toBe(first.address);
+    expect(first.freshDeploy).toBe(true);
+    expect(second.freshDeploy).toBe(false);
+    expect(second.receipt).toBeUndefined();
+    expect(second.contract.address).toBe(first.contract.address);
     expect(after).toBe(before);
   });
 
@@ -73,7 +78,8 @@ describe("getOrDeploy", () => {
     });
     const after = await nonce();
 
-    expect(second.address).not.toBe(first.address);
+    expect(second.freshDeploy).toBe(true);
+    expect(second.contract.address).not.toBe(first.contract.address);
     expect(after).toBe(before + 1);
   });
 
@@ -103,7 +109,7 @@ describe("getOrDeploy", () => {
       plugins: [definePlugin({ name: "spy", onContractDeployed })],
     });
 
-    const contract = await deployer.getOrDeploy(counterArtifact, {
+    const { contract } = await deployer.getOrDeploy(counterArtifact, {
       args: [5n, account],
       deploymentName: "Counter_d",
     });
@@ -136,7 +142,7 @@ describe("getOrDeploy", () => {
       deps: { log: { info: () => {}, warn } },
     });
 
-    const contract = await deployer.getOrDeploy(counterArtifact, {
+    const { contract } = await deployer.getOrDeploy(counterArtifact, {
       args: [5n, account],
       deploymentName: "Counter_e",
     });

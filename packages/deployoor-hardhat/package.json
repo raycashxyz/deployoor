@@ -1,0 +1,69 @@
+{
+  "name": "@deployoor/hardhat",
+  "version": "0.0.0",
+  "private": false,
+  "type": "module",
+  "description": "Hardhat plugin: regenerate deployoor's typed deployers automatically after every `hardhat compile`.",
+  "keywords": [
+    "ethereum",
+    "evm",
+    "hardhat",
+    "hardhat-plugin",
+    "deployments",
+    "smart-contracts",
+    "codegen"
+  ],
+  "license": "MIT",
+  "author": "Valerio Leo",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "deployoor": "*",
+    "hardhat": "^2"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "deployoor": "workspace:*",
+    "hardhat": "^2.22.0",
+    "tsdown": "^0.22.3",
+    "typescript": "catalog:",
+    "unrun": "^0.3.1",
+    "vitest": "catalog:"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/valerioleo/deployoor.git",
+    "directory": "packages/deployoor-hardhat"
+  },
+  "homepage": "https://github.com/valerioleo/deployoor/tree/main/packages/deployoor-hardhat#readme",
+  "bugs": {
+    "url": "https://github.com/valerioleo/deployoor/issues"
+  }
+}
