@@ -85,7 +85,7 @@ export interface TestClients {
  * ```ts
  * const clients = await createTestClients();
  * // spread `clients` so deploys use the in-memory `store` — nothing hits disk
- * const token = await getOrDeployToken({ ...clients, args: [owner] });
+ * const { contract: token } = await getOrDeployToken({ ...clients, args: [owner] });
  * ```
  *
  * Deploys go to an in-memory `store` that's discarded when the test ends (no

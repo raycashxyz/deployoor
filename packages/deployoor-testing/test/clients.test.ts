@@ -112,9 +112,10 @@ describe("createTestClients", () => {
     };
     const getOrDeployToken = defineDeployer(artifact, defineConfig({}));
     const before = await clients.publicClient.getTransactionCount({ address: clients.account.address });
-    const token = await getOrDeployToken({ ...clients, args: [] as never });
+    const { contract: token, freshDeploy } = await getOrDeployToken({ ...clients, args: [] as never });
     const after = await clients.publicClient.getTransactionCount({ address: clients.account.address });
 
+    expect(freshDeploy).toBe(false); // seeded record reused — no deploy
     expect(token.address).toBe("0x00000000000000000000000000000000000000c0");
     expect(after).toBe(before);
   });

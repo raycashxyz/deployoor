@@ -15,7 +15,8 @@ import { getOrDeployToken } from "../deployers";
 it("deploys the token", async () => {
   const clients = await createTestClients();
   // spread `clients` so the deploy uses the in-memory store — nothing hits disk
-  const token = await getOrDeployToken({ ...clients, args: [owner] });
+  // getOrDeploy resolves to { contract, freshDeploy, receipt, deployment } — the viem object is `contract`
+  const { contract: token } = await getOrDeployToken({ ...clients, args: [owner] });
   // it's a live contract on an in-memory chain — read/write against it
   expect(token.address).toMatch(/^0x/);
 });
@@ -31,7 +32,7 @@ it("deploys the token", async () => {
 const { accounts, publicClient, store, walletClientFor } = await createTestClients();
 const [owner, alice] = accounts;
 
-const token = await getOrDeployToken({
+const { contract: token } = await getOrDeployToken({
   walletClient: walletClientFor(owner),
   publicClient,
   store,
@@ -76,7 +77,7 @@ expect(await publicClient.getBalance({ address: alice.address })).toBe(10n ** 18
 import { createFixture, createTestClients } from "@deployoor/testing";
 
 const useToken = createFixture(async (clients) => {
-  const token = await getOrDeployToken({ ...clients, args: [clients.account.address] });
+  const { contract: token } = await getOrDeployToken({ ...clients, args: [clients.account.address] });
   return { token };
 });
 
@@ -96,5 +97,5 @@ const clients = await createTestClients({
   deploymentNetwork: "1-ethereum",
 });
 
-const token = await getOrDeployToken({ ...clients, args: [owner] }); // reuses the seeded record
+const { contract: token } = await getOrDeployToken({ ...clients, args: [owner] }); // reuses the seeded record
 ```

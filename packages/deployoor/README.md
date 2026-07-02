@@ -6,7 +6,7 @@ Run `npx deployoor generate`, write a deploy script, run it like a standalone no
 
 ```ts
 // deploy once; every run after that returns the same contract
-const token = await getOrDeployToken({ walletClient, publicClient, args: [owner] });
+const { contract: token } = await getOrDeployToken({ walletClient, publicClient, args: [owner] });
 
 // it's a viem contract object — read and write straight away
 await token.write.transfer([to, amount]);
@@ -27,16 +27,6 @@ Deploying is the easy part. Living with what you deployed is the mess:
 ## How it works
 
 `deployoor` reads your compiled artifacts, deploys idempotently, and records each deploy to `deployments/<chainId>-<network>/<Contract>.json` — a plain-JSON source of truth for every address, ABI, chain, constructor args, tx, and compiler setting.
-
-```mermaid
-flowchart TD
-    A["artifacts<br/>(Hardhat artifacts/ or Foundry out/)"]
-    B["deployments/&lt;chainId&gt;-&lt;network&gt;/&lt;Contract&gt;.json<br/>the source of truth: address · abi · chainId · args · tx · compiler"]
-    C["your app<br/>typed viem objects"]
-
-    A -- "deployoor generate + your deploy script" --> B
-    B -. "optional — consume with viem, or @deployoor/wagmi + @wagmi/cli hooks" .-> C
-```
 
 That `deployments/` folder is the product: portable vanilla JSON, committed to your repo, readable by humans and any tool. Consuming it is up to you and needs nothing but `viem`; if you want typed React hooks, the optional [`@deployoor/wagmi`](../deployoor-wagmi) plugin feeds [`@wagmi/cli`](https://wagmi.sh/cli) — one convenient consumer, not a required second half.
 
@@ -92,8 +82,8 @@ const clients = {
   publicClient: createPublicClient({ chain: sepolia, transport }),
 };
 
-const token = await getOrDeployToken({ ...clients, args: [account.address] }); // verifies/notifies via config plugins
-const vault = await getOrDeployVault({ ...clients, args: [token.address] });
+const { contract: token } = await getOrDeployToken({ ...clients, args: [account.address] }); // verifies/notifies via config plugins
+const { contract: vault } = await getOrDeployVault({ ...clients, args: [token.address] });
 ```
 
 ```bash
@@ -147,11 +137,10 @@ const balance = await readToken(config, { functionName: "balanceOf", args: [user
 
 ## Idempotent by design: `getOrDeploy`
 
-`getOrDeploy` declares desired state — "this contract should exist on this network." The first call deploys and records it; every later call returns the existing contract with no transaction. It always hands back a viem contract, so callers never branch on "did it already exist."
+`getOrDeploy` declares desired state — "this contract should exist on this network." The first call deploys and records it; every later call returns the existing contract with no transaction. It resolves to `{ contract, freshDeploy, receipt, deployment }` — the typed viem object is `result.contract` — so callers never branch on "did it already exist" to get their contract, and `freshDeploy` lets a script run one-time setup only when this call actually deployed.
 
 ```ts
-const token = await getOrDeployToken({ walletClient, publicClient, args: [owner] }); // 1st run: deploys
-const token = await getOrDeployToken({ walletClient, publicClient, args: [owner] }); // next runs: same contract, no tx
+const { contract: token } = await getOrDeployToken({ walletClient, publicClient, args: [owner] }); // 1st run: deploys; next runs: same contract, no tx
 
 await getOrDeployToken({ walletClient, publicClient, args: [owner], force: true }); // redeploy on purpose
 ```
@@ -159,8 +148,16 @@ await getOrDeployToken({ walletClient, publicClient, args: [owner], force: true 
 Deploying several instances of the same contract? Pass a `deploymentName` — it defaults to the contract name and is the key for both the record and idempotency:
 
 ```ts
-const usdcVault = await getOrDeployVault({ ...clients, args: [usdc], deploymentName: "Vault_USDC" });
-const daiVault = await getOrDeployVault({ ...clients, args: [dai], deploymentName: "Vault_DAI" });
+const { contract: usdcVault } = await getOrDeployVault({
+  ...clients,
+  args: [usdc],
+  deploymentName: "Vault_USDC",
+});
+const { contract: daiVault } = await getOrDeployVault({
+  ...clients,
+  args: [dai],
+  deploymentName: "Vault_DAI",
+});
 ```
 
 Already have a contract you didn't deploy (USDC, a partner contract)? `register` it so it joins the address book — `generate` emits `register` and `reset` in `./deployers`:
@@ -170,7 +167,12 @@ import { register, reset } from "../deployers";
 
 // register records an external contract (no tx). It won't overwrite a real deployment
 // at the same name — reset that first, or use a different name.
-const usdc = await register({ ...clients, deploymentName: "USDC", address: "0x…", abi: usdcAbi });
+const { contract: usdc } = await register({
+  ...clients,
+  deploymentName: "USDC",
+  address: "0x…",
+  abi: usdcAbi,
+});
 
 // reset only forgets local records, so it needs just a public client (no signer):
 await reset({ publicClient, deploymentName: "Token" }); // one record; omit it to forget all — next getOrDeploy redeploys
@@ -185,7 +187,7 @@ import { createTestClients } from "@deployoor/testing";
 import { getOrDeployToken } from "../deployers";
 
 const clients = await createTestClients();
-const token = await getOrDeployToken({ ...clients, args: [owner] }); // deploys to memory
+const { contract: token } = await getOrDeployToken({ ...clients, args: [owner] }); // deploys to memory
 ```
 
 If your project config has notifier or verifier plugins, disable them in tests with per-deploy overrides such as `plugins: { slack: false, etherscan: false }`. Always spread `clients` (or pass `store`) so tests use the in-memory store instead of writing `deployments/`.
@@ -222,6 +224,8 @@ Maintained plugins: [`@deployoor/etherscan`](../deployoor-etherscan) (Etherscan 
 ## Hardhat and Foundry
 
 The only framework-specific input is the artifacts directory, and `deployoor` detects it for you. In a Hardhat project it reads `artifacts/`; in a Foundry project it reads `out/` + `out/build-info`. Deploy and consumption are plain viem and identical either way.
+
+Hardhat users can skip the separate `deployoor generate` step: add [`@deployoor/hardhat`](../deployoor-hardhat) to the Hardhat config and the deployers regenerate automatically after every `hardhat compile`. It calls the programmatic `generateDeployers` (exported from `deployoor/generate`) — the same work the CLI does, so you can wire generation into any other build tool too.
 
 ## Using your contracts
 

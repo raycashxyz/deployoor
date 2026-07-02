@@ -74,9 +74,9 @@ const clients = {
   publicClient: createPublicClient({ chain: sepolia, transport }),
 };
 
-// getOrDeploy returns a viem contract object — read/write straight away.
-const token = await getOrDeployToken({ ...clients, args: [account.address] });
-const vault = await getOrDeployVault({ ...clients, args: [token.address] });
+// getOrDeploy resolves to { contract, freshDeploy, receipt, deployment } — use result.contract to read/write, and freshDeploy to run one-time setup only when this call actually deployed.
+const { contract: token } = await getOrDeployToken({ ...clients, args: [account.address] });
+const { contract: vault } = await getOrDeployVault({ ...clients, args: [token.address] });
 
 console.log("token:", token.address);
 await token.write.transfer([recipient, 1000n]);
@@ -91,7 +91,7 @@ Constructor args are type-checked against each contract's ABI. The deploy script
 ## Idempotency
 
 - First run deploys and records to `deployments/<chainId>-<network>/<Contract>.json`. Later runs return the existing contract with **no transaction** — so a deploy script is safe to re-run.
-- `getOrDeploy<Name>` always returns a viem contract object, so callers never branch on "did it already exist."
+- `getOrDeploy<Name>` always resolves to `{ contract, freshDeploy, receipt, deployment }`, so callers never branch on "did it already exist" to read/write — reach for `result.contract` either way, and check `freshDeploy` when you need to run one-time setup only on the call that actually deployed.
 - Redeploy on purpose: `await getOrDeployToken({ ...clients, args, force: true })`.
 - Note: a recorded deployment is currently reused even if the contract code changed — use `force` to redeploy. (Automatic bytecode-change detection is on the roadmap.)
 
@@ -100,8 +100,16 @@ Constructor args are type-checked against each contract's ABI. The deploy script
 Pass `deploymentName` (defaults to the contract name) to deploy and track several instances of the same artifact independently:
 
 ```ts
-const usdcVault = await getOrDeployVault({ ...clients, args: [usdc], deploymentName: "Vault_USDC" });
-const daiVault = await getOrDeployVault({ ...clients, args: [dai], deploymentName: "Vault_DAI" });
+const { contract: usdcVault } = await getOrDeployVault({
+  ...clients,
+  args: [usdc],
+  deploymentName: "Vault_USDC",
+});
+const { contract: daiVault } = await getOrDeployVault({
+  ...clients,
+  args: [dai],
+  deploymentName: "Vault_DAI",
+});
 ```
 
 Each gets its own record (`deployments/<chainId>-<network>/Vault_USDC.json`, …) and its own idempotency.
@@ -114,7 +122,12 @@ Each gets its own record (`deployments/<chainId>-<network>/Vault_USDC.json`, …
 import { register, reset } from "../deployers";
 
 // register won't overwrite a real deployment at the same name — reset it first, or use a different name.
-const usdc = await register({ ...clients, deploymentName: "USDC", address: "0x...", abi: usdcAbi });
+const { contract: usdc } = await register({
+  ...clients,
+  deploymentName: "USDC",
+  address: "0x...",
+  abi: usdcAbi,
+});
 
 // reset only forgets local records, so it needs just a public client (no signer):
 await reset({ publicClient, deploymentName: "Token" }); // omit `deploymentName` to forget all on this chain — next getOrDeploy redeploys
@@ -210,7 +223,7 @@ import { getOrDeployToken } from "../deployers";
 describe("Token deploy", () => {
   it("deploys in memory", async () => {
     const clients = await createTestClients();
-    const token = await getOrDeployToken({ ...clients, args: [clients.account.address] });
+    const { contract: token } = await getOrDeployToken({ ...clients, args: [clients.account.address] });
 
     expect(token.address).toMatch(/^0x/);
   });
