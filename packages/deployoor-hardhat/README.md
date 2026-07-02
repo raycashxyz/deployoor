@@ -1,6 +1,6 @@
 # @deployoor/hardhat
 
-> A [Hardhat](https://hardhat.org) plugin that regenerates [deployoor](../deployoor)'s typed deployers automatically after every `hardhat compile`.
+> A [Hardhat](https://hardhat.org) plugin that regenerates [deployoor](https://www.npmjs.com/package/deployoor)'s typed deployers automatically after every `hardhat compile`.
 
 Without it, the flow is two steps — `hardhat compile` then `deployoor generate`. With it, `hardhat compile` runs `deployoor generate` in process the moment fresh `artifacts/` are written: no extra terminal, no separate command, no stale deployers. Edit a contract, compile, and the typed `getOrDeploy<Name>` functions are already up to date.
 

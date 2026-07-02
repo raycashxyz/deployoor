@@ -7,7 +7,7 @@
 `createTestClients()` boots [tevm](https://tevm.sh) in-process and hands you ordinary viem wallet/public clients. Pass them straight to a generated deployer and your test deploys real contracts to a real EVM — no `hardhat node`, no anvil, no RPC. The tevm version is pinned by this package, so you never fight a version mismatch.
 
 ```bash
-pnpm add -D @deployoor/testing
+pnpm add -D @deployoor/testing deployoor viem
 ```
 
 ```ts
