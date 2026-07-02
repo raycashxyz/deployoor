@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { mkdtempSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -30,6 +30,21 @@ describe("runGenerate", () => {
       runGenerate({ root: hhRoot, out, configPath: join(project, "deployoor.config.ts"), include: ["Nope"] }),
     ).toThrow(/matched none/);
     expect(existsSync(join(out, "Counter.ts"))).toBe(false);
+  });
+
+  it("warns about an include name that matched no contract while still generating the rest", () => {
+    const project = mkdtempSync(join(tmpdir(), "deployoor-gen-"));
+    const out = join(project, "deployers");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    runGenerate({
+      root: hhRoot,
+      out,
+      configPath: join(project, "deployoor.config.ts"),
+      include: ["Counter", "Ghost"],
+    });
+    expect(existsSync(join(out, "Counter.ts"))).toBe(true); // the matched contract still generates
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("Ghost")); // the missing one is surfaced
+    warn.mockRestore();
   });
 });
 
