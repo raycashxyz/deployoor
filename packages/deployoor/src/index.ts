@@ -31,7 +31,16 @@ export type { DeployPlugin, DeployedContext, PluginDeps, PluginOverrides, Awaita
 
 // Domain types
 export type { TypedArtifact } from "./schemas";
-export { Address, Hex, AbiSchema, Artifact, ContractMetadata, DeploymentRecord, Libraries } from "./schemas";
+export {
+  Address,
+  Hex,
+  Bytecode,
+  AbiSchema,
+  Artifact,
+  ContractMetadata,
+  DeploymentRecord,
+  Libraries,
+} from "./schemas";
 
 // Store — the pluggable persistence adapter. Inject a custom `StoreAdapter` via a
 // deployer's `store` call option (e.g. `memoryStore()` in tests); `fsStore` is the default.

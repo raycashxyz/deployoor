@@ -21,6 +21,19 @@ export const Hex = z.custom<`0x${string}`>(
   "invalid hex string",
 );
 
+/**
+ * Compiled init bytecode. Like `Hex`, but also admits solc's unlinked library
+ * placeholders (`__$<hash>$__`), so a contract that links a library still gets a
+ * generated deployer and a deployment record — the placeholder is replaced with the
+ * library address at deploy time (see engine/link-libraries.ts). Transaction hashes and
+ * addresses keep the strict `Hex`/`Address` validators.
+ */
+const bytecodeRe = /^0x[0-9a-fA-F_$]*$/;
+export const Bytecode = z.custom<`0x${string}`>(
+  (v) => typeof v === "string" && bytecodeRe.test(v),
+  "invalid bytecode",
+);
+
 const addressRe = /^0x[0-9a-fA-F]{40}$/;
 export const Address = z.custom<`0x${string}`>(
   (v) => typeof v === "string" && addressRe.test(v),
@@ -45,7 +58,7 @@ export type ContractMetadata = z.infer<typeof ContractMetadata>;
 export const Artifact = z.object({
   name: z.string(),
   abi: AbiSchema,
-  bytecode: Hex,
+  bytecode: Bytecode,
   metadata: ContractMetadata,
 });
 export type Artifact = z.infer<typeof Artifact>;
@@ -74,7 +87,7 @@ export const DeploymentRecord = z.object({
   chainId: z.number().int().positive(),
   networkName: z.string(),
   abi: AbiSchema,
-  bytecode: Hex,
+  bytecode: Bytecode,
   constructorArgs: z.array(z.unknown()),
   transactionHash: Hex,
   deployer: Address,

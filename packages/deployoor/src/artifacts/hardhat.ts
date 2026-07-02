@@ -2,7 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { z } from "zod";
 import { ArtifactsNotFound } from "../errors";
-import { AbiSchema, Hex } from "../schemas";
+import { AbiSchema, Bytecode } from "../schemas";
 import type { Artifact } from "../schemas";
 import { toArtifact, isDeployable, type LinkReferences } from "./parse";
 
@@ -15,7 +15,7 @@ const ArtifactFile = z.object({
   contractName: z.string(),
   sourceName: z.string(),
   abi: AbiSchema,
-  bytecode: Hex,
+  bytecode: Bytecode,
   linkReferences: LinkRefs.optional(),
 });
 const Dbg = z.object({ buildInfo: z.string() });
