@@ -1,6 +1,7 @@
 packages:
   - "packages/*"
   - "apps/*"
+  - "examples/*"
 
 # Self-contained catalog (no external monorepo dependency).
 catalog:

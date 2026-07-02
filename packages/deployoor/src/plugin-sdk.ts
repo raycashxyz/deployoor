@@ -7,9 +7,18 @@ export { definePlugin } from "./plugin";
 export type {
   DeployPlugin,
   DeployedContext,
+  DeployFailedContext,
   PluginDeps,
   Awaitable,
   AnyDeployPlugin,
   PluginOverrides,
 } from "./plugin";
 export type { DeploymentRecord, ContractMetadata } from "./schemas";
+export {
+  DeploymentChainMismatch,
+  DeploymentExists,
+  DeploymentFailed,
+  InvalidDeploymentRecord,
+  LibrariesUnlinked,
+  PluginFailed,
+} from "./errors";

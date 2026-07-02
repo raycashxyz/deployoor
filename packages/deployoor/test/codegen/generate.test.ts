@@ -39,4 +39,12 @@ describe("generate (codegen)", () => {
     expect(idx).toContain('export { getOrDeployCounter } from "./Counter";');
     expect(idx).not.toContain("export *");
   });
+
+  it("emits config-bound register and reset in the index", () => {
+    const idx = readFileSync(join(run(), "index.ts"), "utf8");
+    expect(idx).toContain('import { defineRegister, defineReset } from "deployoor";');
+    expect(idx).toContain('import config from "../deployoor.config";');
+    expect(idx).toContain("export const register = defineRegister(config);");
+    expect(idx).toContain("export const reset = defineReset(config);");
+  });
 });

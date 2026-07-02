@@ -4,6 +4,14 @@
   "private": false,
   "type": "module",
   "description": "Notify a Slack channel when deployoor deploys a contract.",
+  "keywords": [
+    "ethereum",
+    "evm",
+    "slack",
+    "notifications",
+    "deployments",
+    "smart-contracts"
+  ],
   "license": "MIT",
   "author": "Valerio Leo",
   "main": "./dist/index.cjs",

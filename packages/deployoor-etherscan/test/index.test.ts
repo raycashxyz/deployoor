@@ -24,6 +24,7 @@ const abi = [
 const args = [1_000_000n, "0x000000000000000000000000000000000000dEaD"] as const;
 
 const deployment: DeploymentRecord = {
+  schemaVersion: 1,
   contractName: "Token",
   deploymentName: "Token",
   address: "0x00000000000000000000000000000000000000c0",
@@ -155,7 +156,17 @@ describe("etherscan plugin", () => {
     await expect(run(plugin(), makeCtx(), deps)).rejects.toThrow(/verification failed/i);
   });
 
-  it("skips verification when the deployment was reused (no metadata)", async () => {
+  it("verifies a reused deployment when metadata is available", async () => {
+    const { deps, fetch } = makeDeps();
+    fetch.mockResolvedValueOnce(reply({ status: "1", result: "guid-1" }));
+    fetch.mockResolvedValueOnce(reply({ status: "1", result: "Pass - Verified" }));
+
+    await run(plugin(), makeCtx({ reused: true }), deps);
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("skips verification when no metadata is available", async () => {
     const { deps, fetch } = makeDeps();
     await run(plugin(), makeCtx({ reused: true, metadata: undefined }), deps);
     expect(fetch).not.toHaveBeenCalled();

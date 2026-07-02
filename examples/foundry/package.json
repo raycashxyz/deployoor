@@ -1,0 +1,21 @@
+{
+  "name": "@example/foundry",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "deployoor with a Foundry project: forge build → deployoor generate → deploy & test on an in-memory EVM.",
+  "scripts": {
+    "generate": "forge build && deployoor generate",
+    "e2e": "forge build && deployoor generate && vitest run"
+  },
+  "dependencies": {
+    "deployoor": "workspace:*",
+    "viem": "catalog:"
+  },
+  "devDependencies": {
+    "@deployoor/testing": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

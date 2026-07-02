@@ -1,0 +1,72 @@
+{
+  "name": "@deployoor/testing",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "description": "Test your deployoor deploys against a real in-memory EVM (tevm) exposed as viem clients — no local node, no RPC.",
+  "keywords": [
+    "ethereum",
+    "evm",
+    "viem",
+    "tevm",
+    "testing",
+    "smart-contracts",
+    "deployments"
+  ],
+  "license": "MIT",
+  "author": "Valerio Leo",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "deployoor": "*",
+    "viem": ">=2"
+  },
+  "dependencies": {
+    "tevm": "1.0.0-next.149"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "deployoor": "workspace:*",
+    "tsdown": "^0.22.3",
+    "typescript": "catalog:",
+    "unrun": "^0.3.1",
+    "viem": "catalog:",
+    "vitest": "catalog:"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/valerioleo/deployoor.git",
+    "directory": "packages/deployoor-testing"
+  },
+  "homepage": "https://github.com/valerioleo/deployoor/tree/main/packages/deployoor-testing#readme",
+  "bugs": {
+    "url": "https://github.com/valerioleo/deployoor/issues"
+  }
+}

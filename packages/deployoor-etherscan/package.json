@@ -4,6 +4,14 @@
   "private": false,
   "type": "module",
   "description": "Verify contracts on Etherscan (V2, all chains) when deployoor deploys them.",
+  "keywords": [
+    "ethereum",
+    "evm",
+    "etherscan",
+    "verification",
+    "deployments",
+    "smart-contracts"
+  ],
   "license": "MIT",
   "author": "Valerio Leo",
   "main": "./dist/index.cjs",

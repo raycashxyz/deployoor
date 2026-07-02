@@ -43,7 +43,13 @@ export const generate = (
       deployerModule(artifact, { packageName, configImport: opts.configImport }),
     );
   });
-  emit(join(opts.outDir, "index.ts"), indexModule(artifacts.map((a) => a.name)));
+  emit(
+    join(opts.outDir, "index.ts"),
+    indexModule(
+      artifacts.map((a) => a.name),
+      { packageName, configImport: opts.configImport },
+    ),
+  );
 
   return written;
 };

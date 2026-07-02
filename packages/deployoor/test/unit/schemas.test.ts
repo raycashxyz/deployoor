@@ -21,6 +21,7 @@ describe("DeploymentRecord schema", () => {
     const parsed = DeploymentRecord.parse(valid);
 
     expect(parsed.contractName).toBe("Token");
+    expect(parsed.schemaVersion).toBe(1);
     expect(parsed.kind).toBe("standard");
   });
 

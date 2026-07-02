@@ -67,6 +67,7 @@ export const Libraries = z.record(z.string(), Address);
 export type Libraries = Record<string, `0x${string}`>;
 
 export const DeploymentRecord = z.object({
+  schemaVersion: z.literal(1).default(1),
   contractName: z.string(),
   deploymentName: z.string(),
   address: Address,
@@ -80,13 +81,14 @@ export const DeploymentRecord = z.object({
   deployedAt: z.number().int(),
   compiler: z.object({ version: z.string(), settings: z.unknown().optional() }),
   libraries: Libraries.optional(),
-  kind: z.enum(["standard", "proxy"]).default("standard"),
+  kind: z.enum(["standard", "proxy", "external"]).default("standard"),
   implementation: Address.optional(),
 });
 // Explicit interface (not z.infer) for the type plugins and consumers import: a
 // documented, stable, bundle-safe public boundary. The Zod schema above validates
 // at runtime and its output is assignable to this.
 export interface DeploymentRecord {
+  readonly schemaVersion: 1;
   readonly contractName: string;
   readonly deploymentName: string;
   readonly address: `0x${string}`;
@@ -100,6 +102,6 @@ export interface DeploymentRecord {
   readonly deployedAt: number;
   readonly compiler: { readonly version: string; readonly settings?: unknown };
   readonly libraries?: Record<string, `0x${string}`>;
-  readonly kind: "standard" | "proxy";
+  readonly kind: "standard" | "proxy" | "external";
   readonly implementation?: `0x${string}`;
 }

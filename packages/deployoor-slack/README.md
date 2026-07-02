@@ -24,9 +24,11 @@ export default defineConfig({
 
 Every fresh deploy posts a message like:
 
-> **Token** deployed to `0x…c0` on base (chain 8453)
+> **Token** deployed to `0x…c0` on 8453-base (chain 8453)
 
-Reused deployments (no transaction) are skipped. A non-2xx webhook response throws, so it obeys the deployer's `onPluginError` policy — `"warn"` (default) logs and continues, `"throw"` fails the run.
+**Failed deploys are announced too** — the plugin's `onDeployFailed` hook posts a failure summary (contract, network, cause), so the deploy your team most wants to hear about doesn't go silent. Failure notifications are best-effort: a broken webhook never masks the original deploy error.
+
+Reused deployments (no transaction) are skipped. A non-2xx webhook response on a success notification throws, so it obeys the deployer's `onPluginError` policy — `"warn"` (default) logs and continues, `"throw"` fails the run.
 
 ## Options
 
@@ -35,6 +37,7 @@ slack({
   webhook: "https://hooks.slack.com/services/…", // required
   username: "deployoor-bot", // optional bot name
   format: (d) => `${d.contractName} live at ${d.address}`, // optional message builder
+  formatFailed: (f) => `${f.contractName} failed on ${f.networkName}`, // optional failure message builder
 });
 ```
 

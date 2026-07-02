@@ -34,10 +34,9 @@ const readJson = async (response: Response): Promise<unknown> => {
 
 /**
  * Verify deployed contracts on Sourcify v2 via standard-json-input. Sourcify is
- * keyless and the same host serves every supported chain. Runs on a fresh deploy
- * (a reused deployment carries no compiler metadata); submission is async, so it
- * polls the verification job until it settles. A failure throws, so it obeys the
- * deployer's `onPluginError` policy.
+ * keyless and the same host serves every supported chain. When a reused deployment
+ * still has artifact metadata, this hook can retry verification without forcing a
+ * redeploy; otherwise it skips.
  *
  * @example
  * ```ts
@@ -50,7 +49,7 @@ export const sourcify = (options: SourcifyOptions = {}) =>
   definePlugin<"sourcify", Record<string, never>>({
     name: "sourcify",
     onContractDeployed: async (ctx, { fetch, log }) => {
-      if (ctx.reused || ctx.metadata === undefined) return; // nothing freshly compiled to verify
+      if (ctx.metadata === undefined) return; // no compiler input available to verify
 
       const base = options.serverUrl ?? SOURCIFY_SERVER;
       const pollIntervalMs = options.pollIntervalMs ?? 2_000;

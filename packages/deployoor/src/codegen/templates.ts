@@ -37,5 +37,17 @@ import { ${artifactConstName(artifact.name)} } from "./types/${artifact.name}";
 export const getOrDeploy${artifact.name} = defineDeployer(${artifactConstName(artifact.name)}, config);
 `;
 
-export const indexModule = (names: ReadonlyArray<string>): string =>
-  `${AUTOGEN}\n${names.map((n) => `export { getOrDeploy${n} } from "./${n}";`).join("\n")}\n`;
+export const indexModule = (
+  names: ReadonlyArray<string>,
+  opts: { packageName: string; configImport: string },
+): string => `${AUTOGEN}
+import { defineRegister, defineReset } from "${opts.packageName}";
+import config from "${opts.configImport}";
+
+${names.map((n) => `export { getOrDeploy${n} } from "./${n}";`).join("\n")}
+
+// Record a contract you did not deploy (e.g. USDC), or forget recorded deployments —
+// both config-bound and scoped to the client's chain, like the generated deployers.
+export const register = defineRegister(config);
+export const reset = defineReset(config);
+`;

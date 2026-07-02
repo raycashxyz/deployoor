@@ -37,14 +37,34 @@ export class ArtifactsNotFound extends Data.TaggedError("ArtifactsNotFound")<{
   readonly dir: string;
 }> {
   override get message(): string {
-    return `No compiled artifacts found in ${this.dir}`;
+    return `No compiled artifacts found in ${this.dir}. Compile first with \`forge build\` or \`npx hardhat compile\`, then run \`deployoor generate\`.`;
   }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export class NoChainOnClient extends Data.TaggedError("NoChainOnClient")<{}> {
   override get message(): string {
-    return "The wallet client must have a chain and an account configured";
+    return "The viem client must have a chain configured (deploys also require an account)";
+  }
+}
+
+/** `register` refused to overwrite an existing deployed record (reset it first, or use a new name). */
+export class DeploymentExists extends Data.TaggedError("DeploymentExists")<{
+  readonly network: string;
+  readonly name: string;
+}> {
+  override get message(): string {
+    return `A deployment named "${this.name}" already exists on ${this.network}; register won't overwrite a deployed record. Reset it first, or register under a different name.`;
+  }
+}
+
+export class DeploymentChainMismatch extends Data.TaggedError("DeploymentChainMismatch")<{
+  readonly deploymentName: string;
+  readonly expectedChainId: number;
+  readonly actualChainId: number;
+}> {
+  override get message(): string {
+    return `Deployment "${this.deploymentName}" was recorded for chain ${this.actualChainId}, but the active client is on chain ${this.expectedChainId}.`;
   }
 }
 

@@ -2,7 +2,7 @@
 
 > A [`@wagmi/cli`](https://wagmi.sh/cli) plugin that sources contracts from a [deployoor](../deployoor) `deployments/` folder.
 
-[deployoor](../deployoor) deploys your contracts and records each one as `deployments/<network>/<Contract>.json`. This plugin reads that folder and hands the contracts to `@wagmi/cli`, which generates the ABIs, per-chain address maps, and framework bindings. You write addresses nowhere — they come from your own deploys.
+[deployoor](../deployoor) deploys your contracts and records each one as `deployments/<chainId>-<network>/<Contract>.json`. This plugin reads that folder and hands the contracts to `@wagmi/cli`, which generates the ABIs, per-chain address maps, and framework bindings. You write addresses nowhere — they come from your own deploys.
 
 ## Install
 
@@ -31,7 +31,7 @@ export default defineConfig({
 wagmi generate
 ```
 
-The same contract deployed to several chains is folded into a single entry whose `address` is a `{ [chainId]: address }` map — exactly the shape `@wagmi/cli` wants for multi-chain contracts.
+The same deployment name across chains is folded into a single entry whose `address` is a `{ [chainId]: address }` map — exactly the shape `@wagmi/cli` wants for multi-chain contracts. If records with the same deployment name have different ABIs, generation fails so you can give them distinct `deploymentName` values instead of silently getting the wrong type.
 
 ## API
 

@@ -1,0 +1,21 @@
+{
+  "name": "@example/hardhat",
+  "version": "0.0.0",
+  "private": true,
+  "description": "deployoor with a Hardhat project: hardhat compile → deployoor generate → deploy & test on an in-memory EVM.",
+  "scripts": {
+    "generate": "hardhat compile && deployoor generate",
+    "e2e": "hardhat compile && deployoor generate && vitest run"
+  },
+  "dependencies": {
+    "deployoor": "workspace:*",
+    "viem": "catalog:"
+  },
+  "devDependencies": {
+    "@deployoor/testing": "workspace:*",
+    "@types/node": "catalog:",
+    "hardhat": "^2.22.0",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
