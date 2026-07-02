@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": false,
   "type": "module",
+  "sideEffects": false,
   "description": "Hardhat plugin: regenerate deployoor's typed deployers automatically after every `hardhat compile`.",
   "keywords": [
     "ethereum",

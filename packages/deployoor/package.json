@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": false,
   "type": "module",
+  "sideEffects": false,
   "description": "viem-first contract deployment: deploy once, use contracts as typed objects.",
   "keywords": [
     "ethereum",
@@ -58,6 +59,12 @@
   "files": [
     "dist"
   ],
+  "typesVersions": {
+    "*": {
+      "plugin": ["./dist/plugin-sdk.d.mts"],
+      "generate": ["./dist/generate.d.mts"]
+    }
+  },
   "engines": {
     "node": ">=18"
   },

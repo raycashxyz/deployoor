@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": false,
   "type": "module",
+  "sideEffects": false,
   "description": "Tevm-native adapter primitives for running Zama FHEVM mock tests in an in-memory EVM.",
   "keywords": [
     "ethereum",
@@ -34,7 +35,7 @@
     "README.md"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "scripts": {
     "build": "tsdown",
@@ -42,15 +43,15 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "tevm": "1.0.0-next.149",
-    "viem": ">=2"
+    "viem": ">=2.49"
   },
   "dependencies": {
     "@fhevm/host-contracts": "0.10.0",
     "@fhevm/mock-utils": "^0.4.2",
     "@fhevm/solidity": "0.11.1",
     "@zama-fhe/relayer-sdk": "0.4.1",
-    "ethers": "^6.16.0"
+    "ethers": "^6.16.0",
+    "tevm": "1.0.0-next.149"
   },
   "devDependencies": {
     "@types/node": "catalog:",

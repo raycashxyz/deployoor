@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": false,
   "type": "module",
+  "sideEffects": false,
   "description": "Verify contracts on Sourcify (v2, keyless) when deployoor deploys them.",
   "keywords": [
     "ethereum",

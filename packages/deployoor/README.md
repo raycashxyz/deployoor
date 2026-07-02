@@ -51,6 +51,8 @@ npx deployoor generate   # reads artifacts, writes ./deployers
 
 `generate` auto-detects your project (`foundry.toml`/`out/` or `hardhat.config.*`/`artifacts/`), reads the artifacts, and writes a `deployers/` folder: one typed deployer per deployable contract, plus the typed artifacts. Deploy-time modules import `deployoor`; the committed records and downstream viem/wagmi app output stay portable.
 
+**TypeScript-first:** generated deployers are `.ts` files. The CLI and `deployoor.config.ts` work in any project, but run deploy scripts with `tsx`, Bun, or vitest — not bare `node`.
+
 Want to filter contracts, change folders, or add plugins? Edit `deployoor.config.ts`:
 
 ```ts
