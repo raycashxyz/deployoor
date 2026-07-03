@@ -49,6 +49,10 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Plugin tests import `deployoor/plugin`, which resolves via package exports to
+      # `dist/`. On Windows, turbo can schedule those tests before `deployoor#build`
+      # finishes when the full monorepo test graph runs in parallel.
+      - run: pnpm build
       - run: pnpm test
 
   # Fails a PR that changes a publishable package without a changeset.
