@@ -1,5 +1,11 @@
 # deployoor
 
+## 0.4.0
+
+### Minor Changes
+
+- 7913ff9: Point repository metadata at `raycashxyz/deployoor` after transferring the GitHub org.
+
 ## 0.3.0
 
 ### Minor Changes
