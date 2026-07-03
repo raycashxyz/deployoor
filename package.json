@@ -6,13 +6,13 @@
   "description": "viem-first contract deployment: deploy once, use contracts as typed objects.",
   "license": "MIT",
   "author": "Valerio Leo",
-  "homepage": "https://github.com/valerioleo/deployoor#readme",
+  "homepage": "https://github.com/raycashxyz/deployoor#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/valerioleo/deployoor.git"
+    "url": "git+https://github.com/raycashxyz/deployoor.git"
   },
   "bugs": {
-    "url": "https://github.com/valerioleo/deployoor/issues"
+    "url": "https://github.com/raycashxyz/deployoor/issues"
   },
   "packageManager": "pnpm@10.18.3",
   "engines": {

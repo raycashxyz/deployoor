@@ -100,11 +100,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/valerioleo/deployoor.git",
+    "url": "git+https://github.com/raycashxyz/deployoor.git",
     "directory": "packages/deployoor"
   },
-  "homepage": "https://github.com/valerioleo/deployoor/tree/main/packages/deployoor#readme",
+  "homepage": "https://github.com/raycashxyz/deployoor/tree/main/packages/deployoor#readme",
   "bugs": {
-    "url": "https://github.com/valerioleo/deployoor/issues"
+    "url": "https://github.com/raycashxyz/deployoor/issues"
   }
 }
