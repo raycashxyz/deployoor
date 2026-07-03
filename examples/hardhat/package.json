@@ -1,6 +1,6 @@
 {
   "name": "@example/hardhat",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "description": "deployoor on a Hardhat project: compile → auto-generate typed deployers → deploy, recorded to deployments/. Also tests on an in-memory EVM.",
   "scripts": {
