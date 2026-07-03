@@ -64,11 +64,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/valerioleo/deployoor.git",
+    "url": "git+https://github.com/raycashxyz/deployoor.git",
     "directory": "packages/deployoor-testing"
   },
-  "homepage": "https://github.com/valerioleo/deployoor/tree/main/packages/deployoor-testing#readme",
+  "homepage": "https://github.com/raycashxyz/deployoor/tree/main/packages/deployoor-testing#readme",
   "bugs": {
-    "url": "https://github.com/valerioleo/deployoor/issues"
+    "url": "https://github.com/raycashxyz/deployoor/issues"
   }
 }
