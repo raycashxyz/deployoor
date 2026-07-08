@@ -31,14 +31,11 @@ pnpm --filter @deployoor/docs preview
 5. **Framework preset:** Other
 6. Deploy, then add **deployoor.dev** under Settings → Domains
 
-### Option B — CLI (one-off deploy)
+### Option B — Deploy (GitHub Actions only)
 
-Requires access to the **raycash** Vercel team (`deployoor-docs` project).
+Docs deploy automatically on push to `main` when `apps/docs/` changes.
 
-```bash
-vercel login
-pnpm docs:deploy   # links raycash/deployoor-docs, then prebuilt deploy
-```
+Do **not** run local `pnpm docs:deploy` — use the GitHub Actions workflow (`.github/workflows/docs-deploy.yml`).
 
 Dashboard: [vercel.com/raycash/deployoor-docs](https://vercel.com/raycash/deployoor-docs)
 

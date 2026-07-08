@@ -4,7 +4,7 @@ export default defineConfig({
   title: "deployoor",
   description:
     "Quality-of-life for smart contract teams — simplify chain ops. Deploy once, use typed viem contract objects in your apps and tests. Hardhat and Foundry.",
-  baseUrl: "https://deployoor.dev",
+  baseUrl: "https://www.deployoor.dev",
   renderStrategy: "full-static",
   mcp: { enabled: false },
   accentColor: "light-dark(#111513, #BEF4BE)",

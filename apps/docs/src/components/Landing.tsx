@@ -1,75 +1,55 @@
-'use client';
+import { CopyBlock } from './CopyBlock';
 
-import { useCallback, useMemo, useState } from 'react';
-
-type PackageManager = 'pnpm' | 'yarn' | 'npm';
-type Toolchain = 'foundry' | 'hardhat';
-
-const INSTALL: Record<PackageManager, string> = {
-  pnpm: 'pnpm add -D deployoor viem tsx',
-  yarn: 'yarn add -D deployoor viem tsx',
-  npm: 'npm install -D deployoor viem tsx',
+type TabOption = {
+  id: string;
+  label: string;
+  code: string;
 };
 
-const GENERATE: Record<Toolchain, string> = {
-  foundry: 'forge build && npx deployoor generate',
-  hardhat: 'npx hardhat compile && npx deployoor generate',
-};
-
-const INIT = 'npx deployoor init';
-
-function TabBar<T extends string>({
-  tabs,
-  active,
-  onChange,
-}: {
-  tabs: readonly T[];
-  active: T;
-  onChange: (tab: T) => void;
-}) {
+function TabbedCommands({ name, label, options }: { name: string; label: string; options: TabOption[] }) {
   return (
-    <div className="landing-tabs" role="tablist">
-      {tabs.map((tab) => (
-        <button
-          key={tab}
-          type="button"
-          role="tab"
-          aria-selected={active === tab}
-          className={`landing-tab${active === tab ? ' landing-tab-active' : ''}`}
-          onClick={() => onChange(tab)}
-        >
-          {tab}
-        </button>
-      ))}
+    <div className="landing-command">
+      <span className="landing-command-label">{label}</span>
+      <div className="landing-tabgroup">
+        {options.map((option, index) => (
+          <input
+            key={option.id}
+            type="radio"
+            name={name}
+            id={option.id}
+            className="landing-tab-input"
+            defaultChecked={index === 0}
+          />
+        ))}
+        <div className="landing-tabs">
+          {options.map((option) => (
+            <label key={option.id} htmlFor={option.id} className="landing-tab">
+              {option.label}
+            </label>
+          ))}
+        </div>
+        {options.map((option) => (
+          <div key={option.id} className="landing-tab-panel" id={`panel-${option.id}`}>
+            <CopyBlock code={option.code} />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-function CopyBlock({ code }: { code: string }) {
-  const [copied, setCopied] = useState(false);
+const INSTALL_OPTIONS: TabOption[] = [
+  { id: 'install-pnpm', label: 'pnpm', code: 'pnpm add -D deployoor viem tsx' },
+  { id: 'install-yarn', label: 'yarn', code: 'yarn add -D deployoor viem tsx' },
+  { id: 'install-npm', label: 'npm', code: 'npm install -D deployoor viem tsx' },
+];
 
-  const copy = useCallback(async () => {
-    await navigator.clipboard.writeText(code);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 2000);
-  }, [code]);
-
-  return (
-    <button type="button" className="landing-command-row" onClick={copy}>
-      <code>{code}</code>
-      <span className="landing-command-action">{copied ? 'Copied' : 'Copy'}</span>
-    </button>
-  );
-}
-
+const GENERATE_OPTIONS: TabOption[] = [
+  { id: 'generate-foundry', label: 'foundry', code: 'forge build && npx deployoor generate' },
+  { id: 'generate-hardhat', label: 'hardhat', code: 'npx hardhat compile && npx deployoor generate' },
+];
 
 export function Landing() {
-  const [pkg, setPkg] = useState<PackageManager>('pnpm');
-  const [toolchain, setToolchain] = useState<Toolchain>('foundry');
-
-  const installCode = useMemo(() => INSTALL[pkg], [pkg]);
-  const generateCode = useMemo(() => GENERATE[toolchain], [toolchain]);
-
   return (
     <div className="landing">
       <div className="landing-hero">
@@ -83,22 +63,12 @@ export function Landing() {
       </p>
 
       <div className="landing-commands">
-        <div className="landing-command">
-          <span className="landing-command-label">Install</span>
-          <TabBar tabs={['pnpm', 'yarn', 'npm'] as const} active={pkg} onChange={setPkg} />
-          <CopyBlock code={installCode} />
-        </div>
-
+        <TabbedCommands name="install" label="Install" options={INSTALL_OPTIONS} />
         <div className="landing-command">
           <span className="landing-command-label">Init</span>
-          <CopyBlock code={INIT} />
+          <CopyBlock code="npx deployoor init" />
         </div>
-
-        <div className="landing-command">
-          <span className="landing-command-label">Generate</span>
-          <TabBar tabs={['foundry', 'hardhat'] as const} active={toolchain} onChange={setToolchain} />
-          <CopyBlock code={generateCode} />
-        </div>
+        <TabbedCommands name="generate" label="Generate" options={GENERATE_OPTIONS} />
       </div>
 
       <div className="landing-links">

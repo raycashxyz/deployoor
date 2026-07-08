@@ -93,6 +93,81 @@
   gap: 0.75rem;
   margin-bottom: 2rem;
   text-align: left;
+  position: relative;
+  z-index: 2;
+}
+
+.landing-tabgroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.landing-tab-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.landing-tabs {
+  display: flex;
+  gap: 0.25rem;
+  width: 100%;
+  margin-bottom: 0.5rem;
+  padding: 0.2rem;
+  border: 1px solid var(--deployoor-border);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--deployoor-fg) 4%, var(--deployoor-bg));
+}
+
+.landing-tab {
+  flex: 1;
+  display: block;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: var(--deployoor-fg);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  opacity: 0.65;
+  cursor: pointer;
+  text-align: center;
+  text-transform: lowercase;
+  transition: background 0.15s, opacity 0.15s;
+  user-select: none;
+}
+
+.landing-tab:hover {
+  opacity: 0.9;
+}
+
+.landing-tab-panel {
+  display: none;
+  width: 100%;
+}
+
+#install-pnpm:checked ~ .landing-tabs label[for='install-pnpm'],
+#install-yarn:checked ~ .landing-tabs label[for='install-yarn'],
+#install-npm:checked ~ .landing-tabs label[for='install-npm'],
+#generate-foundry:checked ~ .landing-tabs label[for='generate-foundry'],
+#generate-hardhat:checked ~ .landing-tabs label[for='generate-hardhat'] {
+  opacity: 1;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--deployoor-fg) 10%, var(--deployoor-bg));
+}
+
+#install-pnpm:checked ~ #panel-install-pnpm,
+#install-yarn:checked ~ #panel-install-yarn,
+#install-npm:checked ~ #panel-install-npm,
+#generate-foundry:checked ~ #panel-generate-foundry,
+#generate-hardhat:checked ~ #panel-generate-hardhat {
+  display: block;
 }
 
 .landing-command-label {
@@ -105,40 +180,10 @@
   opacity: 0.7;
 }
 
-.landing-tabs {
-  display: flex;
-  gap: 0.25rem;
-  margin-bottom: 0.5rem;
-  padding: 0.2rem;
-  border: 1px solid var(--deployoor-border);
-  border-radius: 0.5rem;
-  background: color-mix(in srgb, var(--deployoor-fg) 4%, var(--deployoor-bg));
-}
-
-.landing-tab {
-  flex: 1;
-  padding: 0.35rem 0.5rem;
-  border: none;
-  border-radius: 0.35rem;
-  background: transparent;
-  color: var(--deployoor-fg);
-  font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  opacity: 0.65;
-  cursor: pointer;
-  text-transform: lowercase;
-  transition: background 0.15s, opacity 0.15s;
-}
-
-.landing-tab:hover {
-  opacity: 0.9;
-}
-
-.landing-tab-active {
-  opacity: 1;
-  font-weight: 600;
-  background: color-mix(in srgb, var(--deployoor-fg) 10%, var(--deployoor-bg));
+/* Hide Vocs Ask AI UI site-wide */
+[data-v-ask-ai-container],
+[data-v-copy-for-ai] {
+  display: none !important;
 }
 
 /* Nav logo: favicon mark sizing */
