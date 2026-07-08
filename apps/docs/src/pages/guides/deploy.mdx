@@ -93,3 +93,20 @@ await getOrDeployMyContract({
 ```
 
 The library map is stored in the deployment record.
+
+## Multi-chain scripts
+
+Pass a different viem client pair per network in the same file. deployoor writes one record folder per chain.
+
+```ts
+import { baseSepolia, sepolia } from "viem/chains";
+import { getOrDeployPing, getOrDeployPong } from "../deployers";
+
+const { contract: ping } = await getOrDeployPing({ ...sepoliaClients, args: [lzEndpoint] });
+const { contract: pong } = await getOrDeployPong({ ...baseClients, args: [lzEndpoint] });
+
+await ping.write.setPeer([baseSepoliaEid, peerBytes32(pong.address)]);
+await pong.write.setPeer([sepoliaEid, peerBytes32(ping.address)]);
+```
+
+See the [multi-chain quickstart](/getting-started/quickstart#multi-chain-deploy-layerzero-ping--pong) and [`examples/multi-chain`](https://github.com/raycashxyz/deployoor/tree/main/examples/multi-chain) for a full LayerZero Ping/Pong deploy on Sepolia + Base Sepolia.

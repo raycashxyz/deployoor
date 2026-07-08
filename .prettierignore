@@ -5,6 +5,9 @@ pnpm-lock.yaml
 **/CHANGELOG.md
 **/*.d.ts
 **/test/fixtures/**
+examples/hardhat/cache
+examples/foundry/cache
+examples/multi-chain/cache
 examples/foundry/out
 examples/foundry/cache
 examples/foundry/broadcast
