@@ -1,0 +1,56 @@
+# Plugins
+
+Plugins are deploy-lifecycle hooks. A verifier, a Slack notification, and a gas report are all the same kind of thing — small named objects subscribed to hooks in the deploy pipeline.
+
+## Built-in plugins
+
+| Package                | Hook   | Purpose                            |
+| ---------------------- | ------ | ---------------------------------- |
+| `@deployoor/etherscan` | verify | Etherscan V2 (one key, all chains) |
+| `@deployoor/sourcify`  | verify | Sourcify v2 (keyless)              |
+| `@deployoor/slack`     | notify | Slack webhook on deploy            |
+
+```ts
+import { defineConfig } from "deployoor";
+import { etherscan } from "@deployoor/etherscan";
+import { sourcify } from "@deployoor/sourcify";
+import { slack } from "@deployoor/slack";
+
+export default defineConfig({
+  plugins: [
+    etherscan({ apiKey: process.env.ETHERSCAN_KEY! }),
+    sourcify(),
+    slack({ webhook: process.env.SLACK_HOOK! }),
+  ],
+});
+```
+
+By default a failing plugin **warns** and the deploy still records (the transaction already happened). Set `onPluginError: "throw"` to fail the run.
+
+## Author a plugin
+
+Plugins import only from `deployoor/plugin`:
+
+```ts
+import { definePlugin } from "deployoor/plugin";
+
+export const myPlugin = (opts: { url: string }) =>
+  definePlugin({
+    name: "my-plugin",
+    onContractDeployed: async (ctx, { fetch }) => {
+      await fetch(opts.url, {
+        method: "POST",
+        body: JSON.stringify({
+          contract: ctx.deployment.contractName,
+          address: ctx.deployment.address,
+        }),
+      });
+    },
+  });
+```
+
+Ship it as its own npm package that peer-depends on `deployoor`.
+
+## Hardhat plugin (not a lifecycle plugin)
+
+[`@deployoor/hardhat`](/packages) is different — it hooks `hardhat compile` to run `deployoor generate` automatically. It imports `deployoor/generate`, not `deployoor/plugin`.

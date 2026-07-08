@@ -1,0 +1,32 @@
+# TEVM
+
+We love [TEVM](https://tevm.sh). Full first-class tevm support — forks, fixtures, broader deploy targets — is on the roadmap.
+
+Today you can already run your generated deployers against an **in-memory TEVM** via [`@deployoor/testing`](/guides/testing). No Hardhat network, no anvil, no disk writes — tests run like plain TypeScript scripts.
+
+## What's coming
+
+- Forked mainnet state and snapshot fixtures as supported deploy/test targets
+- Deeper tevm integration beyond the in-memory path `@deployoor/testing` proves today
+
+## What works now
+
+```bash
+pnpm add -D @deployoor/testing vitest
+```
+
+```ts
+import { test, expect } from "vitest";
+import { createTestClients } from "@deployoor/testing";
+import { getOrDeployCounter } from "../deployers";
+
+test("increment", async () => {
+  const clients = await createTestClients();
+  const { contract: counter } = await getOrDeployCounter({ ...clients, args: [0n] });
+
+  await counter.write.increment();
+  expect(await counter.read.number()).toBe(1n);
+});
+```
+
+`createTestClients()` spins up a TEVM-backed in-memory chain and passes it to your deployers — the same `getOrDeploy` functions you use in deploy scripts.

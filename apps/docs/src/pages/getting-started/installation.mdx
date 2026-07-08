@@ -1,0 +1,42 @@
+# Installation
+
+## Requirements
+
+- **Node.js ≥ 18** for the core `deployoor` package and plugins
+- **Node.js ≥ 20** for `@deployoor/testing` (tevm dependency)
+- A compiled Solidity project — **Hardhat** (`artifacts/`) or **Foundry** (`out/`)
+
+Generated deployers are **TypeScript** (`.ts`). Run deploy scripts with `tsx`, Bun, or vitest — not bare `node`.
+
+## Install deployoor
+
+```bash
+pnpm add -D deployoor viem tsx
+# or
+npm install -D deployoor viem tsx
+```
+
+`viem` is a peer dependency — you bring your own version (≥ 2).
+
+## Scaffold config
+
+```bash
+npx deployoor init
+```
+
+This writes `deployoor.config.ts` if it does not exist.
+
+## Optional packages
+
+| Package                           | Install when…                                               |
+| --------------------------------- | ----------------------------------------------------------- |
+| `@deployoor/hardhat`              | You want deployers to regenerate on every `hardhat compile` |
+| `@deployoor/wagmi` + `@wagmi/cli` | You want typed React hooks from `deployments/`              |
+| `@deployoor/etherscan`            | You want explorer verification on deploy                    |
+| `@deployoor/sourcify`             | You want Sourcify verification (keyless)                    |
+| `@deployoor/slack`                | You want Slack notifications on deploy                      |
+| `@deployoor/testing`              | You want in-memory EVM tests without a local node           |
+
+```bash
+pnpm add -D @deployoor/etherscan @deployoor/wagmi @wagmi/cli @deployoor/testing
+```

@@ -1,0 +1,94 @@
+# Consume in your app
+
+After you deploy, your `deployments/` folder is the source of truth. The easiest way to consume it in a frontend or backend is [`@wagmi/cli`](https://wagmi.sh/cli) with the [`@deployoor/wagmi`](/packages) plugin — typed contract access for **React** and **vanilla JavaScript**, generated from your records.
+
+No manual address maps. No copy-pasted ABIs. Run `wagmi generate` whenever deployments change.
+
+## Setup
+
+```bash
+pnpm add -D @deployoor/wagmi @wagmi/cli
+```
+
+```ts
+// wagmi.config.ts
+import { defineConfig } from "@wagmi/cli";
+import { deployments } from "@deployoor/wagmi";
+import { react } from "@wagmi/cli/plugins"; // or actions() for vanilla JS
+
+export default defineConfig({
+  out: "src/generated.ts",
+  plugins: [
+    deployments({ path: "./deployments" }),
+    react(), // use actions() instead for non-React apps
+  ],
+});
+```
+
+```bash
+wagmi generate
+```
+
+The plugin reads your deployoor records and feeds `@wagmi/cli`. The same deployment name across chains becomes one entry with an `address` map keyed by `chainId`. Mismatched ABIs for the same name fail at generation time — fix with distinct `deploymentName` values in your deploy script.
+
+## React
+
+Use the `react()` plugin to generate hooks:
+
+```ts
+// wagmi.config.ts
+import { react } from "@wagmi/cli/plugins";
+
+export default defineConfig({
+  out: "src/generated.ts",
+  plugins: [deployments({ path: "./deployments" }), react()],
+});
+```
+
+```tsx
+import { useReadCounter, useWriteCounter } from "./generated";
+
+function Counter() {
+  const { data: number } = useReadCounter();
+  const { writeContract } = useWriteCounter();
+
+  return (
+    <button type="button" onClick={() => writeContract({ functionName: "increment" })}>
+      {number?.toString() ?? "—"}
+    </button>
+  );
+}
+```
+
+## Vanilla JavaScript / TypeScript
+
+Use the `actions()` plugin for framework-agnostic helpers — `readContract`, `writeContract`, `simulateContract`, and friends — without React:
+
+```ts
+// wagmi.config.ts
+import { actions } from "@wagmi/cli/plugins";
+
+export default defineConfig({
+  out: "src/generated.ts",
+  plugins: [deployments({ path: "./deployments" }), actions()],
+});
+```
+
+```ts
+import { readCounter, writeCounter } from "./generated";
+import { createPublicClient, createWalletClient, http } from "viem";
+
+const publicClient = createPublicClient({ chain, transport: http() });
+const walletClient = createWalletClient({ account, chain, transport: http() });
+
+const number = await readCounter(publicClient);
+await writeCounter(walletClient, { functionName: "increment" });
+```
+
+## Workflow
+
+1. Deploy with deployoor → `deployments/` updates in your repo.
+2. Run `wagmi generate` → `src/generated.ts` reflects the latest addresses and ABIs.
+3. Import from generated code in your app — React hooks or vanilla actions, same records underneath.
+
+Commit both `deployments/` and your generated output (or regenerate in CI before build).

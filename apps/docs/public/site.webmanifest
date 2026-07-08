@@ -1,0 +1,21 @@
+{
+  "name": "deployoor",
+  "short_name": "deployoor",
+  "description": "Quality-of-life for smart contract teams.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#BEF4BE",
+  "theme_color": "#111513",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

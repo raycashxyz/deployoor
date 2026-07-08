@@ -1,0 +1,49 @@
+# Packages
+
+## Core
+
+### [`deployoor`](https://www.npmjs.com/package/deployoor)
+
+Deploy engine, codegen, and CLI (`init`, `generate`). Reads Hardhat/Foundry artifacts, emits typed deployers, records deploys to `deployments/`.
+
+Exports: `deployoor`, `deployoor/plugin`, `deployoor/generate`.
+
+## Plugins
+
+Lifecycle hooks — each peer-depends on `deployoor` and imports only `deployoor/plugin`.
+
+| Package                | npm                                                       | Description                                     |
+| ---------------------- | --------------------------------------------------------- | ----------------------------------------------- |
+| `@deployoor/etherscan` | [npm](https://www.npmjs.com/package/@deployoor/etherscan) | Etherscan V2 verification (one key, all chains) |
+| `@deployoor/sourcify`  | [npm](https://www.npmjs.com/package/@deployoor/sourcify)  | Sourcify v2 verification (keyless)              |
+| `@deployoor/slack`     | [npm](https://www.npmjs.com/package/@deployoor/slack)     | Slack notifications on deploy                   |
+
+## Toolchain & consumption
+
+| Package              | npm                                                     | Description                                               |
+| -------------------- | ------------------------------------------------------- | --------------------------------------------------------- |
+| `@deployoor/hardhat` | [npm](https://www.npmjs.com/package/@deployoor/hardhat) | Auto-regenerate deployers on `hardhat compile`            |
+| `@deployoor/wagmi`   | [npm](https://www.npmjs.com/package/@deployoor/wagmi)   | `@wagmi/cli` plugin sourcing from `deployments/`          |
+| `@deployoor/testing` | [npm](https://www.npmjs.com/package/@deployoor/testing) | `createTestClients()` — in-memory EVM + store (Node ≥ 20) |
+
+## Ecosystem
+
+### [`fhevm-tevm-mocks`](https://www.npmjs.com/package/fhevm-tevm-mocks)
+
+Separate from the deploy core — Tevm-native adapter for Zama FHEVM mock tests. Wires FHE host contracts and relayer handlers into a Tevm instance you own.
+
+## Install matrix
+
+```bash
+# minimum
+pnpm add -D deployoor viem
+
+# hardhat auto-generate
+pnpm add -D @deployoor/hardhat deployoor viem
+
+# wagmi consumption
+pnpm add -D @deployoor/wagmi @wagmi/cli
+
+# testing
+pnpm add -D @deployoor/testing vitest
+```

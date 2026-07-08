@@ -3,10 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "viem-first contract deployment: deploy once, use contracts as typed objects.",
+  "description": "Quality-of-life for smart contract teams — deploy once, use typed viem contract objects in apps and tests.",
   "license": "MIT",
   "author": "Valerio Leo",
-  "homepage": "https://github.com/raycashxyz/deployoor#readme",
+  "homepage": "https://deployoor.dev",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/raycashxyz/deployoor.git"
@@ -25,6 +25,11 @@
     "lint": "oxlint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "docs:dev": "pnpm --filter @deployoor/docs dev",
+    "docs:build": "pnpm --filter @deployoor/docs build",
+    "docs:deploy": "bash apps/docs/scripts/deploy-vercel.sh",
+    "brand:assets": "node scripts/process-brand-assets.mjs",
+    "demo:record": "bash scripts/demo/record.sh",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "turbo run build && changeset publish"
@@ -32,8 +37,15 @@
   "devDependencies": {
     "@changesets/cli": "^2.31.0",
     "oxlint": "^1.71.0",
+    "png-to-ico": "^2.1.8",
     "prettier": "^3.9.1",
+    "sharp": "^0.34.3",
     "turbo": "^2.10.0",
     "typescript": "^5.9.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "es-module-lexer": "2.3.0"
+    }
   }
 }

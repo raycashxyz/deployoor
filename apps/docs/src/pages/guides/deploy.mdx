@@ -1,0 +1,95 @@
+# Deploy scripts
+
+Generated deployers are plain async functions. Pass viem clients and constructor args — nothing else is required.
+
+## Basic deploy
+
+```ts
+import { getOrDeployToken } from "../deployers";
+
+const { contract: token } = await getOrDeployToken({
+  walletClient,
+  publicClient,
+  args: [owner],
+});
+```
+
+`walletClient` is any viem `WalletClient` — local key, injected wallet, Ledger, Privy, Turnkey, etc. deployoor only sees viem clients.
+
+## Return value
+
+```ts
+const { contract, freshDeploy, receipt, deployment } = await getOrDeployToken({ ... });
+```
+
+| Field         | Description                                                  |
+| ------------- | ------------------------------------------------------------ |
+| `contract`    | Typed viem contract — `contract.read.*` / `contract.write.*` |
+| `freshDeploy` | `true` only when this call broadcast a deploy transaction    |
+| `receipt`     | Deploy receipt (present only on fresh deploy)                |
+| `deployment`  | Full `DeploymentRecord` written to disk                      |
+
+Gate one-time setup on `freshDeploy`:
+
+```ts
+if (freshDeploy) await token.write.initialize([owner]);
+```
+
+## Force redeploy
+
+```ts
+await getOrDeployToken({ ...clients, args: [owner], force: true });
+```
+
+## Multiple instances
+
+Pass `deploymentName` to track several deployments of the same contract:
+
+```ts
+await getOrDeployVault({ ...clients, args: [usdc], deploymentName: "Vault_USDC" });
+await getOrDeployVault({ ...clients, args: [dai], deploymentName: "Vault_DAI" });
+```
+
+Defaults to the contract name.
+
+## Register external contracts
+
+Record a contract you did not deploy (e.g. USDC) with no transaction:
+
+```ts
+import { register } from "../deployers";
+
+const { contract: usdc } = await register({
+  publicClient,
+  deploymentName: "USDC",
+  address: "0x…",
+  abi: usdcAbi,
+});
+```
+
+`register` will not overwrite a real deployment at the same name — `reset` first or use a different `deploymentName`.
+
+## Reset records
+
+Forget local records so the next `getOrDeploy` redeploys. Needs only a `publicClient`:
+
+```ts
+import { reset } from "../deployers";
+
+await reset({ publicClient, deploymentName: "Token" });
+// omit deploymentName to forget all records on this chain
+```
+
+## Library-linked contracts
+
+For contracts with solc library placeholders, pass the library address map at deploy time:
+
+```ts
+await getOrDeployMyContract({
+  ...clients,
+  args: [...],
+  libraries: { MyLib: "0x…" },
+});
+```
+
+The library map is stored in the deployment record.

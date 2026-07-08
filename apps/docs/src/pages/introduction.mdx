@@ -1,0 +1,33 @@
+# Introduction
+
+**Simplify your team's chain ops.**
+
+Deploy once. Use typed viem contract objects in your apps, scripts, and tests — one source of truth across every network you ship to.
+
+## Why we built this
+
+deployoor exists to make **chain ops** less painful for smart contract teams — the recurring work of deploying contracts, tracking what's live where, and keeping your codebase in sync with on-chain reality.
+
+The days of one contract on one network are over. You push fresh builds to testnet, promote new versions to production, and run the same protocol on multiple chains. Modern projects mean many contracts, many networks, and many releases — but most deployment tooling still behaves like it's 2019.
+
+We tried everything. Each path was strong in one place and fell short somewhere we cared about. In the **Hardhat** world, deploy flows tend to live inside the framework — fine for broadcasting transactions, awkward for handing typed, portable contract access to your app, CI, and frontend. In the **Foundry** world, scripting and artifacts are excellent — but there's no shared, git-committed record your whole stack can import without writing the glue yourself.
+
+deployoor is the chain-ops layer we wanted:
+
+- **One source of truth** — every deployment recorded as plain JSON in your repo: mainnet, testnet, local dev nodes, and in-memory chains for your test suite.
+- **Environment-agnostic scripts** — plain TypeScript you run like any Node file (`tsx scripts/deploy.ts`). Bring your own RPC and signer; deployoor writes the record.
+- **Idempotent by default** — run a deploy script twice; contracts already on-chain are reused, not redeployed.
+- **The same deployers in tests** — write integration tests in JavaScript or TypeScript and call the identical functions from your favourite test runner.
+
+Your team stops copying addresses. Your chain ops get boring — in the best way.
+
+## How it works
+
+```
+compile → generate deployers → deploy → record → typed viem object everywhere
+```
+
+1. **Compile** with Hardhat or Foundry — deployoor reads your artifacts.
+2. **Generate** typed `getOrDeploy<Name>` functions into `./deployers/`.
+3. **Deploy** with a plain TypeScript script — each run records to `deployments/<chainId>-<network>/`.
+4. **Use** the result immediately: every `getOrDeploy` call returns a **typed viem contract object** (`contract.read.*`, `contract.write.*`) — in deploy scripts, in your app via [`@wagmi/cli`](/guides/consumption), and in tests via [`@deployoor/testing`](/guides/testing).

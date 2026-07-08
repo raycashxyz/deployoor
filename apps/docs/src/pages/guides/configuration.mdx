@@ -1,0 +1,75 @@
+# Configuration
+
+Config lives in `deployoor.config.ts` at your project root. Every field is optional.
+
+```ts
+import { defineConfig } from "deployoor";
+import { etherscan } from "@deployoor/etherscan";
+import { slack } from "@deployoor/slack";
+
+export default defineConfig({
+  include: ["Token", "Vault"], // default: every contract with bytecode
+  out: "./deployers", // generated deployers output
+  deploymentsPath: "./deployments", // deployment records
+  plugins: [etherscan({ apiKey: process.env.ETHERSCAN_KEY! }), slack({ webhook: process.env.SLACK_HOOK! })],
+  onPluginError: "warn", // "warn" (default) or "throw"
+});
+```
+
+## Options
+
+| Option            | Default                  | Description                             |
+| ----------------- | ------------------------ | --------------------------------------- |
+| `include`         | all deployable contracts | Filter by contract name                 |
+| `out`             | `./deployers`            | Where typed deployers are written       |
+| `deploymentsPath` | `./deployments`          | Where JSON records are read/written     |
+| `plugins`         | `[]`                     | Deploy-lifecycle hooks                  |
+| `onPluginError`   | `"warn"`                 | `"throw"` fails the run on plugin error |
+
+`defineConfig` is typed via `import { defineConfig } from "deployoor"`. If a name in `include` matches nothing after compile, `deployoor generate` warns (typo or missing artifact).
+
+## Generated output
+
+`deployoor generate` writes, per contract:
+
+- `getOrDeploy<Name>` — idempotent deployer returning a typed viem contract object
+- Typed artifact module under `deployers/types/`
+- Project-level `register` and `reset` bound to your config
+
+## Per-deploy plugin overrides
+
+Skip or customize plugins for a single deploy:
+
+```ts
+await getOrDeployVault({
+  ...clients,
+  args: [token.address],
+  plugins: { etherscan: false },
+});
+```
+
+In tests, disable verifiers and notifiers:
+
+```ts
+await getOrDeployToken({
+  ...clients,
+  args: [owner],
+  plugins: { slack: false, etherscan: false },
+});
+```
+
+## In-memory store (tests)
+
+Pass a store override to keep deploys off disk:
+
+```ts
+import { memoryStore } from "deployoor";
+
+await getOrDeployToken({
+  ...clients,
+  args: [owner],
+  store: memoryStore(),
+});
+```
+
+`@deployoor/testing`'s `createTestClients()` passes an in-memory store automatically when you spread `clients`.

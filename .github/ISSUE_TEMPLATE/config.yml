@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & ideas
+    url: https://github.com/raycashxyz/deployoor/discussions
+    about: Ask questions, share projects, or discuss roadmap — prefer Discussions for open-ended topics
+  - name: Documentation
+    url: https://deployoor.dev
+    about: Guides and API reference

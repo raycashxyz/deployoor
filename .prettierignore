@@ -5,3 +5,13 @@ pnpm-lock.yaml
 **/CHANGELOG.md
 **/*.d.ts
 **/test/fixtures/**
+examples/foundry/out
+examples/foundry/cache
+examples/foundry/broadcast
+examples/foundry/deployers
+examples/hardhat/artifacts
+examples/hardhat/cache
+examples/hardhat/deployers
+apps/docs/dist
+apps/docs/.waku
+apps/docs/.vercel

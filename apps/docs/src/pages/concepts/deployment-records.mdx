@@ -1,0 +1,53 @@
+# Deployment records
+
+Every deploy writes a JSON file to `deployments/<chainId>-<network>/<deploymentName>.json`. This folder is the product — committed to git, readable by humans and any tool.
+
+## Layout
+
+```
+deployments/
+├─ 11155111-sepolia/
+│  ├─ Token.json
+│  └─ Vault.json
+└─ 8453-base/
+   └─ Token.json
+```
+
+The folder key is `chainId` plus a slugged chain name (e.g. viem's "Arbitrum One" → `42161-arbitrum-one`). This prevents name collisions across chains.
+
+## Record shape
+
+```jsonc
+{
+  "schemaVersion": 1,
+  "contractName": "Token",
+  "deploymentName": "Token",
+  "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+  "chainId": 11155111,
+  "networkName": "11155111-sepolia",
+  "abi": [/* full ABI */],
+  "bytecode": "0x60806040...",
+  "constructorArgs": ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"],
+  "transactionHash": "0x2c9a...d4e1",
+  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "deployedAt": 1719849600000,
+  "compiler": {
+    "version": "0.8.24+commit.e11b9ed9",
+    "settings": { "optimizer": { "enabled": true, "runs": 200 } },
+  },
+  "kind": "standard",
+}
+```
+
+- `bigint` constructor args are stored as **strings** — plain, greppable JSON
+- `kind: "external"` for contracts recorded via `register` (not deployed by you)
+- `schemaVersion: 1` — format changes will be versioned and documented
+
+## Portability
+
+Records are vanilla JSON with no superjson or proprietary encoding. A Python, Go, or Rust service reads them the same way TypeScript does. Your app does not need deployoor at runtime.
+
+## Filesystem guarantees
+
+- **Atomic writes** — records are written atomically under a coarse lock
+- **Chain ID guard** — reusing a record on the wrong chain fails with a clear error

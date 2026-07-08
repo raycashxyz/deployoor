@@ -1,0 +1,24 @@
+# Idempotent deploys
+
+`getOrDeploy` declares desired state: _this contract should exist on this network._
+
+## Behavior
+
+| Call            | Result                                                              |
+| --------------- | ------------------------------------------------------------------- |
+| First call      | Deploys, records to `deployments/`, returns `freshDeploy: true`     |
+| Later calls     | Returns existing contract, **no transaction**, `freshDeploy: false` |
+| `force: true`   | Redeploys intentionally, new address and tx                         |
+| After `reset()` | Next call deploys again                                             |
+
+You never branch on "did it already exist?" to get your contract — destructure `contract` from the result. Use `freshDeploy` only for one-time setup.
+
+## Stale bytecode warning
+
+If compiled bytecode or constructor args change but a record exists, deployoor **warns** and reuses the recorded deployment (no surprise address churn). Use `force: true` to redeploy, or `reset()` to forget the record first.
+
+An opt-in bytecode-diff redeploy policy is planned.
+
+## External vs deployed
+
+`register` records an address you did not deploy. It will not overwrite a real deployment at the same `(chain, deploymentName)` — reset first or pick a different name.

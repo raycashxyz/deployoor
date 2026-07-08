@@ -1,0 +1,55 @@
+# CLI
+
+```bash
+npx deployoor <command>
+```
+
+## Commands
+
+### `init`
+
+Scaffold `deployoor.config.ts` if absent. Does not install packages.
+
+```bash
+npx deployoor init
+```
+
+### `generate`
+
+Read compiled artifacts and write typed deployers to `./deployers` (or your configured `out` path).
+
+```bash
+forge build && npx deployoor generate
+# or
+npx hardhat compile && npx deployoor generate
+```
+
+Output:
+
+```
+deployoor: generated 3 file(s)
+```
+
+## Flags
+
+```
+usage: deployoor <command>
+
+Commands:
+  init       write deployoor.config.ts
+  generate   read compiled artifacts and write typed deployers
+
+Options:
+  -h, --help     show this help
+  -v, --version  show deployoor version
+```
+
+## Programmatic generate
+
+For build-tool integration (e.g. `@deployoor/hardhat`):
+
+```ts
+import { generateDeployers } from "deployoor/generate";
+
+const files = await generateDeployers({ root: process.cwd() });
+```
