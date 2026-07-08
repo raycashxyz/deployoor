@@ -1,14 +1,16 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { copyText } from '../lib/copy-text';
 
 export function CopyBlock({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
 
-  const copy = useCallback(async () => {
-    await navigator.clipboard.writeText(code);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 2000);
+  const copy = useCallback(() => {
+    void copyText(code).then(() => {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    });
   }, [code]);
 
   return (
