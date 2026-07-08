@@ -1,0 +1,20 @@
+{
+  "name": "@example/multi-chain",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Multi-chain deploy script: Ping on Sepolia and Pong on Base Sepolia, wired as LayerZero peers.",
+  "scripts": {
+    "generate": "pnpm --filter deployoor build && forge build && pnpm exec deployoor generate",
+    "deploy": "tsx --env-file-if-exists=.env scripts/deploy.ts"
+  },
+  "dependencies": {
+    "deployoor": "workspace:*",
+    "viem": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "^4.22.4",
+    "typescript": "catalog:"
+  }
+}

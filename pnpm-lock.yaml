@@ -135,6 +135,25 @@ importers:
         specifier: 'catalog:'
         version: 4.1.9(@types/node@22.20.0)(vite@8.1.3(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))
 
+  examples/multi-chain:
+    dependencies:
+      deployoor:
+        specifier: workspace:*
+        version: link:../../packages/deployoor
+      viem:
+        specifier: 'catalog:'
+        version: 2.44.2(typescript@5.9.3)(zod@4.4.3)
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.0
+      tsx:
+        specifier: ^4.22.4
+        version: 4.22.4
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
   packages/deployoor:
     dependencies:
       effect:

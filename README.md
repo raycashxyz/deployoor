@@ -99,7 +99,48 @@ if (freshDeploy) await token.write.initialize([owner]); // one-time setup, only 
 await token.write.transfer([to, amount]);
 ```
 
-Running it writes one record per contract — this is your committed source of truth:
+### Multi-chain (Sepolia + Base Sepolia)
+
+One script, two viem clients — deploy **Ping** on Sepolia and **Pong** on Base Sepolia, then wire them as [LayerZero](https://layerzero.network/) peers. Each `getOrDeploy` call takes its own `walletClient` / `publicClient`; deployoor writes a separate record per chain.
+
+```ts
+// scripts/deploy-ping-pong.ts — see examples/multi-chain/
+import { createPublicClient, createWalletClient, http, pad, type Address } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { baseSepolia, sepolia } from "viem/chains";
+import { getOrDeployPing, getOrDeployPong } from "../deployers";
+
+const LZ_ENDPOINT = "0x6EDCE65408990e3A38e31dE08b74da7D5258d898";
+const LZ_EID = { sepolia: 40_161, baseSepolia: 40_245 } as const;
+
+function clientsFor(chain: typeof sepolia, rpcUrl: string, privateKey: `0x${string}`) {
+  const account = privateKeyToAccount(privateKey);
+  const transport = http(rpcUrl);
+  return {
+    walletClient: createWalletClient({ account, chain, transport }),
+    publicClient: createPublicClient({ chain, transport }),
+  };
+}
+
+const key = process.env.PRIVATE_KEY as `0x${string}`;
+const sepoliaClients = clientsFor(sepolia, process.env.SEPOLIA_RPC_URL!, key);
+const baseClients = clientsFor(baseSepolia, process.env.BASE_SEPOLIA_RPC_URL!, key);
+
+const { contract: ping } = await getOrDeployPing({ ...sepoliaClients, args: [LZ_ENDPOINT] });
+const { contract: pong } = await getOrDeployPong({ ...baseClients, args: [LZ_ENDPOINT] });
+
+const peer = (addr: Address) => pad(addr, { size: 32 });
+await ping.write.setPeer([LZ_EID.baseSepolia, peer(pong.address)]);
+await pong.write.setPeer([LZ_EID.sepolia, peer(ping.address)]);
+```
+
+```bash
+tsx --env-file=.env scripts/deploy-ping-pong.ts
+```
+
+Full runnable example: [`examples/multi-chain/`](examples/multi-chain/).
+
+Running a single-chain deploy writes one record per contract — this is your committed source of truth:
 
 ```
 deployments/
@@ -130,7 +171,7 @@ deployments/
 }
 ```
 
-Deploy more contracts, or to more networks, and you get `deployments/11155111-sepolia/Vault.json`, `deployments/8453-base/Token.json`, and so on — one file per (chain, contract). The folder key is the chain id plus a slugged chain name, so viem display names like "Arbitrum One" become filesystem-safe and cannot collide by name alone. That folder is what your app (or `@deployoor/wagmi`) reads. `bigint` args are stored as strings, so the file is plain, greppable JSON.
+Deploy more contracts, or to more networks, and you get `deployments/11155111-sepolia/Vault.json`, `deployments/84532-base-sepolia/Pong.json`, and so on — one file per (chain, contract). The folder key is the chain id plus a slugged chain name, so viem display names like "Arbitrum One" become filesystem-safe and cannot collide by name alone. That folder is what your app (or `@deployoor/wagmi`) reads. `bigint` args are stored as strings, so the file is plain, greppable JSON.
 
 `deployoor generate` reads your artifacts and emits one typed `getOrDeploy<Name>` per contract. Config lives in `deployoor.config.ts`. Plugins are deploy-lifecycle hooks authored against the `deployoor/plugin` SDK.
 
