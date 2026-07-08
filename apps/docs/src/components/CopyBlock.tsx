@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useCallback, useState } from 'react';
-import { copyText } from '../lib/copy-text';
+import { useCallback, useState } from "react";
+import { copyText } from "../lib/copy-text";
 
 export function CopyBlock({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
@@ -16,7 +16,7 @@ export function CopyBlock({ code }: { code: string }) {
   return (
     <button type="button" className="landing-command-row" onClick={copy}>
       <code>{code}</code>
-      <span className="landing-command-action">{copied ? 'Copied' : 'Copy'}</span>
+      <span className="landing-command-action">{copied ? "Copied" : "Copy"}</span>
     </button>
   );
 }

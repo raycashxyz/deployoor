@@ -8,11 +8,11 @@ deployoor reads Foundry `out/` artifacts and `out/build-info/` for compiler meta
 forge build && npx deployoor generate
 ```
 
-| Input            | Location                    |
-| ---------------- | --------------------------- |
-| Compiled artifacts | `out/`                    |
-| Build info       | `out/build-info/`           |
-| Config file      | `foundry.toml`              |
+| Input              | Location          |
+| ------------------ | ----------------- |
+| Compiled artifacts | `out/`            |
+| Build info         | `out/build-info/` |
+| Config file        | `foundry.toml`    |
 
 There is no Foundry plugin today — run `deployoor generate` after `forge build`, or add it to your `package.json` scripts / CI.
 

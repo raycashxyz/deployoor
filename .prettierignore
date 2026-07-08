@@ -14,3 +14,4 @@ examples/hardhat/cache
 examples/hardhat/deployers
 apps/docs/dist
 apps/docs/.waku
+apps/docs/.vercel

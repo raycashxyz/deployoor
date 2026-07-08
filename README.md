@@ -15,7 +15,6 @@ Hardhat and Foundry. Idempotent deploys, plain-JSON records, zero lock-in.
 
 </div>
 
-
 ![deployoor demo](assets/brand/dist/demo-sm.gif)
 
 ---
@@ -221,11 +220,11 @@ Grouped **done → in progress → planned → backlog**. _In progress_ is activ
 | Deploy  | Atomic record writes, deploy lock, chainId record identity + mismatch guard    | Done        |
 | Stores  | Pluggable `StoreAdapter` + in-memory store                                     | Done        |
 | Verify  | Etherscan V2 + Sourcify                                                        | Done        |
-| Testing | `@deployoor/testing` — same deployers on tevm, in-memory EVM, no node       | Done        |
+| Testing | `@deployoor/testing` — same deployers on tevm, in-memory EVM, no node          | Done        |
 | DX      | `@deployoor/wagmi` bridge, plugin SDK + Slack, Hardhat/Foundry examples        | Done        |
 | Deploy  | Richer `getOrDeploy` return (`{ contract, freshDeploy, receipt, deployment }`) | Done        |
 | DX      | `@deployoor/hardhat` — auto-generate deployers on `hardhat compile`            | Done        |
-| Testing | First-class tevm targets (forks, fixtures, CI — beyond in-memory today)       | Planned     |
+| Testing | First-class tevm targets (forks, fixtures, CI — beyond in-memory today)        | Planned     |
 | DX      | Flagship end-to-end example (deploy → committed record → wagmi)                | In progress |
 | DX      | Migration guide + comparison table (hardhat-deploy, Ignition, rocketh)         | In progress |
 | Compat  | Hardhat v3 support                                                             | Planned     |

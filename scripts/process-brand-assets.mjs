@@ -111,7 +111,11 @@ async function processFavicons(files) {
     await copyText(primarySvg, join(publicDir, "favicon.svg"));
     await writePngSizes(await rasterizeSvg(primarySvg));
   } else if (lightPng ?? darkPng) {
-    await writePngSizes(await sharp(lightPng ?? darkPng).png().toBuffer());
+    await writePngSizes(
+      await sharp(lightPng ?? darkPng)
+        .png()
+        .toBuffer(),
+    );
   }
 
   if (darkSvg) await copyText(darkSvg, join(publicDir, "favicon-dark.svg"));
@@ -194,9 +198,7 @@ async function main() {
   const xFiles = await listMedia(join(sourceRoot, FOLDERS.x));
 
   if (faviconFiles.length === 0) {
-    console.error(
-      "\nNo favicon assets in assets/brand/source/Favicon/\nSee assets/brand/README.md\n",
-    );
+    console.error("\nNo favicon assets in assets/brand/source/Favicon/\nSee assets/brand/README.md\n");
     process.exit(1);
   }
 

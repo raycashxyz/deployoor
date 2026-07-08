@@ -1,4 +1,4 @@
-import { CopyBlock } from './CopyBlock';
+import { CopyBlock } from "./CopyBlock";
 
 type TabOption = {
   id: string;
@@ -39,14 +39,14 @@ function TabbedCommands({ name, label, options }: { name: string; label: string;
 }
 
 const INSTALL_OPTIONS: TabOption[] = [
-  { id: 'install-pnpm', label: 'pnpm', code: 'pnpm add -D deployoor viem tsx' },
-  { id: 'install-yarn', label: 'yarn', code: 'yarn add -D deployoor viem tsx' },
-  { id: 'install-npm', label: 'npm', code: 'npm install -D deployoor viem tsx' },
+  { id: "install-pnpm", label: "pnpm", code: "pnpm add -D deployoor viem tsx" },
+  { id: "install-yarn", label: "yarn", code: "yarn add -D deployoor viem tsx" },
+  { id: "install-npm", label: "npm", code: "npm install -D deployoor viem tsx" },
 ];
 
 const GENERATE_OPTIONS: TabOption[] = [
-  { id: 'generate-foundry', label: 'foundry', code: 'forge build && npx deployoor generate' },
-  { id: 'generate-hardhat', label: 'hardhat', code: 'npx hardhat compile && npx deployoor generate' },
+  { id: "generate-foundry", label: "foundry", code: "forge build && npx deployoor generate" },
+  { id: "generate-hardhat", label: "hardhat", code: "npx hardhat compile && npx deployoor generate" },
 ];
 
 export function Landing() {
@@ -83,7 +83,12 @@ export function Landing() {
         >
           GitHub
         </a>
-        <a href="https://www.npmjs.com/package/deployoor" className="landing-link" target="_blank" rel="noopener noreferrer">
+        <a
+          href="https://www.npmjs.com/package/deployoor"
+          className="landing-link"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           npm
         </a>
       </div>

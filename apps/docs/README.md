@@ -43,11 +43,11 @@ Dashboard: [vercel.com/raycash/deployoor-docs](https://vercel.com/raycash/deploy
 
 GitHub repo secrets (raycash team):
 
-| Secret | Value |
-| --- | --- |
-| `VERCEL_TOKEN` | [Vercel account token](https://vercel.com/account/tokens) with access to **raycash** |
-| `VERCEL_ORG_ID` | `team_DHmgXndhGMn6I3jq2kpBQr4W` (raycash) |
-| `VERCEL_PROJECT_ID` | `prj_HaqseyJIYjK2FReuqwMOTIn2aWc2` (deployoor-docs) |
+| Secret              | Value                                                                                |
+| ------------------- | ------------------------------------------------------------------------------------ |
+| `VERCEL_TOKEN`      | [Vercel account token](https://vercel.com/account/tokens) with access to **raycash** |
+| `VERCEL_ORG_ID`     | `team_DHmgXndhGMn6I3jq2kpBQr4W` (raycash)                                            |
+| `VERCEL_PROJECT_ID` | `prj_HaqseyJIYjK2FReuqwMOTIn2aWc2` (deployoor-docs)                                  |
 
 Pushes to `main` that touch `apps/docs/` run `.github/workflows/docs-deploy.yml`.
 

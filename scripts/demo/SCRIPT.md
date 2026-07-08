@@ -18,19 +18,19 @@ Output: `assets/brand/dist/demo.gif`
 
 ## Beat sheet (~60–75s)
 
-| Scene | Command | What the viewer learns |
-| --- | --- | --- |
-| 1 | `ls -1` | Normal Hardhat layout: `contracts/`, `artifacts/`, `scripts/` |
-| 2 | `ls artifacts/contracts/Counter.sol/` | Compiled artifact JSON exists |
-| 3 | `test ! -d deployers` | No deployoor output yet |
-| 4 | `pnpm exec hardhat compile` | Plugin generates `deployers/` from artifacts |
-| 5 | `ls deployers/` + `sed deployers/Counter.ts` | Typed `getOrDeployCounter` — not hand-written |
-| 6 | `pnpm run deploy` | First run: on-chain deploy + `deployments/<chain>/Counter.json` |
-| 7 | `find deployments` + `sed …/Counter.json` | Plain JSON record: address, ABI, chain |
-| 8 | `pnpm run deploy` again | Idempotent — “already recorded, no transaction” |
+| Scene | Command                                      | What the viewer learns                                          |
+| ----- | -------------------------------------------- | --------------------------------------------------------------- |
+| 1     | `ls -1`                                      | Normal Hardhat layout: `contracts/`, `artifacts/`, `scripts/`   |
+| 2     | `ls artifacts/contracts/Counter.sol/`        | Compiled artifact JSON exists                                   |
+| 3     | `test ! -d deployers`                        | No deployoor output yet                                         |
+| 4     | `pnpm exec hardhat compile`                  | Plugin generates `deployers/` from artifacts                    |
+| 5     | `ls deployers/` + `sed deployers/Counter.ts` | Typed `getOrDeployCounter` — not hand-written                   |
+| 6     | `pnpm run deploy`                            | First run: on-chain deploy + `deployments/<chain>/Counter.json` |
+| 7     | `find deployments` + `sed …/Counter.json`    | Plain JSON record: address, ABI, chain                          |
+| 8     | `pnpm run deploy` again                      | Idempotent — “already recorded, no transaction”                 |
 
 **One-line VO:**  
-*“Compile your Hardhat project, get typed deployers, deploy once — your team imports the record everywhere.”*
+_“Compile your Hardhat project, get typed deployers, deploy once — your team imports the record everywhere.”_
 
 ## Optional second clip (Foundry + tevm tests)
 

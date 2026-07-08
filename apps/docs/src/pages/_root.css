@@ -18,7 +18,7 @@
   --vocs-color-border: var(--deployoor-border);
 }
 
-:root[data-vocs-theme='dark'] {
+:root[data-vocs-theme="dark"] {
   --deployoor-bg: #111513;
   --deployoor-fg: #bef4be;
   --deployoor-bg-muted: #1a1f1c;
@@ -69,11 +69,11 @@
   display: none;
 }
 
-:root[data-vocs-theme='dark'] .landing-hero-light {
+:root[data-vocs-theme="dark"] .landing-hero-light {
   display: none;
 }
 
-:root[data-vocs-theme='dark'] .landing-hero-dark {
+:root[data-vocs-theme="dark"] .landing-hero-dark {
   display: block;
 }
 
@@ -139,7 +139,9 @@
   cursor: pointer;
   text-align: center;
   text-transform: lowercase;
-  transition: background 0.15s, opacity 0.15s;
+  transition:
+    background 0.15s,
+    opacity 0.15s;
   user-select: none;
 }
 
@@ -152,11 +154,11 @@
   width: 100%;
 }
 
-#install-pnpm:checked ~ .landing-tabs label[for='install-pnpm'],
-#install-yarn:checked ~ .landing-tabs label[for='install-yarn'],
-#install-npm:checked ~ .landing-tabs label[for='install-npm'],
-#generate-foundry:checked ~ .landing-tabs label[for='generate-foundry'],
-#generate-hardhat:checked ~ .landing-tabs label[for='generate-hardhat'] {
+#install-pnpm:checked ~ .landing-tabs label[for="install-pnpm"],
+#install-yarn:checked ~ .landing-tabs label[for="install-yarn"],
+#install-npm:checked ~ .landing-tabs label[for="install-npm"],
+#generate-foundry:checked ~ .landing-tabs label[for="generate-foundry"],
+#generate-hardhat:checked ~ .landing-tabs label[for="generate-hardhat"] {
   opacity: 1;
   font-weight: 600;
   background: color-mix(in srgb, var(--deployoor-fg) 10%, var(--deployoor-bg));
@@ -205,7 +207,9 @@
   color: var(--deployoor-fg);
   cursor: pointer;
   font: inherit;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .landing-command-row:hover {
@@ -265,7 +269,7 @@
 }
 
 /* Blank layout: full-bleed landing background */
-[data-layout='blank'] [data-v-content] .landing {
+[data-layout="blank"] [data-v-content] .landing {
   min-height: 100vh;
   margin: calc(-1 * var(--vocs-spacing-content-py, 2.5rem)) calc(-1 * var(--vocs-spacing-content-px, 3rem));
   padding-top: calc(2rem + var(--vocs-spacing-topNav, 0px));

@@ -23,7 +23,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test
-      - run: pnpm build
+      # Vocs 2.x needs Node 22+ (node:fs/promises glob). Skip docs build on Node 20.
+      - if: matrix.node == '20'
+        run: pnpm build --filter=!@deployoor/docs
+      - if: matrix.node != '20'
+        run: pnpm build
 
   lint:
     runs-on: ubuntu-latest
