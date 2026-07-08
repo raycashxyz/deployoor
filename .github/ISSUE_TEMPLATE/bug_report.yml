@@ -69,5 +69,5 @@ body:
     id: logs
     attributes:
       label: Logs / stack trace
-      description: Paste relevant terminal output inside a fenced code block
+      description: Paste relevant terminal output inside a fenced code block. Redact tokens, credentials, and other secrets.
       render: shell

@@ -54,9 +54,12 @@ const alice = clients.walletClientFor(clients.accounts[1]);
 If your config has verifier or notifier plugins:
 
 ```ts
+const clients = await createTestClients();
+const [owner] = clients.accounts;
+
 await getOrDeployToken({
   ...clients,
-  args: [owner],
+  args: [owner.address],
   plugins: { etherscan: false, slack: false },
 });
 ```

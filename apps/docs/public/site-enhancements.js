@@ -144,10 +144,13 @@
     return true;
   }
 
+  var isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+
   document.addEventListener("keydown", function (event) {
     if (isEditableTarget(event.target)) return;
     if (event.altKey) return;
-    if (!(event.metaKey || event.ctrlKey || event.shiftKey)) return;
+    var hasModifier = isMac ? event.metaKey : event.ctrlKey || event.shiftKey;
+    if (!hasModifier) return;
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
 
     var direction = event.key === "ArrowRight" ? "next" : "prev";
@@ -156,7 +159,31 @@
     }
   });
 
-  var isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+  function syncLandingTabSelection(tabgroup) {
+    var radios = tabgroup.querySelectorAll(".landing-tab-input");
+    var tabs = tabgroup.querySelectorAll('[role="tab"]');
+    radios.forEach(function (radio, index) {
+      var tab = tabs[index];
+      if (tab) tab.setAttribute("aria-selected", radio.checked ? "true" : "false");
+    });
+  }
+
+  function initLandingTabs() {
+    document.querySelectorAll(".landing-tabgroup").forEach(syncLandingTabSelection);
+  }
+
+  document.addEventListener("change", function (event) {
+    var target = event.target;
+    if (!(target instanceof HTMLInputElement) || !target.classList.contains("landing-tab-input")) return;
+    var tabgroup = target.closest(".landing-tabgroup");
+    if (tabgroup) syncLandingTabSelection(tabgroup);
+  });
+
+  initLandingTabs();
+  new MutationObserver(initLandingTabs).observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
 
   function updatePaginationKbd() {
     if (!isMac) return;

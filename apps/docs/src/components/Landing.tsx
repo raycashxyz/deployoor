@@ -21,15 +21,29 @@ function TabbedCommands({ name, label, options }: { name: string; label: string;
             defaultChecked={index === 0}
           />
         ))}
-        <div className="landing-tabs">
-          {options.map((option) => (
-            <label key={option.id} htmlFor={option.id} className="landing-tab">
+        <div className="landing-tabs" role="tablist" aria-label={label}>
+          {options.map((option, index) => (
+            <label
+              key={option.id}
+              htmlFor={option.id}
+              className="landing-tab"
+              role="tab"
+              id={`tab-${option.id}`}
+              aria-controls={`panel-${option.id}`}
+              aria-selected={index === 0 ? "true" : "false"}
+            >
               {option.label}
             </label>
           ))}
         </div>
         {options.map((option) => (
-          <div key={option.id} className="landing-tab-panel" id={`panel-${option.id}`}>
+          <div
+            key={option.id}
+            className="landing-tab-panel"
+            id={`panel-${option.id}`}
+            role="tabpanel"
+            aria-labelledby={`tab-${option.id}`}
+          >
             <CopyBlock code={option.code} />
           </div>
         ))}

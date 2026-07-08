@@ -36,9 +36,17 @@ rm -rf "$HARDHAT/deployers" "$HARDHAT/deployments"
 # Local chain for scripts/deploy.ts (anvil account #0).
 anvil --port 8545 --silent &
 ANVIL_PID=$!
-sleep 1
+for _ in $(seq 1 20); do
+  if curl -s -o /dev/null -X POST -H 'content-type: application/json' \
+    --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' \
+    http://127.0.0.1:8545; then
+    break
+  fi
+  sleep 0.5
+done
 
 export RPC_URL=http://127.0.0.1:8545
+# Well-known Anvil default test account #0 private key (dev-only, not a secret).
 export PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 
 vhs scripts/demo/demo.tape

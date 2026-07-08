@@ -8,12 +8,13 @@ pnpm brand:assets
 
 ## Current layout (from design export)
 
-```
-assets/brand/source/
-  Favicon/     20.svg, 21.svg, light.png, dark.png
-  Logo/        Primary logo.png, Word mark.png, Mark-symbol.png
-  OG Image/    light.png, dark.png
-  X post/      (optional — falls back to OG light)
+```mermaid
+flowchart TD
+  source["assets/brand/source/"]
+  source --> Favicon["Favicon/ — 20.svg, 21.svg, light.png, dark.png"]
+  source --> Logo["Logo/ — Primary logo.png, Word mark.png, Mark-symbol.png"]
+  source --> OG["OG Image/ — light.png, dark.png"]
+  source --> X["X post/ — optional, falls back to OG light"]
 ```
 
 The processor picks the largest raster or first SVG in each folder. Name light/dark logo variants with `light` / `dark` in the filename when you have both.

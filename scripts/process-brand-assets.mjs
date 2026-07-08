@@ -144,11 +144,19 @@ async function makeDarkWordmark(src, dest) {
 async function processLogos(files) {
   const primary = pickByName(files, "primary");
   const wordmark = pickByName(files, "word");
-  const symbol = pickByName(files, "symbol|mark");
+  const symbol = pickByName(
+    files.filter((f) => f !== wordmark),
+    "symbol|mark",
+  );
 
   const logoLight = primary ?? wordmark ?? (await pickLargestRaster(files));
 
-  if (!logoLight) return;
+  if (!logoLight) {
+    console.warn(
+      "\nNo logo assets in assets/brand/source/Logo/ — skipping logo outputs. See assets/brand/README.md\n",
+    );
+    return;
+  }
 
   await copyPng(logoLight, join(publicDir, "logo-light.png"));
   await copyPng(logoLight, join(distDir, "logo-light.png"));
