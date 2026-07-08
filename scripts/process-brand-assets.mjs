@@ -222,10 +222,14 @@ async function main() {
     console.log("OG (light):", basename(ogLight));
     await resizeOg(ogLight, join(publicDir, "og.png"), 1200, 630);
     await copyText(join(publicDir, "og.png"), join(distDir, "og.png"));
+    await copyPng(join(publicDir, "og.png"), join(publicDir, "hero-light.png"));
   }
   if (ogDark && ogDark !== ogLight) {
     console.log("OG (dark):", basename(ogDark));
     await resizeOg(ogDark, join(publicDir, "og-dark.png"), 1200, 630);
+    await copyPng(join(publicDir, "og-dark.png"), join(publicDir, "hero-dark.png"));
+  } else if (ogLight) {
+    await copyPng(join(publicDir, "og.png"), join(publicDir, "hero-dark.png"));
   }
   if (xCard) {
     console.log("X card:", basename(xCard));

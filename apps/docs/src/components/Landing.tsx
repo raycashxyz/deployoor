@@ -53,9 +53,9 @@ function TabbedCommands({ name, label, options }: { name: string; label: string;
 }
 
 const INSTALL_OPTIONS: TabOption[] = [
-  { id: "install-pnpm", label: "pnpm", code: "pnpm add -D deployoor viem tsx" },
-  { id: "install-yarn", label: "yarn", code: "yarn add -D deployoor viem tsx" },
-  { id: "install-npm", label: "npm", code: "npm install -D deployoor viem tsx" },
+  { id: "install-pnpm", label: "pnpm", code: "pnpm add -D deployoor viem" },
+  { id: "install-yarn", label: "yarn", code: "yarn add -D deployoor viem" },
+  { id: "install-npm", label: "npm", code: "npm install -D deployoor viem" },
 ];
 
 const GENERATE_OPTIONS: TabOption[] = [
@@ -67,8 +67,8 @@ export function Landing() {
   return (
     <div className="landing">
       <div className="landing-hero">
-        <img src="/hero-light.png" alt="deployoor" className="landing-hero-img landing-hero-light" />
-        <img src="/hero-dark.png" alt="deployoor" className="landing-hero-img landing-hero-dark" />
+        <img src="/og.png" alt="deployoor" className="landing-hero-img landing-hero-light" />
+        <img src="/og-dark.png" alt="deployoor" className="landing-hero-img landing-hero-dark" />
       </div>
 
       <p className="landing-lead">
