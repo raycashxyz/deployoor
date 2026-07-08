@@ -1,0 +1,21 @@
+# Foundry
+
+deployoor reads Foundry `out/` artifacts and `out/build-info/` for compiler metadata.
+
+## Compile and generate
+
+```bash
+forge build && npx deployoor generate
+```
+
+| Input            | Location                    |
+| ---------------- | --------------------------- |
+| Compiled artifacts | `out/`                    |
+| Build info       | `out/build-info/`           |
+| Config file      | `foundry.toml`              |
+
+There is no Foundry plugin today — run `deployoor generate` after `forge build`, or add it to your `package.json` scripts / CI.
+
+## Example
+
+Runnable example: [`examples/foundry`](https://github.com/raycashxyz/deployoor/tree/main/examples/foundry) — forge build → generate → in-memory test with `@deployoor/testing`.

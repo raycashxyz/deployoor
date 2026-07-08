@@ -1,0 +1,100 @@
+# Quickstart
+
+A minimal Foundry or Hardhat project from zero to a typed, idempotent deploy.
+
+## 1. Compile
+
+```bash
+forge build
+# or: npx hardhat compile
+```
+
+deployoor auto-detects Hardhat (`artifacts/`) or Foundry (`out/` + `out/build-info`).
+
+## 2. Generate deployers
+
+```bash
+npx deployoor generate
+```
+
+This writes `./deployers/` — one typed `getOrDeploy<Name>` per deployable contract.
+
+```ts
+// deployers/Counter.ts — generated; do not edit by hand
+import { defineDeployer } from "deployoor";
+import config from "../deployoor.config";
+import { counterArtifact } from "./types/Counter";
+
+export const getOrDeployCounter = defineDeployer(counterArtifact, config);
+```
+
+Call it from a script or test — you get back a typed viem contract object:
+
+```ts
+const { contract, freshDeploy } = await getOrDeployCounter({
+  walletClient,
+  publicClient,
+  args: [0n],
+});
+
+await contract.write.increment();
+```
+
+## 3. Write a deploy script
+
+```ts
+// scripts/deploy.ts
+import { createWalletClient, createPublicClient, http } from "viem";
+import { sepolia } from "viem/chains";
+import { privateKeyToAccount } from "viem/accounts";
+import { getOrDeployToken } from "../deployers";
+
+const account = privateKeyToAccount(process.env.PK as `0x${string}`);
+const transport = http(process.env.RPC_URL);
+const clients = {
+  walletClient: createWalletClient({ account, chain: sepolia, transport }),
+  publicClient: createPublicClient({ chain: sepolia, transport }),
+};
+
+const { contract: token, freshDeploy } = await getOrDeployToken({
+  ...clients,
+  args: [account.address],
+});
+
+if (freshDeploy) {
+  console.log("Deployed fresh — run one-time setup here");
+}
+
+await token.write.transfer([recipient, amount]);
+```
+
+```bash
+tsx --env-file=.env scripts/deploy.ts
+```
+
+## 4. Check the record
+
+Every deploy writes a committed JSON file:
+
+```
+deployments/
+└─ 11155111-sepolia/
+   └─ Token.json
+```
+
+First run deploys and records. Later runs return the same contract with **no transaction**.
+
+## What you get back
+
+`getOrDeploy` resolves to:
+
+```ts
+{
+  contract,      // typed viem contract — read/write immediately
+  freshDeploy,   // true only when this call broadcast a deploy tx
+  receipt,       // deploy receipt (only on fresh deploy)
+  deployment,    // full DeploymentRecord
+}
+```
+
+Use `freshDeploy` to gate one-time setup (e.g. `initialize()`) only when the contract was actually deployed this run.

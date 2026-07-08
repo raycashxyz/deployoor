@@ -1,0 +1,44 @@
+# Hardhat
+
+deployoor reads Hardhat v2 `artifacts/` and generates typed deployers from them.
+
+## Compile and generate
+
+```bash
+npx hardhat compile && npx deployoor generate
+```
+
+| Input            | Location          |
+| ---------------- | ----------------- |
+| Compiled artifacts | `artifacts/`    |
+| Config file      | `hardhat.config.*` |
+
+## Auto-generate on compile
+
+Add `@deployoor/hardhat` to skip the separate `generate` step:
+
+```bash
+pnpm add -D @deployoor/hardhat deployoor viem
+```
+
+```js
+// hardhat.config.js
+require("@deployoor/hardhat");
+
+module.exports = { solidity: "0.8.24" };
+```
+
+Every `hardhat compile` regenerates `./deployers/`:
+
+```bash
+npx hardhat compile
+# deployoor: generated 3 deployer file(s)
+```
+
+## Hardhat v3
+
+Not yet supported. Hardhat v3 reworked the artifact layout — first-class v2 + v3 support is a near-term priority.
+
+## Example
+
+Runnable example: [`examples/hardhat`](https://github.com/raycashxyz/deployoor/tree/main/examples/hardhat) — compile → auto-generate → deploy → committed record.

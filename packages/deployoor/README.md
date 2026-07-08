@@ -1,6 +1,6 @@
 # deployoor
 
-> A dead-simple, modular and extensible tool to deploy smart contracts and use them as fully-typed viem objects. Works out-of-the-box with Hardhat and Foundry.
+> A dead-simple, modular and extensible tool to deploy smart contracts and use them as fully-typed viem objects in your apps or tests. Works out-of-the-box with Hardhat and Foundry.
 
 Run `npx deployoor generate`, write a deploy script, run it like a standalone node file (eg `tsx scripts/deploy.ts`). You get a single source of truth for every address, ABI, and chain — and contracts you can import as fully-typed viem objects, with no copied addresses, no stale ABIs, and no provider wiring.
 

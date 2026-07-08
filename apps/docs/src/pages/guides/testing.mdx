@@ -1,0 +1,70 @@
+# Testing
+
+To make testing feel like writing TypeScript scripts — not standing up infrastructure — we built [`@deployoor/testing`](/packages) on top of [TEVM](https://tevm.sh).
+
+`createTestClients()` gives you a **TEVM-backed in-memory EVM** and viem clients wired to it. Your generated `getOrDeploy` functions work unchanged: spread `clients`, deploy, call `contract.read` / `contract.write`. No local node, no `deployments/` writes on disk.
+
+## Quick example
+
+```bash
+pnpm add -D @deployoor/testing vitest
+```
+
+```ts
+import { test, expect } from "vitest";
+import { createTestClients } from "@deployoor/testing";
+import { getOrDeployToken } from "../deployers";
+
+test("transfer moves the balance", async () => {
+  const clients = await createTestClients();
+  const [deployer, bob] = clients.accounts;
+
+  const { contract: token } = await getOrDeployToken({
+    ...clients,
+    args: [deployer.address],
+  });
+
+  await token.write.transfer([bob.address, 1000n]);
+  expect(await token.read.balanceOf([bob.address])).toBe(1000n);
+});
+```
+
+## Parallel tests, full hardware
+
+Each `createTestClients()` call gets its own isolated in-memory chain. Spin up as many instances as you want — run test files or cases **in parallel** and use all your CPU cores without port conflicts or shared chain state.
+
+```ts
+// vitest.config.ts — run files in parallel; each test file can call createTestClients()
+export default defineConfig({
+  test: { pool: "threads" },
+});
+```
+
+No anvil. No `--fork-url`. No serial "one chain per machine" bottleneck.
+
+## Multiple signers
+
+```ts
+const clients = await createTestClients();
+const alice = clients.walletClientFor(clients.accounts[1]);
+```
+
+## Disable plugins in tests
+
+If your config has verifier or notifier plugins:
+
+```ts
+await getOrDeployToken({
+  ...clients,
+  args: [owner],
+  plugins: { etherscan: false, slack: false },
+});
+```
+
+## TEVM roadmap
+
+Broader tevm support (forks, fixtures, CI presets) is [coming soon](/guides/tevm). The testing package is how we use tevm today.
+
+## Requirements
+
+`@deployoor/testing` requires **Node ≥ 20** (tevm dependency).

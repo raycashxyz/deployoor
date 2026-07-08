@@ -1,6 +1,6 @@
 ---
 name: deployoor-integration
-description: Integrate deployoor into a Hardhat or Foundry project to deploy EVM smart contracts and consume them as typed viem objects. Use when the user wants to deploy contracts, write or fix a deploy script, stop copy-pasting addresses/ABIs, make deploys idempotent, verify contracts, or wire deployed contracts into a frontend with wagmi/viem.
+description: Integrate deployoor into a Hardhat or Foundry project to deploy EVM smart contracts and consume them as typed viem objects in your apps or tests. Use when the user wants to deploy contracts, write or fix a deploy script, stop copy-pasting addresses/ABIs, make deploys idempotent, verify contracts, or wire deployed contracts into a frontend with wagmi/viem.
 license: MIT
 ---
 

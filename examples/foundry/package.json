@@ -5,8 +5,8 @@
   "type": "module",
   "description": "deployoor with a Foundry project: forge build → deployoor generate → deploy & test on an in-memory EVM.",
   "scripts": {
-    "generate": "forge build && deployoor generate",
-    "e2e": "forge build && deployoor generate && vitest run"
+    "generate": "pnpm --filter deployoor build && forge build && pnpm exec deployoor generate",
+    "e2e": "pnpm --filter deployoor build && forge build && pnpm exec deployoor generate && vitest run"
   },
   "dependencies": {
     "deployoor": "workspace:*",

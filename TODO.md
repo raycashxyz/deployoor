@@ -2,7 +2,7 @@
 
 deployoor is early. This is where it's heading, grouped by area. Have a use case or want something sooner? Open an issue — priorities follow real needs.
 
-**Status key:** **Planned** (committed, near-term) · **Exploring** (likely; shaping the design) · **Considering** (on the radar, feedback welcome).
+**Status key:** **In progress** (actively being built) · **Planned** (committed, near-term) · **Exploring** (likely; shaping the design) · **Considering** (on the radar, feedback welcome).
 
 ## Compatibility
 
@@ -15,9 +15,12 @@ deployoor is early. This is where it's heading, grouped by area. Have a use case
 - **Proxies & diamonds** — _Planned._ Upgradeable contracts: ERC1967 / Transparent / UUPS / ERC173 proxies and EIP-2535 diamonds, with implementation and facet history kept in the deployment record.
 - **Deterministic addresses (CREATE2 / CREATE3)** — _Exploring._ The same address on every chain, plus address prediction before you broadcast.
 - **Dry run** — _Exploring._ Simulate a deploy — predicted address and gas — without sending a transaction.
-- When calling `getOrDeploy` we should return more than just the contract. For example, it's important to know if a contract is {freshDeploy: true} because it can inform the behaviour of user's deploy scripts. The new return type should be {contract, freshDeploy, deployReceipt, ...etc.}
+- **`getOrDeploy` return value** — _Done (0.2.0)._ Resolves to `{ contract, freshDeploy, receipt?, deployment }` so deploy scripts can gate one-time setup on `freshDeploy`.
 
-## Stores
+## Testing
+
+- **`@deployoor/testing` (tevm)** — _Done._ Run the same generated `getOrDeploy` functions against an in-memory EVM ([tevm](https://tevm.sh)) — no Hardhat network, no anvil, no disk writes. Spread `createTestClients()` and your deploy script code is your test code.
+- **First-class tevm targets** — _Planned._ Extend beyond in-memory: forked mainnet state, snapshot fixtures, and CI-friendly tevm configs as supported deploy/test targets (building on what `@deployoor/testing` already proves today).
 
 - **Pluggable store adapters** — _Planned._ Choose where the deployment record lives: filesystem (default), in-memory, or a remote HTTP API. The adapter interface already exists internally; this makes it selectable from `deployoor.config.ts`.
 - **Browser deploys** — _Exploring._ With an in-memory store, run `getOrDeploy` client-side — deploy from a web app, not just read deployments into one.
@@ -35,8 +38,9 @@ deployoor is early. This is where it's heading, grouped by area. Have a use case
 - **Inspect commands** — _Considering._ `deployoor list` / `deployoor status` to see what's deployed across networks at a glance.
 - **Standalone-package scaffold** — _Considering._ Scaffold the `deployments/` + typed-access package outside your contracts, as a single source of truth importable anywhere (backend, frontend, browser).
 - **Import existing deployments** — _Planned._ Bring in records from Foundry broadcasts, hardhat-deploy, or Hardhat Ignition, preserving enough compiler metadata for verification retries where the source artifacts are available.
-- **Migration guide** — _Planned._ "Migrate from hardhat-deploy in 10 minutes" with an honest comparison table that includes Hardhat Ignition, Foundry broadcasts, and rocketh.
-- **End-to-end example** — _Planned._ A runnable journey with `scripts/deploy.ts`, `.env.example`, a committed deployment record, and wagmi consumption so users can inspect deploy → JSON → frontend access in one place.
+- **Migration guide** — _In progress._ "Migrate from hardhat-deploy in 10 minutes" with an honest comparison table that includes Hardhat Ignition, Foundry broadcasts, and rocketh.
+- **End-to-end example** — _In progress._ A runnable journey with `scripts/deploy.ts`, `.env.example`, a committed deployment record, and wagmi consumption so users can inspect deploy → JSON → frontend access in one place.
+- **Docs site** — _In progress._ Minimal [vocs](https://vocs.dev) v2 site at `apps/docs` ([deployoor.dev](https://deployoor.dev) when deployed).
 - **Community surface** — _Planned._ Enable GitHub Discussions and add issue templates / CONTRIBUTING once the hardening + testing docs land.
 - **Terminal demo** — _Planned._ A short generate → deploy → record appears demo for the README.
 

@@ -1,0 +1,73 @@
+name: Bug report
+description: Something isn't working as documented
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Include versions and a minimal repro if you can — it speeds up fixes a lot.
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package
+      options:
+        - deployoor (core)
+        - "@deployoor/hardhat"
+        - "@deployoor/wagmi"
+        - "@deployoor/etherscan"
+        - "@deployoor/sourcify"
+        - "@deployoor/slack"
+        - "@deployoor/testing"
+        - other / not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      description: Output of `npm ls deployoor` or the relevant `@deployoor/*` package
+      placeholder: e.g. deployoor@0.4.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: What did you expect, and what actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal script, config, or repo link
+      placeholder: |
+        1. deployoor.config.ts with …
+        2. npx deployoor generate
+        3. …
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Node version, OS, Hardhat or Foundry version
+      placeholder: |
+        - Node: 22.x
+        - OS: macOS
+        - Foundry 1.0 / Hardhat 2.22
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / stack trace
+      description: Paste relevant terminal output inside a fenced code block
+      render: shell

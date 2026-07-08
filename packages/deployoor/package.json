@@ -4,7 +4,7 @@
   "private": false,
   "type": "module",
   "sideEffects": false,
-  "description": "viem-first contract deployment: deploy once, use contracts as typed objects.",
+  "description": "Quality-of-life for smart contract teams — deploy once, use typed viem contract objects in apps and tests.",
   "keywords": [
     "ethereum",
     "evm",
@@ -103,7 +103,7 @@
     "url": "git+https://github.com/raycashxyz/deployoor.git",
     "directory": "packages/deployoor"
   },
-  "homepage": "https://github.com/raycashxyz/deployoor/tree/main/packages/deployoor#readme",
+  "homepage": "https://deployoor.dev",
   "bugs": {
     "url": "https://github.com/raycashxyz/deployoor/issues"
   }
