@@ -1,6 +1,6 @@
 {
   "name": "@example/tevm",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
   "type": "module",
   "description": "deployoor on a plain-Solidity project: deployoor generate compiles src/*.sol with tevm (no Hardhat/Foundry) → typed deployers, then deploys on an in-memory EVM.",

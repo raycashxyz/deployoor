@@ -1,6 +1,6 @@
 {
   "name": "@example/hardhat-v3",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
   "type": "module",
   "description": "deployoor on a Hardhat 3 project: the @deployoor/hardhat/v3 plugin regenerates typed deployers after every compile, recorded to deployments/. Also tests on an in-memory EVM.",
