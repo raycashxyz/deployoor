@@ -15,7 +15,12 @@ Hardhat and Foundry. Idempotent deploys, plain-JSON records, zero lock-in.
 
 </div>
 
+<!-- Demo GIF: run `pnpm demo:record` (needs VHS + Foundry's anvil) to write
+     assets/brand/dist/demo-sm.gif — the assets/brand/dist folder is committed —
+     then uncomment the line below.
 ![deployoor demo](assets/brand/dist/demo-sm.gif)
+-->
+
 
 ---
 
