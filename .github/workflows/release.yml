@@ -18,9 +18,13 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22 # >= 22.14 for OIDC
+          # Node 24's bundled npm (>= 11.11) already supports OIDC trusted publishing (needs
+          # >= 11.5.1). We deliberately do NOT `npm install -g npm@latest`: self-updating npm in
+          # the setup-node toolcache strips its own bundled deps (it logs "removed 71 packages"),
+          # which drops `sigstore` and breaks `--provenance` with "Cannot find module 'sigstore'".
+          # The node-bundled npm is a complete install, so provenance works out of the box.
+          node-version: 24
           cache: pnpm
-      - run: npm install -g npm@latest # OIDC trusted publishing needs npm >= 11.5.1
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       # Opens a "Version Packages" PR when changesets exist; publishes on merge.
