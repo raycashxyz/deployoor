@@ -15,6 +15,11 @@ examples/foundry/deployers
 examples/hardhat/artifacts
 examples/hardhat/cache
 examples/hardhat/deployers
+examples/hardhat-v3/artifacts
+examples/hardhat-v3/cache
+examples/hardhat-v3/deployers
+examples/tevm/deployers
+examples/tevm/.tevm
 apps/docs/dist
 apps/docs/.waku
 apps/docs/.vercel
