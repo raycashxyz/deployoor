@@ -1,12 +1,11 @@
 import { defineConfig } from "deployoor";
 
-// A plain-Solidity project — no Hardhat, no Foundry. `framework: "tevm"` tells
-// `deployoor generate` to compile the contracts under `sources` with tevm's compiler
-// (@tevm/compiler + solc) and emit typed deployers. (A `tevm.config.*` file would also be
-// auto-detected; here we set it explicitly.)
+// A plain-Solidity project — no Hardhat, no Foundry. deployoor auto-detects it as a tevm
+// project (no Foundry/Hardhat markers + `.sol` sources under src/) and compiles the contracts
+// with tevm's compiler (@tevm/compiler + solc) during `deployoor generate`. No `framework` or
+// `sources` needed here; set `framework: "tevm"` (or add a `tevm.config.*`) only to be explicit
+// or when your sources live outside src/ or contracts/.
 export default defineConfig({
-  framework: "tevm",
-  sources: "./src",
   deploymentsPath: "./deployments",
   out: "./deployers",
 });

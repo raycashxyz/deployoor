@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { detectFramework } from "../../src/artifacts/detect";
@@ -13,6 +13,35 @@ describe("tevm framework detection + dispatch", () => {
     const root = mkdtempSync(join(tmpdir(), "deployoor-tevm-"));
     writeFileSync(join(root, "tevm.config.ts"), "export default {}\n");
     expect(detectFramework(root)).toBe("tevm");
+  });
+
+  const withSol = (dir: string): string => {
+    const root = mkdtempSync(join(tmpdir(), "deployoor-tevm-"));
+    mkdirSync(join(root, dir), { recursive: true });
+    writeFileSync(join(root, dir, "Counter.sol"), "// SPDX-License-Identifier: MIT\ncontract Counter {}\n");
+    return root;
+  };
+
+  it("falls back to tevm for a plain-Solidity project (.sol under src/, no markers)", () => {
+    expect(detectFramework(withSol("src"))).toBe("tevm");
+  });
+
+  it("also detects tevm from .sol under contracts/", () => {
+    expect(detectFramework(withSol("contracts"))).toBe("tevm");
+  });
+
+  it("prefers Foundry/Hardhat over the .sol fallback (the fallback is last)", () => {
+    const foundry = withSol("src");
+    writeFileSync(join(foundry, "foundry.toml"), "[profile.default]\n");
+    expect(detectFramework(foundry)).toBe("foundry"); // not tevm, despite src/*.sol
+
+    const hardhat = withSol("contracts");
+    writeFileSync(join(hardhat, "hardhat.config.ts"), "export default {};\n");
+    expect(detectFramework(hardhat)).toBe("hardhat");
+  });
+
+  it("returns null when there are no markers and no .sol sources", () => {
+    expect(detectFramework(mkdtempSync(join(tmpdir(), "deployoor-empty-")))).toBeNull();
   });
 
   it("routes framework:'tevm' and reports missing sources before importing the compiler", async () => {

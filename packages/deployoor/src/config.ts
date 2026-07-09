@@ -14,9 +14,11 @@ export interface Config<P extends readonly AnyDeployPlugin[] = readonly AnyDeplo
   /** Where generated deployers are emitted. Default "./deployers". */
   readonly out?: string;
   /**
-   * Toolchain override for `deployoor generate`. Auto-detected from the project by default
-   * (Hardhat v2/v3, Foundry, or tevm); set explicitly for a plain-`.sol` project you want
-   * compiled with tevm, or to disambiguate a mixed setup.
+   * Toolchain override for `deployoor generate`. Auto-detected from the project by default:
+   * Foundry (`foundry.toml`/`out/`), Hardhat v2/v3 (`hardhat.config.*`/`artifacts/`), or tevm —
+   * the last from a `tevm.config.*` or, as a zero-config fallback, a plain-`.sol` project with no
+   * Foundry/Hardhat markers and sources under `src/` or `contracts/`. Set explicitly only to
+   * disambiguate a mixed setup or when tevm sources live outside `src/`/`contracts/`.
    */
   readonly framework?: "hardhat" | "foundry" | "tevm";
   /**
