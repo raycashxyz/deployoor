@@ -1,5 +1,6 @@
 import type { AnyDeployPlugin } from "./plugin";
 import type { OnPluginError } from "./engine/plugins";
+import type { Framework } from "./artifacts";
 
 /**
  * `deployoor.config.ts` shape. Authored with `defineConfig`, consumed by both the
@@ -20,7 +21,7 @@ export interface Config<P extends readonly AnyDeployPlugin[] = readonly AnyDeplo
    * Foundry/Hardhat markers and sources under `src/` or `contracts/`. Set explicitly only to
    * disambiguate a mixed setup or when tevm sources live outside `src/`/`contracts/`.
    */
-  readonly framework?: "hardhat" | "foundry" | "tevm";
+  readonly framework?: Framework;
   /**
    * For the `tevm` framework only: directory of `.sol` sources to compile. Default "./src".
    * Ignored by the Hardhat/Foundry adapters (they read `artifacts/` / `out/`).

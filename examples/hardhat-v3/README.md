@@ -15,7 +15,7 @@ deployments/<chainId>-<network>/Counter.json   the source of truth — committed
 
 ## 1. Compile → generate
 
-`hardhat.config.ts` registers the [`@deployoor/hardhat/v3`](../../packages/deployoor-hardhat) plugin in `plugins: []` (Hardhat 3's declarative plugin model — the Hardhat 2 entry registers by side effect instead). It overrides the `compile` task to run `deployoor generate` afterward, so one command does both:
+`hardhat.config.ts` registers the [`@deployoor/hardhat/v3`](../../packages/deployoor-hardhat) plugin in `plugins: [deployoor]` (Hardhat 3's declarative plugin model — the Hardhat 2 entry registers by side effect instead). It overrides the `compile` task to run `deployoor generate` afterward, so one command does both:
 
 ```bash
 pnpm --filter @example/hardhat-v3 exec hardhat compile

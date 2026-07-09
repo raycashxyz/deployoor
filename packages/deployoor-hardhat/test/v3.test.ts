@@ -24,6 +24,7 @@ describe("@deployoor/hardhat/v3 compile action", () => {
     expect(runSuper).toHaveBeenCalledOnce();
     expect(result).toBe("compiled"); // the compile result is returned unchanged
     expect(order[0]).toBe("compile"); // compile happens before generation is attempted
+    expect(order[1]).toBe("generate-attempted"); // generation is attempted after the compile
     warn.mockRestore();
   });
 });

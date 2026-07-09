@@ -16,5 +16,7 @@ Add Hardhat 3 and tevm support to `deployoor generate`.
   explicit or when contracts live elsewhere. `@tevm/compiler` and `solc` are optional peers,
   lazy-loaded only for tevm projects, so the core stays dependency-light.
 
-`generate` is now async internally (the tevm adapter compiles on demand); the CLI and
-`generateDeployers` are unaffected. New config fields: `framework` and `sources`.
+`generate` is now async internally (the tevm adapter compiles on demand); the `deployoor generate`
+CLI and the exported `generateDeployers` keep the same signatures — `generateDeployers` was already
+`async` and returned a `Promise`, so programmatic callers already `await` it. New config fields:
+`framework` and `sources`.

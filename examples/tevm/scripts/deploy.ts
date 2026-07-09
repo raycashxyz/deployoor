@@ -30,7 +30,12 @@ const main = async (): Promise<void> => {
       ? `Deployed Counter at ${contract.address} (tx ${receipt?.transactionHash})`
       : `Counter already recorded at ${contract.address} — no transaction sent`,
   );
-  if (freshDeploy) await contract.write.setNumber([42n]);
+  if (freshDeploy) {
+    // Wait for the write to be mined before reading — on a non-auto-mining network (a real
+    // testnet via .env) the write only returns a tx hash, so an immediate read could be stale.
+    const hash = await contract.write.setNumber([42n]);
+    await publicClient.waitForTransactionReceipt({ hash });
+  }
   console.log(`number() = ${await contract.read.number()}`);
 };
 
