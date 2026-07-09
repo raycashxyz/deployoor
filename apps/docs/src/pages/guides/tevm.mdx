@@ -1,15 +1,47 @@
 # TEVM
 
-We love [TEVM](https://tevm.sh). Full first-class tevm support — forks, fixtures, broader deploy targets — is on the roadmap.
+[TEVM](https://tevm.sh) plays two roles in deployoor, neither of which needs Hardhat or Foundry:
 
-Today you can already run your generated deployers against an **in-memory TEVM** via [`@deployoor/testing`](/guides/testing). No Hardhat network, no anvil, no disk writes — tests run like plain TypeScript scripts.
+1. **A `generate` source** — compile your `.sol` directly and emit typed deployers.
+2. **An in-memory EVM for tests** — run those deployers with no node, via [`@deployoor/testing`](/guides/testing).
 
-## What's coming
+## Generate from plain Solidity
 
-- Forked mainnet state and snapshot fixtures as supported deploy/test targets
-- Deeper tevm integration beyond the in-memory path `@deployoor/testing` proves today
+For a project that is just `.sol` files — no Hardhat, no Foundry — `deployoor generate` compiles your contracts with tevm's compiler and writes the typed deployers. You get typed, idempotent deploys without adopting a full framework just to build.
 
-## What works now
+```bash
+pnpm add -D deployoor @tevm/compiler solc viem
+npx deployoor generate
+```
+
+| Input       | Location                                   |
+| ----------- | ------------------------------------------ |
+| Sources     | `src/` or `contracts/` (`.sol`)            |
+| Compiler    | `@tevm/compiler` + `solc` (optional peers) |
+| Config file | `deployoor.config.ts`                      |
+
+deployoor **auto-detects** a tevm project — no Foundry/Hardhat markers, plus `.sol` under `src/` or `contracts/` — so no config is needed for the common layout. Set it explicitly (or point at non-standard sources) in `deployoor.config.ts`:
+
+```ts
+import { defineConfig } from "deployoor";
+
+export default defineConfig({
+  framework: "tevm", // optional — inferred when there's no Hardhat/Foundry
+  sources: "./contracts", // optional — defaults to ./src
+});
+```
+
+`@tevm/compiler` and `solc` are **optional peer dependencies**, loaded only when a tevm project is generated, so they never weigh down the core or non-tevm projects. Adding a `tevm.config.*` also flags the project as tevm.
+
+> **Note:** the tevm adapter targets standalone sources with solc's default settings — no import remappings or linked libraries (use Foundry or Hardhat for those; deployoor reads them too). Verification metadata is emitted best-effort.
+
+### Example
+
+Runnable example: [`examples/tevm`](https://github.com/raycashxyz/deployoor/tree/main/examples/tevm) — a plain-Solidity project: `deployoor generate` (compiles with tevm) → deploy → in-memory test, no config.
+
+## Test on an in-memory EVM
+
+The same generated deployers run against a **TEVM-backed in-memory chain** via [`@deployoor/testing`](/guides/testing) — no Hardhat network, no anvil, no disk writes.
 
 ```bash
 pnpm add -D @deployoor/testing vitest
@@ -30,3 +62,11 @@ test("increment", async () => {
 ```
 
 `createTestClients()` spins up a TEVM-backed in-memory chain and passes it to your deployers — the same `getOrDeploy` functions you use in deploy scripts.
+
+## On the roadmap
+
+Full first-class tevm support is still growing:
+
+- Forked mainnet state and snapshot fixtures as supported deploy/test targets
+- CI-friendly tevm presets, beyond the in-memory path `@deployoor/testing` proves today
+- tevm-adapter config passthrough (remappings / libraries) and a pinned or remote solc selector
