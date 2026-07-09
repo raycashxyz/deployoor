@@ -89,6 +89,13 @@ export const sourcify = (options: SourcifyOptions = {}) =>
           return poll(attempt + 1);
         }
         if (job.error !== undefined) {
+          // Sourcify v2 reports an already-verified contract as a COMPLETED job carrying
+          // this error code — the submit returns 202 (not 409), so the guard above never
+          // catches it. Treat it as success, mirroring the etherscan plugin.
+          if (job.error.customCode === "already_verified") {
+            log.info(`[sourcify] ${fullyQualifiedName} already verified`);
+            return;
+          }
           throw new Error(`Sourcify verification failed for ${fullyQualifiedName}: ${job.error.message}`);
         }
         if (
