@@ -1,8 +1,10 @@
 # @deployoor/hardhat
 
-> A [Hardhat](https://hardhat.org) plugin that regenerates [deployoor](https://www.npmjs.com/package/deployoor)'s typed deployers automatically after every `hardhat compile`.
+> A [Hardhat](https://hardhat.org) plugin that regenerates [deployoor](https://www.npmjs.com/package/deployoor)'s typed deployers automatically after every `hardhat compile`. Works on **Hardhat 2 and Hardhat 3**.
 
 Without it, the flow is two steps — `hardhat compile` then `deployoor generate`. With it, `hardhat compile` runs `deployoor generate` in process the moment fresh `artifacts/` are written: no extra terminal, no separate command, no stale deployers. Edit a contract, compile, and the typed `getOrDeploy<Name>` functions are already up to date.
+
+Hardhat 2 and Hardhat 3 register plugins differently, so there are two entry points in this one package: the default (`@deployoor/hardhat`, Hardhat 2) and `@deployoor/hardhat/v3` (Hardhat 3). Both do the same thing.
 
 ## Install
 
@@ -12,7 +14,9 @@ pnpm add -D @deployoor/hardhat deployoor viem
 
 You still need a `deployoor.config.ts` (run `npx deployoor init` once).
 
-## Usage
+## Usage — Hardhat 2
+
+Hardhat 2 registers plugins by side effect, so importing the default entry is enough:
 
 ```ts
 // hardhat.config.ts
@@ -30,7 +34,22 @@ require("@deployoor/hardhat");
 module.exports = { solidity: "0.8.24" };
 ```
 
-Now every compile regenerates the deployers:
+## Usage — Hardhat 3
+
+Hardhat 3 is declarative and ESM-only: import the `/v3` plugin object and add it to `plugins`.
+
+```ts
+// hardhat.config.ts
+import { defineConfig } from "hardhat/config";
+import deployoor from "@deployoor/hardhat/v3";
+
+export default defineConfig({
+  plugins: [deployoor],
+  solidity: "0.8.28",
+});
+```
+
+Either way, every compile now regenerates the deployers:
 
 ```bash
 npx hardhat compile
@@ -39,7 +58,7 @@ npx hardhat compile
 
 ## Options
 
-Configure under a `deployoor` key in your Hardhat config:
+**Hardhat 2** — configure under a `deployoor` key in your Hardhat config:
 
 ```ts
 export default {
@@ -53,6 +72,8 @@ export default {
 | Option     | Type      | Default | Description                                            |
 | ---------- | --------- | ------- | ------------------------------------------------------ |
 | `generate` | `boolean` | `true`  | Run `deployoor generate` after each `hardhat compile`. |
+
+**Hardhat 3** — to disable auto-generation, remove the plugin from `plugins` (Hardhat 3 has no side-effect registration to toggle with a config flag).
 
 Output location, which contracts to include, and the deployments path all come from your `deployoor.config.ts` — this plugin only decides _when_ generation runs.
 

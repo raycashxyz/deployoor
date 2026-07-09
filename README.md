@@ -11,11 +11,15 @@ Deploy once. Use typed viem contract objects in your apps, scripts, and tests �
 
 [Documentation](https://deployoor.dev) · [npm](https://www.npmjs.com/package/deployoor) · [GitHub](https://github.com/raycashxyz/deployoor)
 
-Hardhat and Foundry. Idempotent deploys, plain-JSON records, zero lock-in.
+Hardhat (v2 and v3), Foundry, and plain-Solidity via tevm. Idempotent deploys, plain-JSON records, zero lock-in.
 
 </div>
 
+<!-- Demo GIF: run `pnpm demo:record` (needs VHS + Foundry's anvil) to write
+     assets/brand/dist/demo-sm.gif — the assets/brand/dist folder is committed —
+     then uncomment the line below.
 ![deployoor demo](assets/brand/dist/demo-sm.gif)
+-->
 
 ---
 
@@ -246,7 +250,7 @@ Releases are managed with [Changesets](https://github.com/changesets/changesets)
 
 ## Status
 
-Early. The deploy core, the plugin model, and the wagmi bridge are stabilizing. Foundry and Hardhat v2 are supported today; Hardhat v3 support is a priority compatibility item.
+Early. The deploy core, the plugin model, and the wagmi bridge are stabilizing. `deployoor generate` reads Foundry (`out/`) and Hardhat v2 **and** v3 (`artifacts/`) artifacts, and can compile a plain-Solidity project directly with tevm — no Hardhat or Foundry required.
 
 Pre-1.0, minor releases may include breaking API changes. Deployment records carry `schemaVersion: 1`; record-format changes will be versioned and documented because committed JSON is the portability boundary.
 
@@ -254,30 +258,30 @@ Pre-1.0, minor releases may include breaking API changes. Deployment records car
 
 Grouped **done → in progress → planned → backlog**. _In progress_ is actively being built; _planned_ is the committed near-term focus; _backlog_ is on the radar and feedback-driven — open an issue to pull something forward.
 
-| Area    | What                                                                           | Status      |
-| ------- | ------------------------------------------------------------------------------ | ----------- |
-| Compat  | Foundry + Hardhat v2 artifacts                                                 | Done        |
-| Deploy  | Idempotent `getOrDeploy`, `register` / `reset`, stale-reuse warning            | Done        |
-| Deploy  | Atomic record writes, deploy lock, chainId record identity + mismatch guard    | Done        |
-| Stores  | Pluggable `StoreAdapter` + in-memory store                                     | Done        |
-| Verify  | Etherscan V2 + Sourcify                                                        | Done        |
-| Testing | `@deployoor/testing` — same deployers on tevm, in-memory EVM, no node          | Done        |
-| DX      | `@deployoor/wagmi` bridge, plugin SDK + Slack, Hardhat/Foundry examples        | Done        |
-| Deploy  | Richer `getOrDeploy` return (`{ contract, freshDeploy, receipt, deployment }`) | Done        |
-| DX      | `@deployoor/hardhat` — auto-generate deployers on `hardhat compile`            | Done        |
-| Testing | First-class tevm targets (forks, fixtures, CI — beyond in-memory today)        | Planned     |
-| DX      | Flagship end-to-end example (deploy → committed record → wagmi)                | In progress |
-| DX      | Migration guide + comparison table (hardhat-deploy, Ignition, rocketh)         | In progress |
-| Compat  | Hardhat v3 support                                                             | Planned     |
-| Verify  | `deployoor verify` from committed records                                      | Planned     |
-| Deploy  | Bytecode-diff redeploy (opt-in policy; today it only warns)                    | Planned     |
-| Deploy  | Proxies & diamonds, deterministic addresses (CREATE2 / CREATE3), dry run       | Backlog     |
-| Deploy  | Pending-transaction recovery from interrupted deploys                          | Backlog     |
-| Stores  | HTTP + browser store adapters                                                  | Backlog     |
-| Verify  | More explorers (Blockscout-native, OKLink, custom endpoints)                   | Backlog     |
-| DX      | `--watch`, `deployoor list` / `status`, import records, standalone scaffold    | Backlog     |
-| Plugins | `onGenerated` hook, gas report, Tenderly, Discord, IPFS, Safe                  | Backlog     |
-| AI      | Upgrade-safety diff, deployments MCP, deploy-script scaffolding (separate pkg) | Backlog     |
+| Area    | What                                                                                   | Status      |
+| ------- | -------------------------------------------------------------------------------------- | ----------- |
+| Compat  | Foundry, Hardhat v2 & v3 artifacts, and tevm-compiled plain-Solidity sources           | Done        |
+| Deploy  | Idempotent `getOrDeploy`, `register` / `reset`, stale-reuse warning                    | Done        |
+| Deploy  | Atomic record writes, deploy lock, chainId record identity + mismatch guard            | Done        |
+| Stores  | Pluggable `StoreAdapter` + in-memory store                                             | Done        |
+| Verify  | Etherscan V2 + Sourcify                                                                | Done        |
+| Testing | `@deployoor/testing` — same deployers on tevm, in-memory EVM, no node                  | Done        |
+| DX      | `@deployoor/wagmi` bridge, plugin SDK + Slack, Hardhat/Hardhat 3/Foundry/tevm examples | Done        |
+| Deploy  | Richer `getOrDeploy` return (`{ contract, freshDeploy, receipt, deployment }`)         | Done        |
+| DX      | `@deployoor/hardhat` — auto-generate deployers on `hardhat compile`                    | Done        |
+| Testing | First-class tevm targets (forks, fixtures, CI — beyond in-memory today)                | Planned     |
+| DX      | Flagship end-to-end example (deploy → committed record → wagmi)                        | In progress |
+| DX      | Migration guide + comparison table (hardhat-deploy, Ignition, rocketh)                 | In progress |
+| Compat  | `@deployoor/hardhat` auto-generate on Hardhat 3 (`@deployoor/hardhat/v3`)              | Done        |
+| Verify  | `deployoor verify` from committed records                                              | Planned     |
+| Deploy  | Bytecode-diff redeploy (opt-in policy; today it only warns)                            | Planned     |
+| Deploy  | Proxies & diamonds, deterministic addresses (CREATE2 / CREATE3), dry run               | Backlog     |
+| Deploy  | Pending-transaction recovery from interrupted deploys                                  | Backlog     |
+| Stores  | HTTP + browser store adapters                                                          | Backlog     |
+| Verify  | More explorers (Blockscout-native, OKLink, custom endpoints)                           | Backlog     |
+| DX      | `--watch`, `deployoor list` / `status`, import records, standalone scaffold            | Backlog     |
+| Plugins | `onGenerated` hook, gas report, Tenderly, Discord, IPFS, Safe                          | Backlog     |
+| AI      | Upgrade-safety diff, deployments MCP, deploy-script scaffolding (separate pkg)         | Backlog     |
 
 Full detail and rationale in [TODO.md](TODO.md).
 

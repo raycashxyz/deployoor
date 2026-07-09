@@ -84,7 +84,17 @@
     "zod": "^4.4.3"
   },
   "peerDependencies": {
-    "viem": ">=2"
+    "viem": ">=2",
+    "@tevm/compiler": ">=1.0.0-next.148",
+    "solc": ">=0.8.0"
+  },
+  "peerDependenciesMeta": {
+    "@tevm/compiler": {
+      "optional": true
+    },
+    "solc": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/node": "catalog:",

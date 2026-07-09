@@ -43,5 +43,12 @@ export const generateDeployers = async (
   }
   const config = (await createJiti(import.meta.url).import(configPath, { default: true })) as Config;
   const out = resolve(root, config.out ?? "./deployers");
-  return runGenerate({ root, out, configPath, include: config.include });
+  return runGenerate({
+    root,
+    out,
+    configPath,
+    include: config.include,
+    framework: config.framework,
+    sources: config.sources,
+  });
 };

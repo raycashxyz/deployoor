@@ -119,6 +119,26 @@ describe("sourcify plugin", () => {
     await expect(run(plugin(), makeCtx(), deps)).rejects.toThrow(/verification failed/i);
   });
 
+  it("treats an already_verified job-completion error as success", async () => {
+    // Real Sourcify v2 does NOT 409 an already-verified contract on submit — it accepts
+    // the job (202) and completes it carrying error.customCode "already_verified".
+    const { deps, fetch } = makeDeps();
+    fetch.mockResolvedValueOnce(reply({ verificationId: "v1" }, 202));
+    fetch.mockResolvedValueOnce(
+      reply({
+        isJobCompleted: true,
+        contract: { match: null },
+        error: {
+          message: "The contract is already verified and the job didn't yield a better match.",
+          customCode: "already_verified",
+        },
+      }),
+    );
+
+    await expect(run(plugin(), makeCtx(), deps)).resolves.toBeUndefined();
+    expect(fetch).toHaveBeenCalledTimes(2); // submit + one poll, no throw
+  });
+
   it("throws when the submission is rejected (e.g. unsupported chain)", async () => {
     const { deps, fetch } = makeDeps();
     fetch.mockResolvedValueOnce(

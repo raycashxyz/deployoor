@@ -1,6 +1,6 @@
 # Hardhat
 
-deployoor reads Hardhat v2 `artifacts/` and generates typed deployers from them.
+deployoor reads Hardhat `artifacts/` — **both Hardhat 2 and Hardhat 3** — and generates typed deployers from them.
 
 ## Compile and generate
 
@@ -15,11 +15,13 @@ npx hardhat compile && npx deployoor generate
 
 ## Auto-generate on compile
 
-Add `@deployoor/hardhat` to skip the separate `generate` step:
+Add `@deployoor/hardhat` to skip the separate `generate` step — it regenerates `./deployers/` after every `hardhat compile`. It ships an entry for each Hardhat major.
 
 ```bash
 pnpm add -D @deployoor/hardhat deployoor viem
 ```
+
+**Hardhat 2** — register by side effect:
 
 ```js
 // hardhat.config.js
@@ -28,17 +30,25 @@ require("@deployoor/hardhat");
 module.exports = { solidity: "0.8.24" };
 ```
 
-Every `hardhat compile` regenerates `./deployers/`:
+**Hardhat 3** — import the `/v3` plugin object and add it to `plugins`:
+
+```ts
+// hardhat.config.ts
+import { defineConfig } from "hardhat/config";
+import deployoor from "@deployoor/hardhat/v3";
+
+export default defineConfig({ plugins: [deployoor], solidity: "0.8.28" });
+```
+
+Either way:
 
 ```bash
 npx hardhat compile
 # deployoor: generated 3 deployer file(s)
 ```
 
-## Hardhat v3
-
-Not yet supported. Hardhat v3 reworked the artifact layout — first-class v2 + v3 support is a near-term priority.
+Prefer no plugin? `deployoor generate` reads Hardhat 2 and Hardhat 3 `artifacts/` directly (it resolves each artifact's inline `buildInfoId` to `artifacts/build-info/<id>.json` on Hardhat 3), so `npx hardhat compile && npx deployoor generate` works too.
 
 ## Example
 
-Runnable example: [`examples/hardhat`](https://github.com/raycashxyz/deployoor/tree/main/examples/hardhat) — compile → auto-generate → deploy → committed record.
+Runnable examples: [`examples/hardhat`](https://github.com/raycashxyz/deployoor/tree/main/examples/hardhat) (Hardhat 2) and [`examples/hardhat-v3`](https://github.com/raycashxyz/deployoor/tree/main/examples/hardhat-v3) (Hardhat 3) — both use the plugin: compile → auto-generate → deploy → committed record.

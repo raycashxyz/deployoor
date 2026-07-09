@@ -6,7 +6,8 @@ deployoor is early. This is where it's heading, grouped by area. Have a use case
 
 ## Compatibility
 
-- **Hardhat v2 and v3** — _Planned (priority)._ deployoor reads Hardhat v2 `artifacts/` and Foundry `out/` today. Hardhat v3 reworked the build/artifact layout, so first-class support for **both** Hardhat majors (alongside Foundry) is a near-term priority — deployoor should work whichever Hardhat a project is on.
+- **Hardhat v2 and v3** — _Done._ `deployoor generate` reads both Hardhat majors (v2's `.dbg.json` → build-info and v3's inline `buildInfoId` + split `build-info/<id>.json`) alongside Foundry `out/`. The `@deployoor/hardhat` auto-generate plugin supports both too, via two entry points in one package: `@deployoor/hardhat` (v2, side-effect registration) and `@deployoor/hardhat/v3` (v3, a `plugins: []` object that overrides the `compile` task). See `examples/hardhat` and `examples/hardhat-v3`.
+- **tevm (`generate`)** — _Done._ `deployoor generate` can compile a plain-Solidity project (no Hardhat/Foundry) directly with tevm's compiler (`@tevm/compiler` + `solc`, optional peers). It's auto-detected (no Foundry/Hardhat markers + `.sol` under `src/` or `contracts/`); `framework: "tevm"` or a `tevm.config.*` remain as explicit overrides. See `examples/tevm`. Not yet exposed: remappings/libs config passthrough and a pinned/remote solc selector.
 
 ## Deploy engine
 

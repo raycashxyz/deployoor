@@ -8,10 +8,10 @@ import { runInit, isDeployoorInstalled } from "../../src/cli/init";
 const hhRoot = join(import.meta.dirname, "..", "fixtures", "hh");
 
 describe("runGenerate", () => {
-  it("reads a project's artifacts and emits a deployer per deployable contract", () => {
+  it("reads a project's artifacts and emits a deployer per deployable contract", async () => {
     const project = mkdtempSync(join(tmpdir(), "deployoor-gen-"));
     const out = join(project, "deployers");
-    const files = runGenerate({ root: hhRoot, out, configPath: join(project, "deployoor.config.ts") });
+    const files = await runGenerate({ root: hhRoot, out, configPath: join(project, "deployoor.config.ts") });
 
     expect(existsSync(join(out, "Counter.ts"))).toBe(true); // deployer
     expect(existsSync(join(out, "types", "Counter.ts"))).toBe(true); // artifact module
@@ -23,20 +23,20 @@ describe("runGenerate", () => {
     expect(deployer).toContain('import config from "../deployoor.config"'); // deployers/ → ../deployoor.config
   });
 
-  it("fails when an include filter matches no deployable contracts", () => {
+  it("fails when an include filter matches no deployable contracts", async () => {
     const project = mkdtempSync(join(tmpdir(), "deployoor-gen-"));
     const out = join(project, "deployers");
-    expect(() =>
+    await expect(
       runGenerate({ root: hhRoot, out, configPath: join(project, "deployoor.config.ts"), include: ["Nope"] }),
-    ).toThrow(/matched none/);
+    ).rejects.toThrow(/matched none/);
     expect(existsSync(join(out, "Counter.ts"))).toBe(false);
   });
 
-  it("warns about an include name that matched no contract while still generating the rest", () => {
+  it("warns about an include name that matched no contract while still generating the rest", async () => {
     const project = mkdtempSync(join(tmpdir(), "deployoor-gen-"));
     const out = join(project, "deployers");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    runGenerate({
+    await runGenerate({
       root: hhRoot,
       out,
       configPath: join(project, "deployoor.config.ts"),

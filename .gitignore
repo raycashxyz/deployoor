@@ -8,3 +8,8 @@ coverage
 .env
 .env.*
 !.env.example
+
+# Committed brand/demo assets live under assets/brand/dist even though the blanket
+# `dist` rule above would otherwise ignore them (they are referenced by README.md).
+!assets/brand/dist/
+!assets/brand/dist/**

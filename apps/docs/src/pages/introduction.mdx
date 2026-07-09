@@ -27,7 +27,7 @@ Your team stops copying addresses. Your chain ops get boring — in the best way
 compile → generate deployers → deploy → record → typed viem object everywhere
 ```
 
-1. **Compile** with Hardhat or Foundry — deployoor reads your artifacts.
+1. **Compile** with Hardhat (v2 or v3) or Foundry — deployoor reads your artifacts (or point it at plain `.sol` and it compiles them with tevm).
 2. **Generate** typed `getOrDeploy<Name>` functions into `./deployers/`.
 3. **Deploy** with a plain TypeScript script — each run records to `deployments/<chainId>-<network>/`.
 4. **Use** the result immediately: every `getOrDeploy` call returns a **typed viem contract object** (`contract.read.*`, `contract.write.*`) — in deploy scripts, in your app via [`@wagmi/cli`](/guides/consumption), and in tests via [`@deployoor/testing`](/guides/testing).

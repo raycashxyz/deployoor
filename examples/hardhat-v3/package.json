@@ -1,0 +1,30 @@
+{
+  "name": "@example/hardhat-v3",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "deployoor on a Hardhat 3 project: the @deployoor/hardhat/v3 plugin regenerates typed deployers after every compile, recorded to deployments/. Also tests on an in-memory EVM.",
+  "scripts": {
+    "generate": "hardhat compile",
+    "deploy": "tsx --env-file-if-exists=.env scripts/deploy.ts",
+    "e2e": "hardhat compile && vitest run"
+  },
+  "dependencies": {
+    "deployoor": "workspace:*",
+    "viem": "catalog:"
+  },
+  "devDependencies": {
+    "@deployoor/hardhat": "workspace:*",
+    "@deployoor/testing": "workspace:*",
+    "@types/node": "catalog:",
+    "hardhat": "^3.9.1",
+    "tsx": "^4.22.4",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "dependenciesMeta": {
+    "@deployoor/hardhat": {
+      "injected": true
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_35-abc123def456",
+  "solcVersion": "0.8.35",
+  "solcLongVersion": "0.8.35+commit.40a35a09",
+  "userSourceNameMap": {
+    "contracts/Counter.sol": "project/contracts/Counter.sol",
+    "contracts/ICounter.sol": "project/contracts/ICounter.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "sources": {
+      "project/contracts/Counter.sol": {
+        "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\ncontract Counter { uint256 public number; constructor(uint256 start) { number = start; } function increment() external { number += 1; } }"
+      },
+      "project/contracts/ICounter.sol": {
+        "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\ninterface ICounter { function number() external view returns (uint256); }"
+      }
+    },
+    "settings": { "optimizer": { "enabled": true, "runs": 200 } }
+  }
+}
