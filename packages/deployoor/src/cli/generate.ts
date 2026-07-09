@@ -1,5 +1,5 @@
 import { relative } from "node:path";
-import { readArtifacts } from "../artifacts";
+import { readArtifactsAsync, type Framework } from "../artifacts";
 import { generate, type GeneratedFile } from "../codegen/generate";
 
 export interface RunGenerateOptions {
@@ -13,6 +13,10 @@ export interface RunGenerateOptions {
   readonly include?: ReadonlyArray<string> | RegExp;
   /** Runtime package the generated deployers import. Default "deployoor". */
   readonly packageName?: string;
+  /** Toolchain override (else auto-detected). */
+  readonly framework?: Framework;
+  /** For the tevm framework: the `.sol` sources directory (relative to root). */
+  readonly sources?: string;
 }
 
 const matches = (name: string, include?: ReadonlyArray<string> | RegExp): boolean =>
@@ -27,8 +31,8 @@ const configSpecifier = (fromDir: string, configPath: string): string => {
 };
 
 /** detect → read → filter → generate. The testable core of `deployoor generate`. */
-export const runGenerate = (opts: RunGenerateOptions): ReadonlyArray<GeneratedFile> => {
-  const all = readArtifacts(opts.root);
+export const runGenerate = async (opts: RunGenerateOptions): Promise<ReadonlyArray<GeneratedFile>> => {
+  const all = await readArtifactsAsync(opts.root, { framework: opts.framework, sources: opts.sources });
   const artifacts = all.filter((a) => matches(a.name, opts.include));
   if (artifacts.length === 0) {
     const includeHint =

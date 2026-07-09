@@ -1,0 +1,16 @@
+{
+  "_format": "hh3-artifact-1",
+  "contractName": "Counter",
+  "sourceName": "contracts/Counter.sol",
+  "abi": [
+    { "inputs": [{ "name": "start", "type": "uint256" }], "stateMutability": "nonpayable", "type": "constructor" },
+    { "inputs": [], "name": "number", "outputs": [{ "name": "", "type": "uint256" }], "stateMutability": "view", "type": "function" },
+    { "inputs": [], "name": "increment", "outputs": [], "stateMutability": "nonpayable", "type": "function" }
+  ],
+  "bytecode": "0x6080604052348015600e575f80fd5b50",
+  "linkReferences": {},
+  "deployedBytecode": "0x6080604052",
+  "deployedLinkReferences": {},
+  "buildInfoId": "solc-0_8_35-abc123def456",
+  "inputSourceName": "project/contracts/Counter.sol"
+}

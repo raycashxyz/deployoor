@@ -7,6 +7,7 @@ import { detectFramework } from "../../src/artifacts/detect";
 
 const projectRoot = join(import.meta.dirname, "..", "fixtures", "hh");
 const artifactsDir = join(projectRoot, "artifacts");
+const hh3ArtifactsDir = join(import.meta.dirname, "..", "fixtures", "hh3", "artifacts");
 
 describe("readHardhatArtifacts", () => {
   it("parses deployable contracts, skipping interfaces (empty bytecode)", () => {
@@ -55,5 +56,28 @@ describe("readHardhatArtifacts", () => {
 describe("detectFramework", () => {
   it("detects hardhat from an artifacts dir", () => {
     expect(detectFramework(projectRoot)).toBe("hardhat");
+  });
+});
+
+describe("readHardhatArtifacts — Hardhat 3 layout", () => {
+  it("resolves build-info via the artifact's buildInfoId (no .dbg.json)", () => {
+    const [counter] = readHardhatArtifacts(hh3ArtifactsDir);
+    expect(counter?.name).toBe("Counter"); // ICounter (empty bytecode) skipped
+    expect(counter?.bytecode).toMatch(/^0x60/);
+    // HH3 build-info still carries solcLongVersion + the standard-json input.
+    expect(counter?.metadata.compilerVersion).toBe("0.8.35+commit.40a35a09");
+    expect(counter?.metadata.standardJsonInput.settings).toMatchObject({
+      optimizer: { enabled: true, runs: 200 },
+    });
+  });
+
+  it("uses inputSourceName for the fully-qualified name so it matches the std-json source key", () => {
+    const [counter] = readHardhatArtifacts(hh3ArtifactsDir);
+    // sourceName is contracts/Counter.sol, but solc compiled it as project/contracts/Counter.sol;
+    // the FQN (and the std-json sources key) must use the latter for verification to match.
+    expect(counter?.metadata.fullyQualifiedName).toBe("project/contracts/Counter.sol:Counter");
+    expect(counter?.metadata.standardJsonInput.sources["project/contracts/Counter.sol"]?.content).toContain(
+      "contract Counter",
+    );
   });
 });

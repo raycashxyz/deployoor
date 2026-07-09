@@ -27,9 +27,9 @@ describe("generated deployers type-check against deployoor", () => {
     ensureBuilt();
   }, 120_000);
 
-  it("compiles the emitted deployers, artifact modules, and config", () => {
+  it("compiles the emitted deployers, artifact modules, and config", async () => {
     const project = mkdtempSync(join(tmpdir(), "deployoor-tsc-"));
-    runGenerate({
+    await runGenerate({
       root: hhRoot,
       out: join(project, "deployers"),
       configPath: join(project, "deployoor.config.ts"),

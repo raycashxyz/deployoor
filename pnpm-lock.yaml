@@ -156,12 +156,18 @@ importers:
 
   packages/deployoor:
     dependencies:
+      '@tevm/compiler':
+        specifier: '>=1.0.0-next.148'
+        version: 1.0.0-next.148
       effect:
         specifier: 'catalog:'
         version: 3.21.4
       jiti:
         specifier: ^2.7.0
         version: 2.7.0
+      solc:
+        specifier: '>=0.8.0'
+        version: 0.8.24
       zod:
         specifier: ^4.4.3
         version: 4.4.3
