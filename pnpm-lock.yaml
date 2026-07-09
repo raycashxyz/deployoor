@@ -143,7 +143,13 @@ importers:
       viem:
         specifier: 'catalog:'
         version: 2.44.2(typescript@5.9.3)(zod@3.25.76)
+    dependenciesMeta:
+      '@deployoor/hardhat':
+        injected: true
     devDependencies:
+      '@deployoor/hardhat':
+        specifier: workspace:*
+        version: file:packages/deployoor-hardhat(deployoor@packages+deployoor)(hardhat@3.9.1)
       '@deployoor/testing':
         specifier: workspace:*
         version: link:../../packages/deployoor-testing
@@ -692,6 +698,13 @@ packages:
     peerDependencies:
       react: ^16.8.0 || ^17 || ^18 || ^19
       react-dom: ^16.8.0 || ^17 || ^18 || ^19
+
+  '@deployoor/hardhat@file:packages/deployoor-hardhat':
+    resolution: {directory: packages/deployoor-hardhat, type: directory}
+    engines: {node: '>=18'}
+    peerDependencies:
+      deployoor: '*'
+      hardhat: ^2 || ^3
 
   '@effect/schema@0.75.5':
     resolution: {integrity: sha512-TQInulTVCuF+9EIbJpyLP6dvxbQJMphrnRqgexm/Ze39rSjfhJuufF7XvU3SxTgg3HnL7B/kpORTJbHhlE6thw==}
@@ -7739,6 +7752,11 @@ snapshots:
       react-devtools-inline: 4.4.0
       react-dom: 19.2.7(react@19.2.7)
       react-is: 17.0.2
+
+  '@deployoor/hardhat@file:packages/deployoor-hardhat(deployoor@packages+deployoor)(hardhat@3.9.1)':
+    dependencies:
+      deployoor: link:packages/deployoor
+      hardhat: 3.9.1
 
   '@effect/schema@0.75.5(effect@3.18.1)':
     dependencies:

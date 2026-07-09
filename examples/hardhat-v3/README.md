@@ -5,8 +5,9 @@ deployoor on a **Hardhat 3** project (ESM config, the new `hh3-artifact-1` layou
 ```
 contracts/Counter.sol                     the contract
         │  hardhat compile   (Hardhat 3 → artifacts/ + build-info/<id>.json)
+        │  → @deployoor/hardhat/v3 plugin runs generate
         ▼
-deployers/Counter.ts                      typed getOrDeployCounter (deployoor generate, gitignored)
+deployers/Counter.ts                      typed getOrDeployCounter (generated, gitignored)
         │  scripts/deploy.ts
         ▼
 deployments/<chainId>-<network>/Counter.json   the source of truth — committed to the repo
@@ -14,13 +15,15 @@ deployments/<chainId>-<network>/Counter.json   the source of truth — committed
 
 ## 1. Compile → generate
 
-Hardhat 3's plugin API differs from Hardhat 2, so the `@deployoor/hardhat` auto-generate plugin (HH2-only today) isn't used here — run `deployoor generate` explicitly after compiling. The same [`generate` reader](../../packages/deployoor) parses Hardhat 3 artifacts (it resolves each artifact's inline `buildInfoId` to `artifacts/build-info/<id>.json`).
+`hardhat.config.ts` registers the [`@deployoor/hardhat/v3`](../../packages/deployoor-hardhat) plugin in `plugins: []` (Hardhat 3's declarative plugin model — the Hardhat 2 entry registers by side effect instead). It overrides the `compile` task to run `deployoor generate` afterward, so one command does both:
 
 ```bash
 pnpm --filter @example/hardhat-v3 exec hardhat compile
-pnpm --filter @example/hardhat-v3 exec deployoor generate
-# deployoor: generated 3 file(s)
+# Compiled 1 Solidity file with solc 0.8.28
+# deployoor: generated 3 deployer file(s)
 ```
+
+The reader parses Hardhat 3 artifacts by resolving each artifact's inline `buildInfoId` to `artifacts/build-info/<id>.json`. (No plugin? `deployoor generate` after `hardhat compile` works the same way.)
 
 ## 2. Deploy → record
 
@@ -37,5 +40,5 @@ pnpm --filter @example/hardhat-v3 deploy
 The same generated `getOrDeployCounter` runs in a vitest test against an in-memory EVM ([tevm](https://tevm.sh), via [`@deployoor/testing`](../../packages/deployoor-testing)). Spreading `clients` passes the in-memory store, so tests never touch `deployments/`.
 
 ```bash
-pnpm --filter @example/hardhat-v3 e2e   # hardhat compile → deployoor generate → vitest
+pnpm --filter @example/hardhat-v3 e2e   # hardhat compile (plugin generates) → vitest
 ```

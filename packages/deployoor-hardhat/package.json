@@ -29,11 +29,28 @@
         "types": "./dist/index.d.cts",
         "default": "./dist/index.cjs"
       }
+    },
+    "./v3": {
+      "import": {
+        "types": "./dist/v3.d.mts",
+        "default": "./dist/v3.mjs"
+      },
+      "require": {
+        "types": "./dist/v3.d.cts",
+        "default": "./dist/v3.cjs"
+      }
     }
   },
   "files": [
     "dist"
   ],
+  "typesVersions": {
+    "*": {
+      "v3": [
+        "./dist/v3.d.mts"
+      ]
+    }
+  },
   "engines": {
     "node": ">=18"
   },
@@ -44,7 +61,7 @@
   },
   "peerDependencies": {
     "deployoor": "*",
-    "hardhat": "^2"
+    "hardhat": "^2 || ^3"
   },
   "devDependencies": {
     "@types/node": "catalog:",
