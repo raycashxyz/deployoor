@@ -272,7 +272,7 @@ Grouped **done → in progress → planned → backlog**. _In progress_ is activ
 | Testing | First-class tevm targets (forks, fixtures, CI — beyond in-memory today)                | Planned     |
 | DX      | Flagship end-to-end example (deploy → committed record → wagmi)                        | In progress |
 | DX      | Migration guide + comparison table (hardhat-deploy, Ignition, rocketh)                 | In progress |
-| Compat  | `@deployoor/hardhat` auto-generate on Hardhat 3 (`generate` already reads HH3)         | Planned     |
+| Compat  | `@deployoor/hardhat` auto-generate on Hardhat 3 (`@deployoor/hardhat/v3`)              | Done        |
 | Verify  | `deployoor verify` from committed records                                              | Planned     |
 | Deploy  | Bytecode-diff redeploy (opt-in policy; today it only warns)                            | Planned     |
 | Deploy  | Proxies & diamonds, deterministic addresses (CREATE2 / CREATE3), dry run               | Backlog     |

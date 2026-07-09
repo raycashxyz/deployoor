@@ -231,7 +231,7 @@ The only framework-specific input is where the compiled contracts come from, and
 - **Hardhat v2 and v3** — reads `artifacts/`. The one reader handles both majors: v2's `<Name>.dbg.json` → build-info, and v3's inline `buildInfoId` + split `build-info/<id>.json`.
 - **tevm** (no Hardhat/Foundry) — set `framework: "tevm"` in `deployoor.config.ts` (or add a `tevm.config.*`) and point `sources` at your `.sol` (default `./src`); `deployoor generate` compiles them with tevm's compiler (`@tevm/compiler` + `solc`, installed as optional peers). Great for a contracts-light repo or a package that just needs typed deployers.
 
-Hardhat **v2** users can skip the separate `deployoor generate` step: add [`@deployoor/hardhat`](../deployoor-hardhat) to the Hardhat config and the deployers regenerate automatically after every `hardhat compile`. It calls the programmatic `generateDeployers` (exported from `deployoor/generate`) — the same work the CLI does, so you can wire generation into any other build tool too. (On Hardhat 3, run `deployoor generate` explicitly for now — see the [`examples/hardhat-v3`](../../examples/hardhat-v3) project.)
+Hardhat users can skip the separate `deployoor generate` step with [`@deployoor/hardhat`](../deployoor-hardhat), which regenerates the deployers after every `hardhat compile`. It calls the programmatic `generateDeployers` (exported from `deployoor/generate`) — the same work the CLI does, so you can wire generation into any other build tool too. It ships two entry points for the two Hardhat majors: `import "@deployoor/hardhat"` (Hardhat 2, side-effect) and `plugins: [deployoor]` from `@deployoor/hardhat/v3` (Hardhat 3) — see [`examples/hardhat`](../../examples/hardhat) and [`examples/hardhat-v3`](../../examples/hardhat-v3).
 
 ## Using your contracts
 
@@ -259,7 +259,7 @@ export default defineConfig({
 
 ## Status
 
-Early. The deploy core, the plugin model, and the wagmi bridge are stabilizing. `deployoor generate` reads Foundry (`out/`) and Hardhat v2 **and** v3 (`artifacts/`) artifacts, and can compile a plain-Solidity project directly with tevm — no Hardhat or Foundry required. (The `@deployoor/hardhat` auto-generate plugin still targets Hardhat 2; on Hardhat 3 run `deployoor generate` explicitly.)
+Early. The deploy core, the plugin model, and the wagmi bridge are stabilizing. `deployoor generate` reads Foundry (`out/`) and Hardhat v2 **and** v3 (`artifacts/`) artifacts, and can compile a plain-Solidity project directly with tevm — no Hardhat or Foundry required. The `@deployoor/hardhat` auto-generate plugin supports both Hardhat majors (`@deployoor/hardhat` for v2, `@deployoor/hardhat/v3` for v3).
 
 Pre-1.0, minor releases may include breaking API changes. Deployment records carry `schemaVersion: 1`; record-format changes will be versioned and documented because committed JSON is the portability boundary.
 
