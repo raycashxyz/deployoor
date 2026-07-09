@@ -1,6 +1,6 @@
 # Hardhat
 
-deployoor reads Hardhat v2 `artifacts/` and generates typed deployers from them.
+deployoor reads Hardhat `artifacts/` — **both Hardhat 2 and Hardhat 3** — and generates typed deployers from them.
 
 ## Compile and generate
 
@@ -37,8 +37,12 @@ npx hardhat compile
 
 ## Hardhat v3
 
-Not yet supported. Hardhat v3 reworked the artifact layout — first-class v2 + v3 support is a near-term priority.
+Supported by `deployoor generate` — the reader resolves each artifact's inline `buildInfoId` to `artifacts/build-info/<id>.json` (Hardhat 3's layout). The `@deployoor/hardhat` auto-generate plugin above targets Hardhat 2's task API, so on Hardhat 3 run `deployoor generate` explicitly after `hardhat compile`:
+
+```bash
+npx hardhat compile && npx deployoor generate
+```
 
 ## Example
 
-Runnable example: [`examples/hardhat`](https://github.com/raycashxyz/deployoor/tree/main/examples/hardhat) — compile → auto-generate → deploy → committed record.
+Runnable examples: [`examples/hardhat`](https://github.com/raycashxyz/deployoor/tree/main/examples/hardhat) (Hardhat 2, auto-generate) and [`examples/hardhat-v3`](https://github.com/raycashxyz/deployoor/tree/main/examples/hardhat-v3) (Hardhat 3, explicit generate) — compile → generate → deploy → committed record.

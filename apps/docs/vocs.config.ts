@@ -3,7 +3,7 @@ import { defineConfig } from "vocs/config";
 export default defineConfig({
   title: "deployoor",
   description:
-    "Quality-of-life for smart contract teams — simplify chain ops. Deploy once, use typed viem contract objects in your apps and tests. Hardhat and Foundry.",
+    "Quality-of-life for smart contract teams — simplify chain ops. Deploy once, use typed viem contract objects in your apps and tests. Hardhat, Foundry, and tevm.",
   baseUrl: "https://www.deployoor.dev",
   renderStrategy: "full-static",
   mcp: { enabled: false },
