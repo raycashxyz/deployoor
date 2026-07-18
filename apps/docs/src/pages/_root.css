@@ -288,6 +288,61 @@
   gap: 1rem 1.5rem;
 }
 
+.landing-social-links {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.landing-social-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--deployoor-border);
+  border-radius: 0.5rem;
+  color: var(--deployoor-fg);
+  background: color-mix(in srgb, var(--deployoor-fg) 6%, var(--deployoor-bg));
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    color 0.15s;
+}
+
+.landing-social-link:hover {
+  border-color: color-mix(in srgb, var(--deployoor-fg) 28%, transparent);
+  background: color-mix(in srgb, var(--deployoor-fg) 12%, var(--deployoor-bg));
+}
+
+.landing-social-link::before {
+  width: 1.125rem;
+  height: 1.125rem;
+  content: "";
+  background-color: currentColor;
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+}
+
+.landing-social-link[data-social="telegram"]::before {
+  -webkit-mask-image: url("/icons/telegram.svg");
+  mask-image: url("/icons/telegram.svg");
+}
+
+.landing-social-link[data-social="github"]::before {
+  -webkit-mask-image: url("/icons/github.svg");
+  mask-image: url("/icons/github.svg");
+}
+
+.landing-social-link[data-social="npm"]::before {
+  -webkit-mask-image: url("/icons/npm.svg");
+  mask-image: url("/icons/npm.svg");
+}
+
 .landing-cta {
   display: inline-flex;
   align-items: center;
