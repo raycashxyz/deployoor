@@ -1,4 +1,15 @@
-import { defineConfig } from "vocs/config";
+import { Changelog, defineConfig } from "vocs/config";
+
+const githubChangelog = Changelog.github({ repo: "raycashxyz/deployoor" });
+const coreChangelog = Changelog.from({
+  type: "deployoor-core",
+  async fetch(options) {
+    const releases = await githubChangelog.fetch({ ...options, limit: 100 });
+    const limit = options?.limit ?? releases.length;
+
+    return releases.filter((release) => release.version.startsWith("deployoor@")).slice(0, limit);
+  },
+});
 
 export default defineConfig({
   title: "deployoor",
@@ -16,11 +27,15 @@ export default defineConfig({
   },
   iconUrl: "/favicon.svg",
   ogImageUrl: "/og.png",
+  changelog: coreChangelog,
   socials: [
     { icon: "telegram", link: "https://t.me/deployoor" },
     { icon: "github", link: "https://github.com/raycashxyz/deployoor" },
   ],
-  topNav: [{ text: "Docs", link: "/getting-started/installation" }],
+  topNav: [
+    { text: "Docs", link: "/getting-started/installation" },
+    { text: "Changelog", link: "/changelog" },
+  ],
   sidebar: [
     {
       text: "Introduction",

@@ -194,6 +194,53 @@
   width: auto;
 }
 
+/* The slot is a portal host for npm in Vocs' native sidebar social row. */
+[data-v-sidebar-header] {
+  display: none;
+}
+
+.deployoor-sidebar-social-separator {
+  width: 1px;
+  height: 1rem;
+  margin-inline: 0.25rem;
+  background: var(--vocs-color-border);
+}
+
+.deployoor-sidebar-npm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  color: color-mix(in srgb, var(--deployoor-fg) 60%, transparent);
+  transition: color 0.15s;
+}
+
+.deployoor-sidebar-npm:hover {
+  color: var(--deployoor-fg);
+}
+
+.deployoor-sidebar-npm:focus-visible {
+  border-radius: 999px;
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.deployoor-sidebar-npm::before {
+  width: 1.125rem;
+  height: 1.125rem;
+  content: "";
+  background-color: currentColor;
+  -webkit-mask-image: url("/icons/npm.svg");
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-image: url("/icons/npm.svg");
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+}
+
 .landing-command-row {
   display: flex;
   align-items: center;
