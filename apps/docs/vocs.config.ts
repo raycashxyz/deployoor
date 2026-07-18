@@ -18,11 +18,21 @@ export default defineConfig({
   ogImageUrl: "/og.png",
   topNav: [
     { text: "Docs", link: "/getting-started/installation" },
-    { text: "Reference", link: "/reference/cli" },
     { text: "Packages", link: "/packages" },
+    {
+      text: "Telegram",
+      link: "https://t.me/deployoor",
+      external: true,
+    },
     {
       text: "GitHub",
       link: "https://github.com/raycashxyz/deployoor",
+      external: true,
+    },
+    {
+      text: "npm",
+      link: "https://www.npmjs.com/package/deployoor",
+      external: true,
     },
   ],
   sidebar: [

@@ -194,6 +194,55 @@
   width: auto;
 }
 
+/* External links in the top nav use accessible text with compact SVG icons. */
+[data-v-gutter-top] a[href="https://t.me/deployoor"],
+[data-v-gutter-top] a[href="https://github.com/raycashxyz/deployoor"],
+[data-v-gutter-top] a[href="https://www.npmjs.com/package/deployoor"] {
+  width: 2rem;
+  min-width: 2rem;
+  padding-inline: 0;
+  font-size: 0;
+  text-indent: -9999px;
+}
+
+[data-v-gutter-top] a[href="https://t.me/deployoor"]::before,
+[data-v-gutter-top] a[href="https://github.com/raycashxyz/deployoor"]::before,
+[data-v-gutter-top] a[href="https://www.npmjs.com/package/deployoor"]::before {
+  width: 1.125rem;
+  height: 1.125rem;
+  content: "";
+  background-color: currentColor;
+  background-repeat: no-repeat;
+  background-size: contain;
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+}
+
+[data-v-gutter-top] a[href="https://t.me/deployoor"]::before {
+  -webkit-mask-image: url("/icons/telegram.svg");
+  mask-image: url("/icons/telegram.svg");
+}
+
+[data-v-gutter-top] a[href="https://github.com/raycashxyz/deployoor"]::before {
+  -webkit-mask-image: url("/icons/github.svg");
+  mask-image: url("/icons/github.svg");
+}
+
+[data-v-gutter-top] a[href="https://www.npmjs.com/package/deployoor"]::before {
+  -webkit-mask-image: url("/icons/npm.svg");
+  mask-image: url("/icons/npm.svg");
+}
+
+[data-v-gutter-top] a[href="https://t.me/deployoor"] > svg,
+[data-v-gutter-top] a[href="https://github.com/raycashxyz/deployoor"] > svg,
+[data-v-gutter-top] a[href="https://www.npmjs.com/package/deployoor"] > svg {
+  display: none;
+}
+
 .landing-command-row {
   display: flex;
   align-items: center;
