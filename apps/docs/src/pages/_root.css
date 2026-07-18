@@ -378,5 +378,5 @@
 [data-layout="blank"] [data-v-content] .landing {
   min-height: 100vh;
   margin: calc(-1 * var(--vocs-spacing-content-py, 2.5rem)) calc(-1 * var(--vocs-spacing-content-px, 3rem));
-  padding-top: calc(2rem + var(--vocs-spacing-topNav, 0px));
+  padding-top: 2rem;
 }
