@@ -33,7 +33,7 @@ packages/
   deployoor-sourcify/   — @deployoor/sourcify: Sourcify v2 verifier (keyless)
   deployoor-slack/      — @deployoor/slack: Slack notifier
   deployoor-testing/    — @deployoor/testing: createTestClients() (tevm as viem clients + an in-memory store) for node-free tests
-apps/              — (placeholder) docs/marketing site goes here (vocs is the planned choice)
+apps/docs/         — Vocs v2 documentation site for deployoor.dev
 examples/          — dogfood projects (hardhat, foundry); verified via each one's `e2e` script (needs the toolchain), kept out of the core CI sweep
 ```
 

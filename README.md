@@ -9,7 +9,7 @@
 
 Deploy once. Use typed viem contract objects in your apps, scripts, and tests — one source of truth across every network you ship to.
 
-[Documentation](https://deployoor.dev) · [npm](https://www.npmjs.com/package/deployoor) · [GitHub](https://github.com/raycashxyz/deployoor)
+[Documentation](https://deployoor.dev) · [Telegram](https://t.me/deployoor) · [npm](https://www.npmjs.com/package/deployoor) · [GitHub](https://github.com/raycashxyz/deployoor)
 
 Hardhat (v2 and v3), Foundry, and plain-Solidity via tevm. Idempotent deploys, plain-JSON records, zero lock-in.
 
