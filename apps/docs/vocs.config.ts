@@ -20,25 +20,7 @@ export default defineConfig({
     { icon: "telegram", link: "https://t.me/deployoor" },
     { icon: "github", link: "https://github.com/raycashxyz/deployoor" },
   ],
-  topNav: [
-    { text: "Docs", link: "/getting-started/installation" },
-    { text: "Packages", link: "/packages" },
-    {
-      text: "Telegram",
-      link: "https://t.me/deployoor",
-      external: true,
-    },
-    {
-      text: "GitHub",
-      link: "https://github.com/raycashxyz/deployoor",
-      external: true,
-    },
-    {
-      text: "npm",
-      link: "https://www.npmjs.com/package/deployoor",
-      external: true,
-    },
-  ],
+  topNav: [{ text: "Docs", link: "/getting-started/installation" }],
   sidebar: [
     {
       text: "Introduction",

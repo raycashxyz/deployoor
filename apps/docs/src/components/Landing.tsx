@@ -89,36 +89,36 @@ export function Landing() {
         <a href="/getting-started/installation" className="landing-cta">
           Read the docs
         </a>
-        <nav className="landing-social-links" aria-label="Community links">
-          <a
-            href="https://t.me/deployoor"
-            className="landing-social-link"
-            data-social="telegram"
-            aria-label="Telegram"
-            title="Telegram"
-            target="_blank"
-            rel="noopener noreferrer"
-          />
-          <a
-            href="https://github.com/raycashxyz/deployoor"
-            className="landing-social-link"
-            data-social="github"
-            aria-label="GitHub"
-            title="GitHub"
-            target="_blank"
-            rel="noopener noreferrer"
-          />
-          <a
-            href="https://www.npmjs.com/package/deployoor"
-            className="landing-social-link"
-            data-social="npm"
-            aria-label="npm"
-            title="npm"
-            target="_blank"
-            rel="noopener noreferrer"
-          />
-        </nav>
       </div>
+      <nav className="landing-social-links" aria-label="Community links">
+        <a
+          href="https://t.me/deployoor"
+          className="landing-social-link"
+          data-social="telegram"
+          aria-label="Telegram"
+          title="Telegram"
+          target="_blank"
+          rel="noopener noreferrer"
+        />
+        <a
+          href="https://github.com/raycashxyz/deployoor"
+          className="landing-social-link"
+          data-social="github"
+          aria-label="GitHub"
+          title="GitHub"
+          target="_blank"
+          rel="noopener noreferrer"
+        />
+        <a
+          href="https://www.npmjs.com/package/deployoor"
+          className="landing-social-link"
+          data-social="npm"
+          aria-label="npm"
+          title="npm"
+          target="_blank"
+          rel="noopener noreferrer"
+        />
+      </nav>
     </div>
   );
 }
