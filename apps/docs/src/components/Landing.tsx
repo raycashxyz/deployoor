@@ -1,4 +1,5 @@
 import { CopyBlock } from "./CopyBlock";
+import { Link } from "vocs";
 
 type TabOption = {
   id: string;
@@ -86,9 +87,9 @@ export function Landing() {
       </div>
 
       <div className="landing-links">
-        <a href="/getting-started/installation" className="landing-cta">
+        <Link to="/getting-started/installation" className="landing-cta">
           Read the docs
-        </a>
+        </Link>
       </div>
       <nav className="landing-social-links" aria-label="Community links">
         <a

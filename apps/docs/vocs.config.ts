@@ -1,5 +1,12 @@
 import { Changelog, defineConfig } from "vocs/config";
 
+const baseUrl =
+  process.env.VERCEL_ENV === "production"
+    ? "https://www.deployoor.dev"
+    : process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : undefined;
+
 const githubChangelog = Changelog.github({ repo: "raycashxyz/deployoor" });
 const deployoorChangelog = Changelog.from({
   type: "deployoor-ecosystem",
@@ -17,7 +24,7 @@ export default defineConfig({
   title: "deployoor",
   description:
     "Quality-of-life for smart contract teams — simplify chain ops. Deploy once, use typed viem contract objects in your apps and tests. Hardhat, Foundry, and tevm.",
-  baseUrl: "https://www.deployoor.dev",
+  baseUrl,
   renderStrategy: "full-static",
   mcp: { enabled: false },
   accentColor: "light-dark(#111513, #BEF4BE)",
