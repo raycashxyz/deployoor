@@ -1,13 +1,15 @@
 import { Changelog, defineConfig } from "vocs/config";
 
 const githubChangelog = Changelog.github({ repo: "raycashxyz/deployoor" });
-const coreChangelog = Changelog.from({
-  type: "deployoor-core",
+const deployoorChangelog = Changelog.from({
+  type: "deployoor-ecosystem",
   async fetch(options) {
     const releases = await githubChangelog.fetch({ ...options, limit: 100 });
     const limit = options?.limit ?? releases.length;
+    const coreReleases = releases.filter((release) => release.version.startsWith("deployoor@"));
+    const ecosystemReleases = releases.filter((release) => !release.version.startsWith("deployoor@"));
 
-    return releases.filter((release) => release.version.startsWith("deployoor@")).slice(0, limit);
+    return [...coreReleases, ...ecosystemReleases].slice(0, limit);
   },
 });
 
@@ -27,7 +29,7 @@ export default defineConfig({
   },
   iconUrl: "/favicon.svg",
   ogImageUrl: "/og.png",
-  changelog: coreChangelog,
+  changelog: deployoorChangelog,
   socials: [
     { icon: "telegram", link: "https://t.me/deployoor" },
     { icon: "github", link: "https://github.com/raycashxyz/deployoor" },
