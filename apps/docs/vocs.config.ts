@@ -7,7 +7,7 @@ const deployoorChangelog = Changelog.from({
     const releases = await githubChangelog.fetch({ ...options, limit: 100 });
     const limit = options?.limit ?? releases.length;
     const coreReleases = releases.filter((release) => release.version.startsWith("deployoor@"));
-    const ecosystemReleases = releases.filter((release) => !release.version.startsWith("deployoor@"));
+    const ecosystemReleases = releases.filter((release) => release.version.startsWith("@deployoor/"));
 
     return [...coreReleases, ...ecosystemReleases].slice(0, limit);
   },
