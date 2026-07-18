@@ -16,6 +16,10 @@ export default defineConfig({
   },
   iconUrl: "/favicon.svg",
   ogImageUrl: "/og.png",
+  socials: [
+    { icon: "telegram", link: "https://t.me/deployoor" },
+    { icon: "github", link: "https://github.com/raycashxyz/deployoor" },
+  ],
   topNav: [
     { text: "Docs", link: "/getting-started/installation" },
     { text: "Packages", link: "/packages" },
