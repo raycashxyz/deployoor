@@ -25,7 +25,8 @@ export default defineConfig({
   description:
     "Quality-of-life for smart contract teams — simplify chain ops. Deploy once, use typed viem contract objects in your apps and tests. Hardhat, Foundry, and tevm.",
   baseUrl,
-  renderStrategy: "full-static",
+  // Keep docs pages prerendered while allowing Vocs' dynamic OG endpoint to run on Vercel.
+  renderStrategy: "partial-static",
   mcp: { enabled: false },
   accentColor: "light-dark(#111513, #BEF4BE)",
   colorScheme: "light dark",
@@ -35,7 +36,7 @@ export default defineConfig({
     dark: "/favicon-dark.svg",
   },
   iconUrl: "/favicon.svg",
-  ogImageUrl: "/og.png",
+  ogImageUrl: (_path, { baseUrl }) => `${baseUrl ?? ""}/api/og?title=%title&description=%description`,
   changelog: deployoorChangelog,
   socials: [
     { icon: "telegram", link: "https://t.me/deployoor" },
