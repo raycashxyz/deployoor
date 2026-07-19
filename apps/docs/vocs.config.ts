@@ -1,11 +1,32 @@
-import { defineConfig } from "vocs/config";
+import { Changelog, defineConfig } from "vocs/config";
+
+const baseUrl =
+  process.env.VERCEL_ENV === "production"
+    ? "https://www.deployoor.dev"
+    : process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : undefined;
+
+const githubChangelog = Changelog.github({ repo: "raycashxyz/deployoor" });
+const deployoorChangelog = Changelog.from({
+  type: "deployoor-ecosystem",
+  async fetch(options) {
+    const releases = await githubChangelog.fetch({ ...options, limit: 100 });
+    const limit = options?.limit ?? releases.length;
+    const coreReleases = releases.filter((release) => release.version.startsWith("deployoor@"));
+    const ecosystemReleases = releases.filter((release) => release.version.startsWith("@deployoor/"));
+
+    return [...coreReleases, ...ecosystemReleases].slice(0, limit);
+  },
+});
 
 export default defineConfig({
   title: "deployoor",
   description:
     "Quality-of-life for smart contract teams — simplify chain ops. Deploy once, use typed viem contract objects in your apps and tests. Hardhat, Foundry, and tevm.",
-  baseUrl: "https://www.deployoor.dev",
-  renderStrategy: "full-static",
+  baseUrl,
+  // Keep docs pages prerendered while allowing Vocs' dynamic OG endpoint to run on Vercel.
+  renderStrategy: "partial-static",
   mcp: { enabled: false },
   accentColor: "light-dark(#111513, #BEF4BE)",
   colorScheme: "light dark",
@@ -15,15 +36,15 @@ export default defineConfig({
     dark: "/favicon-dark.svg",
   },
   iconUrl: "/favicon.svg",
-  ogImageUrl: "/og.png",
+  ogImageUrl: (_path, { baseUrl }) => `${baseUrl ?? ""}/api/og?title=%title&description=%description`,
+  changelog: deployoorChangelog,
+  socials: [
+    { icon: "telegram", link: "https://t.me/deployoor" },
+    { icon: "github", link: "https://github.com/raycashxyz/deployoor" },
+  ],
   topNav: [
     { text: "Docs", link: "/getting-started/installation" },
-    { text: "Reference", link: "/reference/cli" },
-    { text: "Packages", link: "/packages" },
-    {
-      text: "GitHub",
-      link: "https://github.com/raycashxyz/deployoor",
-    },
+    { text: "Changelog", link: "/changelog" },
   ],
   sidebar: [
     {

@@ -194,6 +194,53 @@
   width: auto;
 }
 
+/* The slot is a portal host for npm in Vocs' native sidebar social row. */
+[data-v-sidebar-header] {
+  display: none;
+}
+
+.deployoor-sidebar-social-separator {
+  width: 1px;
+  height: 1rem;
+  margin-inline: 0.25rem;
+  background: var(--vocs-color-border);
+}
+
+.deployoor-sidebar-npm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  color: color-mix(in srgb, var(--deployoor-fg) 60%, transparent);
+  transition: color 0.15s;
+}
+
+.deployoor-sidebar-npm:hover {
+  color: var(--deployoor-fg);
+}
+
+.deployoor-sidebar-npm:focus-visible {
+  border-radius: 999px;
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.deployoor-sidebar-npm::before {
+  width: 1.125rem;
+  height: 1.125rem;
+  content: "";
+  background-color: currentColor;
+  -webkit-mask-image: url("/icons/npm.svg");
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-image: url("/icons/npm.svg");
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+}
+
 .landing-command-row {
   display: flex;
   align-items: center;
@@ -239,6 +286,65 @@
   gap: 1rem 1.5rem;
 }
 
+.landing-social-links {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin-top: 1.75rem;
+}
+
+.landing-social-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--deployoor-fg);
+  opacity: 0.72;
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
+}
+
+.landing-social-link:hover {
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+.landing-social-link:focus-visible {
+  border-radius: 999px;
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+.landing-social-link::before {
+  width: 1.25rem;
+  height: 1.25rem;
+  content: "";
+  background-color: currentColor;
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+}
+
+.landing-social-link[data-social="telegram"]::before {
+  -webkit-mask-image: url("/icons/telegram.svg");
+  mask-image: url("/icons/telegram.svg");
+}
+
+.landing-social-link[data-social="github"]::before {
+  -webkit-mask-image: url("/icons/github.svg");
+  mask-image: url("/icons/github.svg");
+}
+
+.landing-social-link[data-social="npm"]::before {
+  -webkit-mask-image: url("/icons/npm.svg");
+  mask-image: url("/icons/npm.svg");
+}
+
 .landing-cta {
   display: inline-flex;
   align-items: center;
@@ -272,5 +378,5 @@
 [data-layout="blank"] [data-v-content] .landing {
   min-height: 100vh;
   margin: calc(-1 * var(--vocs-spacing-content-py, 2.5rem)) calc(-1 * var(--vocs-spacing-content-px, 3rem));
-  padding-top: calc(2rem + var(--vocs-spacing-topNav, 0px));
+  padding-top: 2rem;
 }
