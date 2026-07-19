@@ -26,9 +26,11 @@ Connect the repo in the [Vercel dashboard](https://vercel.com/new) (`raycashxyz/
 
 1. **Root Directory:** `apps/docs`
 2. Enable **Include source files outside of the Root Directory** (required for the pnpm monorepo)
-3. Leave **Install** / **Build** empty — `apps/docs/vercel.json` sets them
+3. Leave **Install** / **Build** / **Output Directory** empty — `apps/docs/vercel.json` sets install/build and Vocs supplies the output
 4. **Framework preset:** Other
 5. Deploy, then add **deployoor.dev** under Settings → Domains
+
+The Root Directory must be `apps/docs`, not the monorepo root. This lets Vocs emit its dynamic `/api/og` function directly through the normal Vercel build output.
 
 Dashboard: [vercel.com/raycash/deployoor-docs](https://vercel.com/raycash/deployoor-docs)
 
