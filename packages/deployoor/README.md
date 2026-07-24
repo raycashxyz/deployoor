@@ -253,9 +253,12 @@ export default defineConfig({
 
 ## How it compares
 
-- **hardhat-deploy / Hardhat Ignition** — great at deploying; they stop there. `deployoor` is viem-first, works with Foundry too, and carries the result into typed objects your app uses.
-- **rocketh** — closest philosophically and also from the hardhat-deploy lineage; it ships a runtime environment, while deployoor keeps the deploy script as plain viem clients plus generated functions.
-- **`@wagmi/cli`** — great at turning ABIs + addresses into typed access. But you give it those addresses. `deployoor` produces them as a byproduct of your own deploys (including local and testnet, which explorers never see), then feeds wagmi. They compose; this is not a wagmi replacement.
+Checked against each tool's July 2026 release. Full table and an honest list of what deployoor does **not** do yet: [Comparison](https://deployoor.dev/comparison).
+
+- **hardhat-deploy v2 / rocketh** — the closest relatives, and better than their reputation: hardhat-deploy v2 is viem-only (no ethers anywhere), targets Hardhat 3, is built on rocketh, and `rocketh-export` already emits `as const` address + ABI for a frontend. Its default idempotency is sharper than ours, too — it redeploys when compiled bytecode actually changed, where deployoor reuses on record existence until you pass `force`. deployoor differs in reach and shape: it reads **Foundry, Hardhat v2, Hardhat v3, and plain Solidity (via tevm)** instead of being a Hardhat plugin, deploy scripts are plain `tsx script.ts` with your own viem clients rather than a CLI plus an environment object, and consumption delegates to `@wagmi/cli` instead of a first-party exporter.
+- **Hardhat Ignition** — Hardhat's official tool: declarative modules, a write-ahead journal, resumable execution, reconciliation on re-run, viem **and** ethers. The difference that matters is the record — Ignition splits addresses (`deployed_addresses.json`) from ABIs (`artifacts/<Module>#<Future>.json`), joined by a `Module#Future` key, and ships no typed access outside the Hardhat process. deployoor puts address, ABI, chainId, args, and compiler in one file per contract that anything can read.
+- **`forge script` broadcasts** — `broadcast/<Script>.s.sol/<chainId>/<sig>-latest.json` is a transaction log, not a deployment record: no ABI at all, `contractName` may be `null`, and the documented way to read an address back is positional (`.transactions[0].contractAddress`). `--resume` retries interrupted transactions; it has no "already deployed, skip it" notion.
+- **`@wagmi/cli`** — not a competitor; deployoor feeds it. wagmi turns ABIs + addresses into typed access, but you supply the addresses. deployoor produces them as a byproduct of your own deploys — including local and testnet, which explorers never see.
 
 ## Status
 

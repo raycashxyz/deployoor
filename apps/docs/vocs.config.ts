@@ -52,6 +52,10 @@ export default defineConfig({
       link: "/introduction",
     },
     {
+      text: "Comparison",
+      link: "/comparison",
+    },
+    {
       text: "Getting started",
       items: [
         { text: "Installation", link: "/getting-started/installation" },
@@ -69,6 +73,7 @@ export default defineConfig({
         { text: "Hardhat", link: "/guides/hardhat" },
         { text: "Foundry", link: "/guides/foundry" },
         { text: "TEVM", link: "/guides/tevm" },
+        { text: "Migrate from hardhat-deploy", link: "/guides/migrate-from-hardhat-deploy" },
       ],
     },
     {

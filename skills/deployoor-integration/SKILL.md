@@ -163,7 +163,7 @@ export default defineConfig({
 npx wagmi generate
 ```
 
-This emits ABIs as `const`, per-chain address maps (the same contract across chains becomes one entry keyed by `chainId`), and typed actions/hooks. The generated `src/generated.ts` depends only on `viem` (plus `wagmi` if you use `react()`) — not on deployoor.
+This emits ABIs as `const`, per-chain address maps (the same contract across chains becomes one entry keyed by `chainId`), and typed actions/hooks. The generated `src/generated.ts` never imports deployoor. Its only runtime dependency comes from the `@wagmi/cli` plugin you pair with `deployments()`: `actions()` imports `@wagmi/core`, `react()` imports `wagmi`, and with neither you get plain `viem`-only `abi` + address consts.
 
 ## Writing a custom plugin
 
