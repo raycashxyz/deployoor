@@ -1,11 +1,24 @@
 import { Changelog, defineConfig } from "vocs/config";
 
-const baseUrl =
-  process.env.VERCEL_ENV === "production"
-    ? "https://www.deployoor.dev"
-    : process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : undefined;
+// Set this ONLY where the public hostname is known — i.e. production.
+//
+// Vocs turns `baseUrl` into a `<base href="…">` tag, and `<base>` re-resolves *every* relative
+// URL on the page. So a baseUrl that isn't the host actually serving the page silently breaks
+// the whole site: markup like `src="/og.png"` and `href="/getting-started/installation"` stays
+// relative in the HTML but the browser resolves it against `<base>` instead.
+//
+// This previously used `https://${VERCEL_URL}` on previews. VERCEL_URL is the *per-deployment*
+// host (`<project>-<hash>-<team>.vercel.app`), not the branch alias you open from a PR, so every
+// asset and link on a branch preview pointed at a different origin — and since this project has
+// Vercel Authentication on all deployments except custom domains, that origin demands SSO. Net
+// effect: broken hero image and nav links on every preview.
+//
+// Leaving it undefined off production means no `<base>` is emitted and relative URLs resolve
+// against whichever host serves them — branch alias, deployment URL, or localhost. The tradeoff
+// is that previews carry no canonical/og:url/og:image; that costs nothing here, because those
+// only matter to external crawlers and no crawler can reach an SSO-gated preview anyway. To
+// review a change to the OG image itself, open `/api/og?title=…` on the preview directly.
+const baseUrl = process.env.VERCEL_ENV === "production" ? "https://www.deployoor.dev" : undefined;
 
 const githubChangelog = Changelog.github({ repo: "raycashxyz/deployoor" });
 const deployoorChangelog = Changelog.from({
@@ -52,6 +65,10 @@ export default defineConfig({
       link: "/introduction",
     },
     {
+      text: "Comparison",
+      link: "/comparison",
+    },
+    {
       text: "Getting started",
       items: [
         { text: "Installation", link: "/getting-started/installation" },
@@ -69,6 +86,7 @@ export default defineConfig({
         { text: "Hardhat", link: "/guides/hardhat" },
         { text: "Foundry", link: "/guides/foundry" },
         { text: "TEVM", link: "/guides/tevm" },
+        { text: "Migrate from hardhat-deploy", link: "/guides/migrate-from-hardhat-deploy" },
       ],
     },
     {

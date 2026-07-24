@@ -1,6 +1,6 @@
 # example: Hardhat + deployoor
 
-deployoor on a normal Hardhat (v2) project, focused on the deploy side: **compile → generate → deploy → committed record** — plus a node-free test. Everything below actually runs.
+The full journey on a normal Hardhat (v2) project: **compile → generate → deploy → committed record → typed app access** — plus a node-free test. Everything below actually runs.
 
 ```
 contracts/Counter.sol                     the contract
@@ -10,7 +10,12 @@ deployers/Counter.ts                      typed getOrDeployCounter (generated, g
         │  scripts/deploy.ts
         ▼
 deployments/31337-foundry/Counter.json    the source of truth — committed to the repo
+        │  wagmi generate  (@deployoor/wagmi feeds @wagmi/cli)
+        ▼
+src/generated.ts                          typed app access — committed, so you can read it here
 ```
+
+You can inspect every stage in this folder without running anything: the [record](deployments/31337-foundry/Counter.json) and the [generated app access](src/generated.ts) are both committed.
 
 ## 1. Compile → generate (one step)
 
@@ -42,12 +47,33 @@ deployments/
 
 (A local `anvil` is a throwaway chain, so its committed record is illustrative — re-running against a fresh anvil finds the old address; `reset({ publicClient })` or `force: true` redeploys. On a testnet the address persists, so the record stays valid across runs.)
 
+## 3. Record → typed app access
+
+The record is just JSON, so consuming it is a [`@wagmi/cli`](https://wagmi.sh/cli) plugin. [`wagmi.config.ts`](wagmi.config.ts) points [`@deployoor/wagmi`](../../packages/deployoor-wagmi) at the same `deployments/` folder `scripts/deploy.ts` wrote:
+
+```bash
+pnpm --filter @example/hardhat wagmi
+```
+
+That writes [`src/generated.ts`](src/generated.ts) — committed here so you can read the end of the journey without running anything:
+
+```ts
+// src/generated.ts (generated — do not edit)
+export const counterAbi = [...] as const;
+
+// the address came from your own deploy, keyed by chain — you never typed it
+export const counterAddress = { 31337: "0x5FbDB2315678afecb367f032d93F642f64180aa3" } as const;
+
+export const readCounterNumber = createReadContract({ abi: counterAbi, address: counterAddress, functionName: "number" });
+export const writeCounterSetNumber = createWriteContract({ abi: counterAbi, address: counterAddress, functionName: "setNumber" });
+```
+
+Deploy to a second chain and `counterAddress` becomes a two-key map — same import, no branching in your app. Swap `actions()` for `react()` in `wagmi.config.ts` to get hooks instead (`useReadCounterNumber`). Nothing here imports deployoor: the generated file needs only `@wagmi/core` (or `wagmi` for hooks), so your app never depends on your deploy tool.
+
 ## Test — no node, no disk
 
 The same generated `getOrDeployCounter` runs in a vitest test against an in-memory EVM ([tevm](https://tevm.sh), via [`@deployoor/testing`](../../packages/deployoor-testing)). Spreading `clients` passes the in-memory store, so tests never touch `deployments/`.
 
 ```bash
-pnpm --filter @example/hardhat e2e   # hardhat compile → (auto-generate) → vitest
+pnpm --filter @example/hardhat e2e   # hardhat compile → vitest → wagmi generate
 ```
-
-> Consuming the committed `deployments/` records from an app needs only `viem` (or the optional [`@deployoor/wagmi`](../../packages/deployoor-wagmi) bridge for `@wagmi/cli`) — see the [deployoor README](../../packages/deployoor#using-your-contracts) for that side.

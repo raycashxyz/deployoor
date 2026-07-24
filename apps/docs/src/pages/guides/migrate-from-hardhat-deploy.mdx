@@ -1,0 +1,222 @@
+# Migrate from hardhat-deploy
+
+Move to deployoor without redeploying anything. The path is: install alongside your existing setup, import your live addresses with `register`, port one deploy script, then delete the old one when you're ready.
+
+Read the [comparison](/comparison) first if you haven't — hardhat-deploy v2 is actively maintained, viem-only, and ahead of deployoor on proxies, diamonds, deterministic addresses, and bytecode-diff redeploys. Migrating is worth it when you want **one tool across Hardhat and Foundry**, a flat-JSON record keyed by chainId, and consumption through `@wagmi/cli`. It isn't worth it if you depend on the features above.
+
+:::info
+This guide covers **hardhat-deploy v1** (`deployments/<network>/<Contract>.json` + `.chainId`, ethers v5, Hardhat 2) and **v2 / rocketh** (same record shape plus a `.chain` sidecar, viem, Hardhat 3). The record format barely changed between them, so the import works for both.
+:::
+
+## What maps to what
+
+Both tools already agree on the important thing: one committed JSON file per contract, with the address **and** the ABI in it.
+
+| hardhat-deploy                   | deployoor                                      | Note                                                    |
+| -------------------------------- | ---------------------------------------------- | ------------------------------------------------------- |
+| `deployments/<network>/<C>.json` | `deployments/<chainId>-<network>/<C>.json`     | chainId moves into the path                             |
+| `.chainId` (v1) / `.chain` (v2)  | — (in the path and in every record)            | no sidecar needed                                       |
+| `address`                        | `address`                                      | same                                                    |
+| `abi`                            | `abi`                                          | same                                                    |
+| `bytecode`, `deployedBytecode`   | `bytecode`                                     | deployoor stores creation bytecode                      |
+| `args` (v1) / `argsData` (v2)    | `constructorArgs`                              | decoded values; `bigint` is written as a string         |
+| `transaction.hash`               | `transactionHash`                              | same value                                              |
+| `metadata`                       | `compiler.version` + `compiler.settings`       | deployoor splits the fields verification needs out      |
+| `numDeployments`                 | —                                              | not tracked                                             |
+| `libraries`                      | `libraries`                                    | same                                                    |
+| `history` (v1)                   | —                                              | deployoor keeps one record per (chain, deployment name) |
+| `deploy(...)` in a tagged script | `getOrDeploy<Name>({ ... })` in a plain script | see [step 3](#step-3-port-a-deploy-script)              |
+| `hre.deployments.get("X")`       | read the JSON, or `@deployoor/wagmi`           | see [consumption](/guides/consumption)                  |
+
+## Step 1 — Install alongside
+
+Nothing here touches your hardhat-deploy setup.
+
+```bash
+pnpm add -D deployoor viem tsx
+npx deployoor init          # writes deployoor.config.ts
+npx hardhat compile
+npx deployoor generate      # emits ./deployers
+```
+
+You now have a typed `getOrDeploy<Name>` per contract. Your hardhat-deploy scripts still work.
+
+## Step 2 — Import your live addresses
+
+`register` records a contract deployoor didn't deploy — no transaction, no gas. Point it at your existing hardhat-deploy folder and every live address becomes a deployoor record.
+
+Save this as `scripts/import-hardhat-deploy.ts`:
+
+```ts
+// Reads hardhat-deploy's deployments/<network>/*.json and registers each address with deployoor.
+// Run once per network, with a public client for that chain — no signer, no transactions.
+import { readdirSync, readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import { createPublicClient, http, type Abi } from "viem";
+import { register } from "../deployers";
+
+const legacyDir = process.argv[2]; // e.g. deployments/sepolia
+const rpcUrl = process.env.RPC_URL;
+if (legacyDir === undefined) throw new Error("usage: tsx scripts/import-hardhat-deploy.ts <dir>");
+if (rpcUrl === undefined) throw new Error("set RPC_URL to an RPC for the chain that folder targets");
+
+const publicClient = createPublicClient({ transport: http(rpcUrl) });
+
+// Guard against pointing a mainnet folder at a testnet RPC: hardhat-deploy keeps the chain id in
+// a sidecar (.chain in v2, .chainId in v1), so check it against the RPC before writing anything.
+const sidecarChainId = (): number | undefined => {
+  const v2 = join(legacyDir, ".chain");
+  if (existsSync(v2)) return Number(JSON.parse(readFileSync(v2, "utf8")).chainId);
+  const v1 = join(legacyDir, ".chainId");
+  return existsSync(v1) ? Number(readFileSync(v1, "utf8").trim()) : undefined;
+};
+
+const main = async (): Promise<void> => {
+  const expected = sidecarChainId();
+  const actual = await publicClient.getChainId();
+  if (expected !== undefined && expected !== actual) {
+    throw new Error(`${legacyDir} records chain ${expected}, but RPC_URL is chain ${actual}`);
+  }
+
+  const records = readdirSync(legacyDir).filter((file) => file.endsWith(".json"));
+  const imported = await Promise.all(
+    records.map(async (file) => {
+      const legacy = JSON.parse(readFileSync(join(legacyDir, file), "utf8")) as {
+        address: `0x${string}`;
+        abi: Abi;
+      };
+      const deploymentName = file.replace(/\.json$/, "");
+      await register({ publicClient, deploymentName, address: legacy.address, abi: legacy.abi });
+      return `${deploymentName} → ${legacy.address}`;
+    }),
+  );
+
+  console.log(`Registered ${imported.length} contract(s) on chain ${actual}:`);
+  imported.forEach((line) => console.log(`  ${line}`));
+};
+
+main().catch((error: unknown) => {
+  console.error(error);
+  process.exitCode = 1;
+});
+```
+
+```bash
+RPC_URL=https://sepolia.example tsx scripts/import-hardhat-deploy.ts deployments/sepolia
+```
+
+That writes `deployments/<chainId>-<network>/<Contract>.json` for each contract. Commit them — this folder is now your source of truth.
+
+:::warning
+`register` won't overwrite a record that came from a real deployoor deploy. If a name collides, [`reset`](/concepts/idempotency) it first or import under a different `deploymentName`.
+
+Records created this way have `kind: "external"` and carry no compiler metadata, so verification plugins can't verify them — they were verified by your old tooling already. Contracts you deploy _with_ deployoor from here on carry full metadata.
+:::
+
+## Step 3 — Port a deploy script
+
+hardhat-deploy scripts are tagged modules that receive an environment. deployoor scripts are plain Node programs that build their own viem clients.
+
+**Before** (hardhat-deploy v1):
+
+```ts
+// deploy/001_token.ts
+import type { HardhatRuntimeEnvironment } from "hardhat/types";
+
+const func = async (hre: HardhatRuntimeEnvironment) => {
+  const { deployer } = await hre.getNamedAccounts();
+  const token = await hre.deployments.deploy("Token", {
+    from: deployer,
+    args: [deployer],
+    log: true,
+    skipIfAlreadyDeployed: true,
+  });
+  await hre.deployments.deploy("Vault", { from: deployer, args: [token.address], log: true });
+};
+
+func.tags = ["Token"];
+export default func;
+```
+
+**After** (deployoor):
+
+```ts
+// scripts/deploy.ts — run it with `tsx scripts/deploy.ts`, no Hardhat runtime
+import { createPublicClient, createWalletClient, http } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { sepolia } from "viem/chains";
+import { getOrDeployToken, getOrDeployVault } from "../deployers";
+
+const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+const transport = http(process.env.RPC_URL);
+const clients = {
+  walletClient: createWalletClient({ account, chain: sepolia, transport }),
+  publicClient: createPublicClient({ chain: sepolia, transport }),
+};
+
+const { contract: token, freshDeploy } = await getOrDeployToken({ ...clients, args: [account.address] });
+const { contract: vault } = await getOrDeployVault({ ...clients, args: [token.address] });
+
+// one-time setup runs only on the call that actually deployed
+if (freshDeploy) await vault.write.initialize([token.address]);
+
+console.log(token.address, vault.address);
+```
+
+The differences worth knowing:
+
+- **No tags or dependencies.** Ordering is the order of your statements; a dependency is a variable. `getOrDeployVault` takes `token.address` because you have `token` in scope.
+- **`getOrDeploy` is `skipIfAlreadyDeployed` by default.** Re-running sends no transaction. Pass `force: true` to redeploy. Note this differs from hardhat-deploy's default, which redeploys when the bytecode changed — see [idempotency](/concepts/idempotency).
+- **Named accounts become viem accounts.** `getNamedAccounts()` has no equivalent; build the clients you need, one per signer.
+- **You get a contract object, not a receipt-ish struct.** `result.contract` is a typed viem contract — `contract.read.*` / `contract.write.*` — so there's no second `getContractAt` step.
+- **Multiple instances of one artifact** use `deploymentName` instead of a distinct contract name:
+  ```ts
+  await getOrDeployVault({ ...clients, args: [usdc], deploymentName: "Vault_USDC" });
+  ```
+
+## Step 4 — Replace `hre.deployments.get` in your app
+
+hardhat-deploy hands app code addresses through the Hardhat runtime or an `--export` bundle. deployoor's records are plain JSON, so [`@deployoor/wagmi`](/guides/consumption) feeds them to `@wagmi/cli`:
+
+```ts
+// wagmi.config.ts
+import { defineConfig } from "@wagmi/cli";
+import { actions } from "@wagmi/cli/plugins";
+import { deployments } from "@deployoor/wagmi";
+
+export default defineConfig({
+  out: "src/generated.ts",
+  plugins: [deployments({ path: "./deployments" }), actions()],
+});
+```
+
+```bash
+npx wagmi generate
+```
+
+The same contract on several chains folds into one entry with an `address` map keyed by chainId. The generated file never imports deployoor. Coming from `rocketh-export --ts`, this is the same idea with wagmi's codegen instead of a first-party exporter.
+
+## Step 5 — Keep or drop hardhat-deploy
+
+Both can coexist indefinitely — they read different folders. When you're ready:
+
+```bash
+pnpm remove hardhat-deploy hardhat-deploy-ethers
+```
+
+Remove `require("hardhat-deploy")` from `hardhat.config.js`, delete `deploy/`, and keep the old `deployments/` folder in git history as a record of what those addresses were.
+
+Optionally add [`@deployoor/hardhat`](/guides/hardhat) so `hardhat compile` regenerates deployers automatically, the way hardhat-deploy hooked into compile:
+
+```js
+require("@deployoor/hardhat"); // Hardhat 2 — use "@deployoor/hardhat/v3" on Hardhat 3
+```
+
+## Things that won't carry over
+
+- **Proxy and diamond deployments.** deployoor has no proxy support yet. `register` the proxy address so your app can reach it, but keep hardhat-deploy for upgrades until [proxies land](https://github.com/raycashxyz/deployoor/blob/main/TODO.md).
+- **`numDeployments` and `history`.** deployoor keeps one current record per (chain, deployment name); git history is the audit trail.
+- **`fetchIfDifferent` / bytecode-diff behaviour.** Not available yet; a reused record is reused until `force: true`.
+- **Verification of imported records.** As noted above, imported contracts have no compiler metadata attached.
+
+Hit something this guide doesn't cover? [Open an issue](https://github.com/raycashxyz/deployoor/issues) — migration gaps are the fastest way to get something prioritised.
