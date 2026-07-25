@@ -53,17 +53,25 @@ Save this as `scripts/import-hardhat-deploy.ts`:
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { createPublicClient, http, type Abi } from "viem";
+import { sepolia } from "viem/chains";
 import { register } from "../deployers";
+
+// Import the SAME viem chain your deploy script uses, and swap it per network. deployoor takes
+// both the id and the name from this chain to build the record path
+// (`deployments/<chainId>-<network>/`), so a different chain object writes to a different folder
+// than your next real deploy — and a client with no `chain` at all rejects with `NoChainOnClient`.
+const chain = sepolia;
 
 const legacyDir = process.argv[2]; // e.g. deployments/sepolia
 const rpcUrl = process.env.RPC_URL;
 if (legacyDir === undefined) throw new Error("usage: tsx scripts/import-hardhat-deploy.ts <dir>");
 if (rpcUrl === undefined) throw new Error("set RPC_URL to an RPC for the chain that folder targets");
 
-const publicClient = createPublicClient({ transport: http(rpcUrl) });
+const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
 
-// Guard against pointing a mainnet folder at a testnet RPC: hardhat-deploy keeps the chain id in
-// a sidecar (.chain in v2, .chainId in v1), so check it against the RPC before writing anything.
+// Guard against importing a mainnet folder as if it were a testnet: hardhat-deploy keeps the
+// chain id in a sidecar (.chain in v2, .chainId in v1). Check it, and the live RPC, against the
+// chain above before writing anything.
 const sidecarChainId = (): number | undefined => {
   const v2 = join(legacyDir, ".chain");
   if (existsSync(v2)) return Number(JSON.parse(readFileSync(v2, "utf8")).chainId);
@@ -72,10 +80,13 @@ const sidecarChainId = (): number | undefined => {
 };
 
 const main = async (): Promise<void> => {
-  const expected = sidecarChainId();
-  const actual = await publicClient.getChainId();
-  if (expected !== undefined && expected !== actual) {
-    throw new Error(`${legacyDir} records chain ${expected}, but RPC_URL is chain ${actual}`);
+  const recorded = sidecarChainId();
+  if (recorded !== undefined && recorded !== chain.id) {
+    throw new Error(`${legacyDir} records chain ${recorded}, but this script is set to ${chain.id}`);
+  }
+  const live = await publicClient.getChainId();
+  if (live !== chain.id) {
+    throw new Error(`RPC_URL is chain ${live}, but this script is set to ${chain.id}`);
   }
 
   const records = readdirSync(legacyDir).filter((file) => file.endsWith(".json"));
@@ -91,7 +102,7 @@ const main = async (): Promise<void> => {
     }),
   );
 
-  console.log(`Registered ${imported.length} contract(s) on chain ${actual}:`);
+  console.log(`Registered ${imported.length} contract(s) on ${chain.name} (${chain.id}):`);
   imported.forEach((line) => console.log(`  ${line}`));
 };
 
@@ -154,11 +165,15 @@ const clients = {
   publicClient: createPublicClient({ chain: sepolia, transport }),
 };
 
-const { contract: token, freshDeploy } = await getOrDeployToken({ ...clients, args: [account.address] });
-const { contract: vault } = await getOrDeployVault({ ...clients, args: [token.address] });
+const { contract: token } = await getOrDeployToken({ ...clients, args: [account.address] });
+const { contract: vault, freshDeploy: vaultIsNew } = await getOrDeployVault({
+  ...clients,
+  args: [token.address],
+});
 
-// one-time setup runs only on the call that actually deployed
-if (freshDeploy) await vault.write.initialize([token.address]);
+// `freshDeploy` is per call, so gate setup on the deployment it belongs to — reading Token's flag
+// here would skip initializing a brand-new Vault whenever Token was already recorded.
+if (vaultIsNew) await vault.write.initialize([token.address]);
 
 console.log(token.address, vault.address);
 ```
