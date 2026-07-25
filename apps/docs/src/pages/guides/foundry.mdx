@@ -2,6 +2,14 @@
 
 deployoor reads Foundry `out/` artifacts and `out/build-info/` for compiler metadata.
 
+## Why use this on a Foundry project
+
+Keep `forge build` and `forge test`. Nothing here replaces them, and no Hardhat is involved.
+
+What you get on top is a **TypeScript path over the same artifacts**: typed deploy scripts run with `tsx`, integration tests in vitest, and a committed `deployments/` record your app imports. A Solidity test proves the contract behaves; a TypeScript test additionally proves the path your frontend and backend take — viem, the ABI, the address — works. `forge script` broadcasts don't give you that: they carry no ABI, and the documented way to read an address back out is positional (`.transactions[0].contractAddress`).
+
+So the division is Solidity for unit and fuzz tests, TypeScript for deploys and integration.
+
 ## Compile and generate
 
 ```bash

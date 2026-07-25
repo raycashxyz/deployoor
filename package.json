@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Quality-of-life for smart contract teams — deploy once, use typed viem contract objects in apps and tests.",
+  "description": "Deploy EVM contracts from TypeScript with your own viem wallet — a deploy is an artifact plus a client, so scripts, tests, and your app share typed contract objects.",
   "license": "MIT",
   "author": "Valerio Leo",
   "homepage": "https://deployoor.dev",

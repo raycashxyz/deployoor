@@ -1,25 +1,31 @@
 # Introduction
 
-**Simplify your team's chain ops.**
+**Deploy contracts from TypeScript. Bring your own wallet.**
 
-Deploy once. Use typed viem contract objects in your apps, scripts, and tests — one source of truth across every network you ship to.
+A deploy is an artifact plus a viem wallet — so deploy scripts are ordinary Node programs, tests call the same functions, and every chain is a client you construct.
 
 ## Why we built this
 
-deployoor exists to make **chain ops** less painful for smart contract teams — the recurring work of deploying contracts, tracking what's live where, and keeping your codebase in sync with on-chain reality.
+**Deployment should stop being a framework feature.** Data access made that move years ago: an ORM used to be something your web framework handed you, and now Prisma, Drizzle, and Kysely are libraries you call from any runtime, so one query layer serves your API, your migrations, your scripts, and your tests. Contract deployment is still pre-shift — a deploy generally needs a framework runtime present, which means the framework also ends up owning your wallet and your network list.
 
-The days of one contract on one network are over. You push fresh builds to testnet, promote new versions to production, and run the same protocol on multiple chains. Modern projects mean many contracts, many networks, and many releases — but most deployment tooling still behaves like it's 2019.
+That coupling has costs, and they show up late. The signing path in production is configured differently from the one your tests exercise. Deploying across fifteen chains turns into a shell loop over a config file. Using a hardware wallet or a KMS means waiting for a plugin.
 
-We tried everything. Each path was strong in one place and fell short somewhere we cared about. In the **Hardhat** world, deploy flows tend to live inside the framework — fine for broadcasting transactions, awkward for handing typed, portable contract access to your app, CI, and frontend. In the **Foundry** world, scripting and artifacts are excellent — but there's no shared, git-committed record your whole stack can import without writing the glue yourself.
+deployoor takes the other position. A deploy needs compiled artifacts, a chain, and something that can sign — so pass the last two in, and read the first from whatever compiled it.
 
-deployoor is the chain-ops layer we wanted:
+- **Your wallet, not ours** — any viem `WalletClient`: a local mnemonic, an encrypted keystore, AWS or GCP KMS, Turnkey, Privy, Fireblocks, a Ledger, or a JSON-RPC account where no key exists in the process at all. deployoor never sees a secret, so it has no opinion about where yours lives.
+- **Your chains, not a config file** — a chain is an argument, so one script can cover as many as you like. The same is true in tests.
+- **Scripts with no environment** — `tsx scripts/deploy.ts`. Nothing to boot, no `env` threaded through your code.
+- **Tests that are the same code** — [`@deployoor/testing`](/guides/testing) hands you viem clients over an in-memory EVM, so the deployer you ship is the deployer under test.
+- **One source of truth** — every deploy recorded as plain JSON in your repo: mainnet, testnet, local nodes, and the in-memory chains in your test suite.
+- **Typed end to end** — generated `getOrDeploy<Name>` functions return typed viem contract objects, and [`@wagmi/cli`](/guides/consumption) turns the same records into typed app access.
 
-- **One source of truth** — every deployment recorded as plain JSON in your repo: mainnet, testnet, local dev nodes, and in-memory chains for your test suite.
-- **Environment-agnostic scripts** — plain TypeScript you run like any Node file (`tsx scripts/deploy.ts`). Bring your own RPC and signer; deployoor writes the record.
-- **Idempotent by default** — run a deploy script twice; contracts already on-chain are reused, not redeployed.
-- **The same deployers in tests** — write integration tests in JavaScript or TypeScript and call the identical functions from your favourite test runner.
+Everything else here follows from that split.
 
-Your team stops copying addresses. Your chain ops get boring — in the best way.
+## Who this is for
+
+TypeScript and JavaScript teams. deployoor generates functions you call from `.ts`, and its output is consumed by `viem` and `@wagmi/cli`, so it earns its place when the code around your contracts is TypeScript.
+
+That is also why it reads Foundry artifacts. A Foundry-native project already has excellent Solidity tests and no good way to drive its contracts from TypeScript. Point deployoor at `out/` and you keep `forge build` and `forge test`, and additionally get typed deploy scripts and TS integration tests over the same artifacts — no Hardhat required. Hardhat v2 and v3 work the same way, and plain `.sol` can be compiled directly with tevm.
 
 ## How it works
 

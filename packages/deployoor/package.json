@@ -4,7 +4,7 @@
   "private": false,
   "type": "module",
   "sideEffects": false,
-  "description": "Quality-of-life for smart contract teams — deploy once, use typed viem contract objects in apps and tests.",
+  "description": "Deploy EVM contracts from TypeScript with your own viem wallet — a deploy is an artifact plus a client, so scripts, tests, and your app share typed contract objects.",
   "keywords": [
     "ethereum",
     "evm",

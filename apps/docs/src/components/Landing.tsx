@@ -73,8 +73,8 @@ export function Landing() {
       </div>
 
       <p className="landing-lead">
-        Simplify your team&apos;s <strong>chain ops</strong>. Deploy once — typed viem contract objects in
-        apps, scripts, and tests.
+        Deploy contracts from <strong>TypeScript</strong>. Bring your own wallet — a deploy is an artifact
+        plus a viem client, so your scripts, tests, and app share the same typed objects.
       </p>
 
       <div className="landing-commands">

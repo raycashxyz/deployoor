@@ -36,7 +36,7 @@ const deployoorChangelog = Changelog.from({
 export default defineConfig({
   title: "deployoor",
   description:
-    "Quality-of-life for smart contract teams — simplify chain ops. Deploy once, use typed viem contract objects in your apps and tests. Hardhat, Foundry, and tevm.",
+    "Deploy EVM contracts from TypeScript with your own viem wallet. A deploy is an artifact plus a client, so scripts, tests, and your app share typed contract objects. Hardhat, Foundry, and tevm.",
   baseUrl,
   // Keep docs pages prerendered while allowing Vocs' dynamic OG endpoint to run on Vercel.
   renderStrategy: "partial-static",

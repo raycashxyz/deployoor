@@ -72,6 +72,15 @@ await token.write.transfer([recipient, amount]);
 tsx --env-file=.env scripts/deploy.ts
 ```
 
+No deployoor CLI in this step, and no framework to boot — it's a Node program.
+
+Two things in that script are deliberate, and they're why the rest of these docs look the way they do:
+
+- **You built the account.** `privateKeyToAccount` is one option; swap in an encrypted keystore, AWS or GCP KMS, Turnkey, Privy, or a Ledger and nothing else in the script changes, because deployoor reaches your signer only through viem. It never sees a key, so it has no opinion about where yours lives.
+- **You chose the chain.** `chain` and `transport` are arguments, not config entries — so a second chain means a second pair of clients in the same file, and testing against a fork means changing the transport.
+
+Both of those are what make the next two sections possible: more clients gives you a multi-chain deploy, and in-memory clients turn the identical `getOrDeployToken` call into a test.
+
 ## Multi-chain deploy (LayerZero Ping / Pong)
 
 One script can target **multiple networks** — pass a different viem client pair per chain. deployoor records each deploy under its own `deployments/<chainId>-<network>/` folder.

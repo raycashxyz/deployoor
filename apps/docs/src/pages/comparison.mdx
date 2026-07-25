@@ -15,9 +15,11 @@ Version details that decide whether a comparison applies:
 
 ## The separation
 
-A deploy needs three things: compiled artifacts, a chain to talk to, and something that can sign. Frameworks bundle all three, so the framework ends up owning your wallet and your network list as a side effect of owning your compiler.
+A deploy needs three things: compiled artifacts, a chain to talk to, and something that can sign. Frameworks bundle all three, so a framework ends up owning your wallet and your network list as a side effect of owning your compiler.
 
-deployoor splits them. Artifacts come from whatever compiled them. The chain and the signer arrive as viem clients you construct. Nothing is registered anywhere, so there is no config file between you and either one.
+**Deployment should stop being a framework feature.** Data access made that move years ago — an ORM used to be something your web framework handed you, and now Prisma, Drizzle, and Kysely are libraries you call from any runtime, so one query layer serves your API, your migrations, your scripts, and your tests. Contract deployment is still pre-shift, and it costs the same things it cost back then: your test path differs from your production path, and your tooling choice decides your architecture.
+
+deployoor treats a deploy as what it is: **an artifact plus a viem wallet.** Artifacts come from whatever compiled them. The chain and the signer arrive as clients you construct. Nothing is registered anywhere, so no config file sits between you and either one.
 
 That leaves Hardhat and Foundry doing what they are genuinely best at, and nothing else:
 
@@ -26,6 +28,14 @@ That leaves Hardhat and Foundry doing what they are genuinely best at, and nothi
 - **forking** — the single most valuable thing a local node does
 
 You bring the wallet. deployoor never sees a key, and never needs to know which chain you meant.
+
+Everything further down this page is a consequence of that one split.
+
+### Who this is for
+
+TypeScript and JavaScript teams. deployoor generates typed functions you call from `.ts`, and its output is consumed by `viem` and `@wagmi/cli` — so it is most useful when the code around your contracts is TypeScript.
+
+That is also why Foundry support exists. It is not agnosticism for its own sake: a Foundry-native project has excellent Solidity tests and no good way to drive its contracts from TypeScript. Reading `out/` directly means you keep `forge build` and `forge test`, and additionally get typed deploy scripts and TS integration tests over the same artifacts — without adding Hardhat.
 
 ## Three inversions
 
