@@ -263,7 +263,9 @@ New contributors: [CONTRIBUTING.md](CONTRIBUTING.md) covers the build loop, the 
 
 Full table, checked against each tool's July 2026 release: **[deployoor.dev/comparison](https://deployoor.dev/comparison)** · Coming from hardhat-deploy? **[Migration guide](https://deployoor.dev/guides/migrate-from-hardhat-deploy)**
 
-The short version:
+The difference isn't a feature list — it's where three decisions live: **who owns your wallet, who owns your network list, and whether a deploy script needs a framework runtime.** deployoor answers "you do, you do, and no", which leaves Hardhat and Foundry doing what they're best at — compiling, and running a node with dev controls and forking. Named accounts, deterministic addresses, and idempotent deployers all follow from that rather than standing on their own.
+
+Tool by tool:
 
 - **[hardhat-deploy](https://github.com/wighawag/hardhat-deploy) v2 / [rocketh](https://rocketh.dev)** — the closest relatives (v2 is viem-only, Hardhat 3, built on rocketh; `rocketh-export` emits typed address + ABI). They cover proxies, diamonds, deterministic addresses, named accounts, and bytecode-diff redeploys, which deployoor does not yet. deployoor's three deliberate differences: one tool across **Hardhat v2/v3, Foundry, and plain Solidity**; a deployer takes viem clients only, so account and chain come from the client, and it resolves to `{ contract, deployment, freshDeploy, receipt? }` — a ready-to-use typed viem contract **alongside** the record, where hardhat-deploy returns the record and you wrap it to get a contract; and accounts live in your own viem module, not a tool config.
 - **[Hardhat Ignition](https://hardhat.org/ignition)** — Hardhat's official tool; declarative modules, a write-ahead journal, strong resumability, viem **and** ethers. It splits addresses (`deployed_addresses.json`) from ABIs (`artifacts/<Module>#<Future>.json`) and ships no typed access outside the Hardhat process; deployoor keeps address + ABI + chainId + args + compiler in one file per contract.
