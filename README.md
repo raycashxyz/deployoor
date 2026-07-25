@@ -107,7 +107,7 @@ await token.write.transfer([to, amount]);
 
 deployoor ships an [**agent skill**](skills/deployoor-integration/SKILL.md) — one file that teaches Claude Code, Cursor, or any LLM to integrate deployoor end to end: install, config, generate, a deploy script with your real constructor args, plugins, tests, and wagmi consumption. Point your agent at it:
 
-```
+```text
 Read https://github.com/raycashxyz/deployoor/blob/main/skills/deployoor-integration/SKILL.md
 and wire deployoor into this project.
 ```
@@ -157,7 +157,7 @@ Full runnable example: [`examples/multi-chain/`](examples/multi-chain/).
 
 Running a single-chain deploy writes one record per contract — this is your committed source of truth:
 
-```
+```text
 deployments/
 └─ 11155111-sepolia/
    └─ Token.json

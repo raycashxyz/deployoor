@@ -26,7 +26,7 @@ That's the whole loop — CI runs the same `typecheck`, `test`, `lint`, and `for
 
 ## Repo layout
 
-```
+```text
 packages/
   deployoor/            the engine: codegen + CLI + deploy pipeline
   deployoor-wagmi/      @wagmi/cli plugin sourcing contracts from deployments/

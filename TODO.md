@@ -2,7 +2,7 @@
 
 deployoor is early. This is where it's heading, grouped by area. Have a use case or want something sooner? Open an issue — priorities follow real needs.
 
-**Status key:** **In progress** (actively being built) · **Planned** (committed, near-term) · **Exploring** (likely; shaping the design) · **Considering** (on the radar, feedback welcome).
+**Status key:** **Done** (shipped; here for context) · **In progress** (actively being built) · **Planned** (committed, near-term) · **Exploring** (likely; shaping the design) · **Considering** (on the radar, feedback welcome).
 
 ## Compatibility
 
