@@ -135,7 +135,7 @@ await reset({ publicClient, deploymentName: "Token" }); // omit `deploymentName`
 
 ## Verification & notifications (plugins)
 
-Plugins are deploy-lifecycle hooks configured in `deployoor.config.ts`; they run on a fresh deploy (a reused deployment carries no compiler metadata to verify). Skip one for a single contract with a per-deploy override:
+Plugins are deploy-lifecycle hooks configured in `deployoor.config.ts`. `onContractDeployed` fires on a fresh deploy and also on a reused one — with `ctx.reused: true`, and with `ctx.metadata` still populated from the current artifact. So verifiers can retry a failed verification on a plain re-run (they skip only when `ctx.metadata` is undefined), while notifiers should `if (ctx.reused) return` to avoid announcing a deploy that didn't happen. Never reach for `force: true` to retry verification — it bypasses the record and deploys a new contract at a new address. Skip a plugin for a single contract with a per-deploy override:
 
 ```ts
 await getOrDeployVault({ ...clients, args: [token.address], plugins: { etherscan: false } });

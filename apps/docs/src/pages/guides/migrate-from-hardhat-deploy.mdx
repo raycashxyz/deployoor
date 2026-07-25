@@ -128,7 +128,7 @@ That writes `deployments/<chainId>-<network>/<Contract>.json` for each contract.
 :::warning
 `register` won't overwrite a record that came from a real deployoor deploy. If a name collides, [`reset`](/concepts/idempotency) it first or import under a different `deploymentName`.
 
-Records created this way have `kind: "external"` and carry no compiler metadata, so verification plugins can't verify them — they were verified by your old tooling already. Contracts you deploy _with_ deployoor from here on carry full metadata.
+Records created this way have `kind: "external"` and no compiler metadata, and `register` runs no plugins at all — so nothing tries to verify them. They were verified by your old tooling already. Contracts you deploy _with_ deployoor from here on carry full metadata, and their verifier plugins can retry on a later re-run.
 :::
 
 ## Step 3 — Port a deploy script
