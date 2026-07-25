@@ -36,17 +36,19 @@ Three things we wanted, none of which is a missing feature in the tools above �
 
 Hardhat is good at compiling contracts. Deployment and testing are separate jobs, and a script that performs them should not depend on a framework runtime to exist. The same TypeScript test should run against a Hardhat node, anvil, a fork, an in-memory EVM, or Sepolia by swapping a transport — not by switching frameworks.
 
-That extends to accounts. In hardhat-deploy v2 you declare them in `rocketh/config.ts`:
+That extends to accounts, and it is the difference we care about most: **hardhat-deploy names accounts; deployoor takes signers.** In hardhat-deploy v2 an account is declared to the tool, as an index, an address, or a `protocol:` string:
 
 ```ts
-// rocketh/config.ts — accounts declared to the deploy tool, as indices
+// rocketh/config.ts — accounts declared to the deploy tool
 accounts: {
-  deployer: { default: 0 },
+  deployer: { default: 0 },   // index into the provider's eth_accounts
   admin: { default: 1 },
 },
 ```
 
-deployoor has no equivalent, on purpose. Accounts are viem's job, so they live in your own module and you decide what guards them:
+Its `AccountDefinition` is `EIP1193Account | string | number` — there is no object form, so you cannot hand a deploy call a viem `Account`. Custody instead becomes the tool's concern: a `signerProtocols` entry in config, returning an EIP-1193 shim. That extension point is real (ENS ships one) but the only implementation shipped is `privateKey`.
+
+deployoor has no accounts config, on purpose. The signer is a parameter, so custody stays in your code and the tool never has an opinion about it:
 
 ```ts
 // accounts.ts — yours, plain viem, nothing registered with a tool
@@ -58,6 +60,12 @@ export const deployer = privateKeyToAccount(process.env.DEPLOYER_KEY as `0x${str
 // hardware or a remote signer, with whatever confirmation you want around it
 export const treasury = toAccount({ address: TREASURY, signMessage, signTransaction, signTypedData });
 ```
+
+Two things follow that a config field cannot give you.
+
+**Your custody options are not a plugin catalogue.** viem only asks an account for `address` plus `signMessage` / `signTransaction` / `signTypedData` — and a deploy calls only `signTransaction`. So anything that can produce a secp256k1 signature works: an encrypted keystore, AWS or GCP KMS, Turnkey, Coinbase CDP, Privy or Dfns server wallets, a Ledger behind `@ledgerhq/hw-app-eth`, or a JSON-RPC account where a node, Frame, or Clef signs and no key exists in the process at all. None of that needs anything from deployoor, or a release from us.
+
+**Custody becomes testable, and stops drifting between environments.** An `accounts.ts` that picks a derivation path, refuses mainnet without confirmation, or routes the treasury to hardware is ordinary code you can unit-test. A per-network config stanza is not, and it is exactly the part your tests never execute. The deploy script itself is then byte-identical from a tevm test to CI to a mainnet Ledger run — the only thing that changes is which `Account` you construct.
 
 viem already draws a clean line between wallets and everything else, and we would rather not put a config file in front of it.
 
