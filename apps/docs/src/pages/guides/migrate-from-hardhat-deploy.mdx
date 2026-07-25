@@ -2,7 +2,7 @@
 
 Move to deployoor without redeploying anything. The path is: install alongside your existing setup, import your live addresses with `register`, port one deploy script, then delete the old one when you're ready.
 
-Read the [comparison](/comparison) first if you haven't — hardhat-deploy v2 is actively maintained, viem-only, and ahead of deployoor on proxies, diamonds, deterministic addresses, and bytecode-diff redeploys. Migrating is worth it when you want **one tool across Hardhat and Foundry**, a flat-JSON record keyed by chainId, and consumption through `@wagmi/cli`. It isn't worth it if you depend on the features above.
+The [comparison](/comparison) covers what differs. In short: migrate if you want **one tool across Hardhat and Foundry**, deployers that take viem clients and return typed contracts, accounts owned by your own viem module, and a flat-JSON record keyed by chainId. Stay where you are if you depend on proxies, diamonds, deterministic addresses, or bytecode-diff redeploys — hardhat-deploy has those and deployoor does not yet.
 
 :::info
 This guide covers **hardhat-deploy v1** (`deployments/<network>/<Contract>.json` + `.chainId`, ethers v5, Hardhat 2) and **v2 / rocketh** (same record shape plus a `.chain` sidecar, viem, Hardhat 3). The record format barely changed between them, so the import works for both.
