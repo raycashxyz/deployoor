@@ -35,6 +35,7 @@ deployoor is early. This is where it's heading, grouped by area. Have a use case
 
 ## CLI & developer experience
 
+- **A single typed `getOrDeploy`** — _Considering._ One entry point taking the contract name as a fully-typed literal — `getOrDeploy("Counter", { walletClient, publicClient, args })` — as an alternative to one `getOrDeploy<Name>` per contract. Same idea as hardhat-deploy's single `deploy`, keeping name-checked args and return types via a generated name→artifact map. Cheaper to import and to teach; the per-contract exports stay for tree-shaking.
 - **Watch mode** — _Considering._ `deployoor generate --watch` to regenerate deployers as artifacts change.
 - **Inspect commands** — _Considering._ `deployoor list` / `deployoor status` to see what's deployed across networks at a glance.
 - **Standalone-package scaffold** — _Considering._ Scaffold the `deployments/` + typed-access package outside your contracts, as a single source of truth importable anywhere (backend, frontend, browser).
