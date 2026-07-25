@@ -61,11 +61,41 @@ export const deployer = privateKeyToAccount(process.env.DEPLOYER_KEY as `0x${str
 export const treasury = toAccount({ address: TREASURY, signMessage, signTransaction, signTypedData });
 ```
 
-Two things follow that a config field cannot give you.
+Named accounts come along for free, because a name is what `export const` is. The indices in an `accounts` map resolve against an HD wallet, so derive them the same way and give them names:
+
+```ts
+// accounts.ts — the named-accounts feature, as ordinary imports
+import { mnemonicToAccount } from "viem/accounts";
+
+const m = process.env.MNEMONIC as string;
+export const deployer = mnemonicToAccount(m, { addressIndex: 0 });
+export const admin = mnemonicToAccount(m, { addressIndex: 1 });
+
+// per-network variation is a lookup, not a config schema
+export const signerFor = (chainId: number) => (chainId === 11_155_111 ? admin : deployer);
+```
+
+Now `import { deployer } from "./accounts"` is the whole feature, and it type-checks. A per-environment `{ default: 0, sepolia: 1 }` map exists to solve referring to an account by name when accounts are declared to a tool — which stops being a problem once they are values in your own module.
+
+Two more things follow that a config field cannot give you.
 
 **Your custody options are not a plugin catalogue.** viem only asks an account for `address` plus `signMessage` / `signTransaction` / `signTypedData` — and a deploy calls only `signTransaction`. So anything that can produce a secp256k1 signature works: an encrypted keystore, AWS or GCP KMS, Turnkey, Coinbase CDP, Privy or Dfns server wallets, a Ledger behind `@ledgerhq/hw-app-eth`, or a JSON-RPC account where a node, Frame, or Clef signs and no key exists in the process at all. None of that needs anything from deployoor, or a release from us.
 
 **Custody becomes testable, and stops drifting between environments.** An `accounts.ts` that picks a derivation path, refuses mainnet without confirmation, or routes the treasury to hardware is ordinary code you can unit-test. A per-network config stanza is not, and it is exactly the part your tests never execute. The deploy script itself is then byte-identical from a tevm test to CI to a mainnet Ledger run — the only thing that changes is which `Account` you construct.
+
+**And deployoor has no opinion about secrets, because it never sees one.** Where your key or mnemonic comes from — a shell env var, Vault, 1Password, SOPS, AWS Secrets Manager, an operator typing it, or nowhere at all because a Ledger holds it — is settled before an `Account` exists. Hardhat 3 instead ships its own encrypted keystore, which is a real one (scrypt + AES-GCM-SIV) and also demonstrates why we would rather not: a plaintext env var of the same name silently takes precedence over the vault, and the keystore is skipped entirely under CI, so the automated path is back to env secrets regardless. Secrets management is somebody's whole product; a deploy tool is a poor place to re-solve it.
+
+### Networks are values too
+
+The same inversion applies one level out. A viem client takes a `chain` object and a transport, so the caller decides where a deploy goes:
+
+```ts
+const walletClient = createWalletClient({ account, chain: sepolia, transport: http(rpcUrl) });
+```
+
+Any RPC URL, any chain, decided at the call site — which is what lets one script deploy to several chains by constructing several clients, as [`examples/multi-chain`](https://github.com/raycashxyz/deployoor/tree/main/examples/multi-chain) does with Ping on Sepolia and Pong on Base Sepolia.
+
+In Hardhat, networks are a registry the tool owns: they must be declared in `hardhat.config.ts` and referenced by name, and there is no documented way to connect to an arbitrary RPC URL ad hoc. Hardhat 3 does let you hold connections to several chains in one process via `network.create()`, so multi-chain scripts are possible — but the set of reachable chains is still config, a `--network` flag supplies a default connection alongside any you create programmatically, and connections carry a `chainType` (`l1` / `op` / `generic`) that shapes simulated-network behaviour and gates typed methods like `estimateL1Gas`. That is useful for high-fidelity local simulation of an OP stack; it is a concept a deploy script does not need.
 
 viem already draws a clean line between wallets and everything else, and we would rather not put a config file in front of it.
 
@@ -136,7 +166,7 @@ deployoor imports viem directly, so a viem release is usable as soon as you bump
 - **Resumability.** Ignition's write-ahead journal, batched execution, fee bumping, and `ignition status` / `transactions` / `track-tx` recover a half-finished deploy. deployoor writes records atomically and takes a coarse lock, but a crash between broadcast and receipt needs manual recovery.
 - **Standalone re-verification.** `rocketh-verify` and `ignition verify <id>` read a saved deployment and submit it as their own command, with no deploy script involved. deployoor verifies through deploy-lifecycle plugins: they also fire on a reused deployment when the artifact metadata is still available, so re-running your deploy script retries a verification that failed — never pass `force: true` for this, as that bypasses the record and deploys a new contract at a new address. What is missing is the standalone entry point, [`deployoor verify` from committed records](https://github.com/raycashxyz/deployoor/blob/main/TODO.md).
 - **Maturity.** Ignition is the official Hardhat tool on 3.x, bundled as a peer of both recommended toolboxes. deployoor is 0.x; pre-1.0 minor releases may break.
-- **Named accounts.** hardhat-deploy's per-environment `accounts` map is a convenience deployoor deliberately does not have — you build your own clients (see above).
+- **Named accounts** are listed here in most comparisons, including earlier versions of this one. They belong under [accounts as values](#the-framework-compiles-it-does-not-own-deploys-or-tests) instead: naming an account is what `export const` does, and per-network variation is a `chainId` lookup.
 
 ## When to use which
 
