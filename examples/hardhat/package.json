@@ -7,7 +7,8 @@
     "generate": "hardhat compile",
     "deploy": "tsx --env-file-if-exists=.env scripts/deploy.ts",
     "wagmi": "wagmi generate",
-    "e2e": "hardhat compile && vitest run && wagmi generate"
+    "test:memory": "hardhat compile && vitest run",
+    "e2e": "hardhat compile && vitest run && wagmi generate && git diff --exit-code HEAD -- src/generated.ts"
   },
   "dependencies": {
     "deployoor": "workspace:*",

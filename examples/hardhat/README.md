@@ -2,7 +2,7 @@
 
 The full journey on a normal Hardhat (v2) project: **compile → generate → deploy → committed record → typed app access** — plus a node-free test. Everything below actually runs.
 
-```
+```text
 contracts/Counter.sol                     the contract
         │  hardhat compile  (@deployoor/hardhat auto-runs generate)
         ▼
@@ -39,7 +39,7 @@ pnpm --filter @example/hardhat deploy
 
 That writes the committed source of truth:
 
-```
+```text
 deployments/
 └─ 31337-foundry/
    └─ Counter.json     ← address, ABI, chainId, args, tx, compiler
@@ -72,8 +72,14 @@ Deploy to a second chain and `counterAddress` becomes a two-key map — same imp
 
 ## Test — no node, no disk
 
-The same generated `getOrDeployCounter` runs in a vitest test against an in-memory EVM ([tevm](https://tevm.sh), via [`@deployoor/testing`](../../packages/deployoor-testing)). Spreading `clients` passes the in-memory store, so tests never touch `deployments/`.
+The same generated `getOrDeployCounter` runs in a vitest test against an in-memory EVM ([tevm](https://tevm.sh), via [`@deployoor/testing`](../../packages/deployoor-testing)). Spreading `clients` passes the in-memory store, so **the test itself** touches neither a node nor `deployments/`:
 
 ```bash
-pnpm --filter @example/hardhat e2e   # hardhat compile → vitest → wagmi generate
+pnpm --filter @example/hardhat test:memory   # hardhat compile → vitest
+```
+
+`e2e` runs that plus the generation steps, so it does write to disk — it regenerates `src/generated.ts` and fails if the committed copy has drifted:
+
+```bash
+pnpm --filter @example/hardhat e2e   # compile → vitest → wagmi generate → drift check
 ```
