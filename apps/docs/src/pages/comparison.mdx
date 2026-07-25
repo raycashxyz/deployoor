@@ -1,194 +1,164 @@
 # Comparison
 
-How deployoor relates to [hardhat-deploy](https://github.com/wighawag/hardhat-deploy) / [rocketh](https://rocketh.dev), [Hardhat Ignition](https://hardhat.org/ignition), and Foundry's `forge script` broadcasts.
+Same jobs, side by side: [hardhat-deploy](https://github.com/wighawag/hardhat-deploy) / [rocketh](https://rocketh.dev), [Hardhat Ignition](https://hardhat.org/ignition), and deployoor.
 
-The difference is not a feature list. Features get added — this page ends with several the other tools have and deployoor does not. The difference is where three decisions live: **who owns your wallet, who owns your network list, and whether a deploy script needs a framework runtime to exist.** deployoor answers "you do, you do, and no."
+This page is not a feature checklist. Features get added, and the tools above have several deployoor doesn't — those are [listed at the end](#what-the-others-do-that-deployoor-does-not). What doesn't change is the shape of the work, which comes from one decision: **a deploy is compiled artifacts plus a viem wallet.** Pass the chain and the signer in, read the artifacts from whatever compiled them, and every flow below falls out of that.
 
-Checked against each tool's current release, **July 2026**: hardhat-deploy 2.0.10, rocketh 0.19.9, Hardhat Ignition 3.1.8, Foundry 1.7.1. These tools are all actively maintained. If something here is out of date, [open an issue](https://github.com/raycashxyz/deployoor/issues).
+Deployment should stop being a framework feature — the move data access already made, when an ORM stopped being something your web framework handed you and became a library you call from any runtime.
 
 :::info
-Version details that decide whether a comparison applies:
+Checked against **July 2026** releases: hardhat-deploy 2.0.10, rocketh 0.19.9, Hardhat Ignition 3.1.8, Foundry 1.7.1. **hardhat-deploy v1 and v2 are different products** — v1 is ethers v5 on Hardhat 2, v2 is viem on Hardhat 3; this page means v2. **rocketh is the engine underneath v2**, not its replacement. If something is out of date, [open an issue](https://github.com/raycashxyz/deployoor/issues).
+:::
 
-- **hardhat-deploy v1 and v2 are different products.** v1 is ethers v5 on Hardhat 2; v2 is viem on Hardhat 3. Everything below refers to v2 unless it says otherwise.
-- **rocketh is the engine underneath hardhat-deploy v2**, not its replacement. Same author, same monorepo, same release train.
-  :::
+## Deploy to one chain
 
-## The separation
-
-A deploy needs three things: compiled artifacts, a chain to talk to, and something that can sign. Frameworks bundle all three, so a framework ends up owning your wallet and your network list as a side effect of owning your compiler.
-
-**Deployment should stop being a framework feature.** Data access made that move years ago — an ORM used to be something your web framework handed you, and now Prisma, Drizzle, and Kysely are libraries you call from any runtime, so one query layer serves your API, your migrations, your scripts, and your tests. Contract deployment is still pre-shift, and it costs the same things it cost back then: your test path differs from your production path, and your tooling choice decides your architecture.
-
-deployoor treats a deploy as what it is: **an artifact plus a viem wallet.** Artifacts come from whatever compiled them. The chain and the signer arrive as clients you construct. Nothing is registered anywhere, so no config file sits between you and either one.
-
-That leaves Hardhat and Foundry doing what they are genuinely best at, and nothing else:
-
-- **compilers** — Solidity in, artifacts out, with the build-info deployoor reads
-- **nodes with real dev controls** — balance manipulation, time warping, snapshots, impersonation
-- **forking** — the single most valuable thing a local node does
-
-You bring the wallet. deployoor never sees a key, and never needs to know which chain you meant.
-
-Everything further down this page is a consequence of that one split.
-
-### Who this is for
-
-TypeScript and JavaScript teams. deployoor generates typed functions you call from `.ts`, and its output is consumed by `viem` and `@wagmi/cli` — so it is most useful when the code around your contracts is TypeScript.
-
-That is also why Foundry support exists. It is not agnosticism for its own sake: a Foundry-native project has excellent Solidity tests and no good way to drive its contracts from TypeScript. Reading `out/` directly means you keep `forge build` and `forge test`, and additionally get typed deploy scripts and TS integration tests over the same artifacts — without adding Hardhat.
-
-## Three inversions
-
-### 1. The framework compiles; it does not own deploys or tests
-
-A deploy script is a plain Node program: `tsx scripts/deploy.ts`. There is no runner to invoke and no `env` handed to your function, so nothing about it requires a framework to be present.
-
-The practical consequence is that your toolchain choice stops being a package deal. Write contracts in Foundry and test them in TypeScript — not because Solidity tests are worse, but because a TypeScript test exercises the **same viem path your frontend and backend will use**. You are testing the integration, not only the contract. deployoor reads Hardhat v2 `.dbg.json` build-info, Hardhat v3's split `build-info/<id>.json`, Foundry `out/`, and can compile plain `.sol` itself with tevm.
-
-None of the others span Hardhat _and_ Foundry. rocketh's core is EIP-1193 + abitype and advertises framework-agnosticism, but ships no Foundry artifact loader, docs, or template — Hardhat is the only toolchain it documents.
-
-### 2. Wallets are yours
-
-**hardhat-deploy names accounts; deployoor takes signers.** An account there is declared to the tool as an index, an address, or a `protocol:` string:
+**Ignition** — describe the deployment in a module, then run it through the CLI or the Hardhat runtime:
 
 ```ts
-// rocketh/config.ts — accounts declared to the deploy tool
-accounts: {
-  deployer: { default: 0 },   // index into the provider's eth_accounts
-  admin: { default: 1 },
-},
+// ignition/modules/Counter.ts
+export default buildModule("CounterModule", (m) => {
+  const counter = m.contract("Counter", [0n]);
+  m.call(counter, "inc");
+  return { counter };
+});
 ```
-
-`AccountDefinition` is `EIP1193Account | string | number`. There is no object form, so a viem `Account` cannot reach a deploy call by any route. Custody becomes the tool's concern, reached through a `signerProtocols` entry in config that returns an EIP-1193 shim — a real extension point (ENS ships one) whose only shipped implementation is `privateKey`.
-
-deployoor has no accounts config. The signer is a parameter:
 
 ```ts
-// accounts.ts — yours, plain viem, nothing registered with a tool
-import { mnemonicToAccount, toAccount } from "viem/accounts";
-
-const m = process.env.MNEMONIC as string;
-export const deployer = mnemonicToAccount(m, { addressIndex: 0 });
-export const admin = mnemonicToAccount(m, { addressIndex: 1 });
-
-// the sensitive one never holds a key in the process: hardware or a remote signer,
-// with whatever confirmation you want wrapped around it
-export const treasury = toAccount({ address: TREASURY, signMessage, signTransaction, signTypedData });
+// scripts/deploy.ts
+import hre from "hardhat";
+const connection = await hre.network.create();
+const { counter } = await connection.ignition.deploy(CounterModule);
 ```
 
-**Your custody options are not a plugin catalogue.** viem asks an account for `address` plus `signMessage` / `signTransaction` / `signTypedData`, and a deploy calls only `signTransaction`. So anything that can produce a secp256k1 signature works: an encrypted keystore, AWS or GCP KMS, Turnkey, Coinbase CDP, Privy or Dfns server wallets, a Ledger behind `@ledgerhq/hw-app-eth`, or a JSON-RPC account where a node, Frame, or Clef signs and no key exists in the process at all. None of it needs a release from us.
+`hardhat ignition deploy ./ignition/modules/Counter.ts --network sepolia`. The signer comes from `networks.sepolia.accounts` in config; the chain comes from `--network`.
 
-**Custody stops drifting between environments.** Swapping a local mnemonic for KMS, or KMS for a hardware wallet, changes which `Account` you construct and nothing else — so the same deploy script runs in a test, in staging, and in production. Where a tool owns the wallet, the production signing path is configured differently from the one your tests execute, and for custody the tool has no plugin for you leave the tool entirely.
-
-**And deployoor has no opinion about secrets, because it never sees one.** Where a key or mnemonic comes from — a shell env var, Vault, 1Password, SOPS, AWS Secrets Manager, an operator typing it, or nowhere at all because a Ledger holds it — is settled before an `Account` exists. Hardhat 3 instead ships its own encrypted keystore. It is a real one (scrypt + AES-GCM-SIV), and it also shows why we would rather not: a plaintext env var of the same name silently takes precedence over the vault, and the keystore is **skipped entirely under CI**, so the automated path is back to env secrets regardless. Secrets management is somebody's whole product.
-
-### 3. Networks are yours
-
-A viem client takes a `chain` and a transport, so the caller decides where a deploy goes:
+**hardhat-deploy** — a script, with the account named in `rocketh/config.ts`:
 
 ```ts
-const walletClient = createWalletClient({ account, chain: base, transport: http(rpcUrl) });
+const deployment = await deploy("Counter", {
+  account: deployer, // a name, resolved from config
+  artifact: artifacts.Counter,
+  args: [0n],
+});
+await env.execute(Counter, { account: env.namedAccounts.deployer, functionName: "inc", args: [] });
 ```
 
-Any RPC, any chain, at the call site. Fifteen chains is a `map` over fifteen clients, not fifteen config entries and a shell loop.
-
-In Hardhat, networks are a registry the tool owns: they must be declared in `hardhat.config.ts` and referenced by name, and there is no documented way to connect to an arbitrary RPC URL ad hoc. Hardhat 3 does let you hold connections to several chains in one process via `network.create()`, so multi-chain scripts are possible — but the reachable set is still config, `--network` supplies a default connection alongside any you create programmatically, and connections carry a `chainType` (`l1` / `op` / `generic`) that shapes simulated-network behaviour and gates typed methods like `estimateL1Gas`. That is real value for high-fidelity OP-stack simulation; it is a concept a deploy script does not need.
-
-`forge script` takes a single `--rpc-url`, and a script reaches other chains by switching forks in Solidity (`vm.createSelectFork`); cross-chain broadcasts then land in `broadcast/multi/`, with `--multi` governing how `--resume` and `--verify` treat them.
-
-## What the separation unlocks
-
-**A test and a deploy script become the same shape.** [`@deployoor/testing`](/guides/testing) hands you viem clients over an in-memory EVM ([tevm](https://tevm.sh)) plus an in-memory store, so the deployer you ship is the deployer under test:
+**deployoor** — a Node program. You construct the signer and the chain, and get a typed contract back:
 
 ```ts
-const clients = await createTestClients();
-const { contract } = await getOrDeployCounter({ ...clients, args: [7n] });
-await contract.write.setNumber([42n]);
+// scripts/deploy.ts — run it with `tsx scripts/deploy.ts`
+const account = privateKeyToAccount(process.env.PK as `0x${string}`);
+const transport = http(process.env.RPC_URL);
+const clients = {
+  walletClient: createWalletClient({ account, chain: sepolia, transport }),
+  publicClient: createPublicClient({ chain: sepolia, transport }),
+};
+
+const { contract, freshDeploy } = await getOrDeployCounter({ ...clients, args: [0n] });
+if (freshDeploy) await contract.write.inc();
 ```
 
-Point the same code at `http(rpcUrl)` and it is a deploy. Nothing is stubbed, because there was no framework object to stub.
+No module to author, no runtime to boot, and nothing named in a config file. `account` is any viem `Account` — a keystore, KMS, Turnkey, Privy, a Ledger, or a JSON-RPC account where no key exists in the process. deployoor never sees a secret.
 
-**Multi-chain works the same way in tests as in production** — because a chain is just a client. Two independent chains in one test file, no node and no config:
+## Deploy to fifteen chains
+
+**Hardhat** — each chain must be declared in `hardhat.config.ts`; there is no documented way to connect to an arbitrary RPC ad hoc. Hardhat 3 can hold several connections in one process, so this is possible, but there's no official multi-chain example and an Ignition deployment id is permanently bound to one chain. In practice teams loop the CLI over `--network` in a shell script.
+
+**deployoor** — a chain is an argument, so it's a loop over clients in one file:
+
+```ts
+for (const chain of [mainnet, base, optimism, arbitrum /* … */]) {
+  const clients = clientsFor(chain, rpcUrls[chain.id]);
+  await getOrDeployCounter({ ...clients, args: [0n] });
+}
+```
+
+Each deploy records under its own `deployments/<chainId>-<network>/`. [`examples/multi-chain`](https://github.com/raycashxyz/deployoor/tree/main/examples/multi-chain) does this across two chains and wires them as LayerZero peers in the same script.
+
+## Test
+
+**Ignition** — tests run inside Hardhat, deploying the module through a connection:
+
+```ts
+import { network } from "hardhat";
+const { ignition } = await network.create();
+const { counter } = await ignition.deploy(CounterModule);
+assert.equal(await counter.read.count(), 0);
+```
+
+**deployoor** — the deployer you ship is the deployer under test. Swap the clients, keep the call:
+
+```ts
+import { createTestClients } from "@deployoor/testing";
+
+const clients = await createTestClients(); // in-memory EVM + in-memory store
+const { contract } = await getOrDeployCounter({ ...clients, args: [0n] });
+expect(await contract.read.count()).toBe(0n);
+```
+
+Any runner, no Hardhat, no node, no disk. And because a chain is a client, multi-chain tests work the same way as multi-chain deploys — two independent chains in one test file:
 
 ```ts
 const a = await createTestClients();
 const b = await createTestClients();
-
 const ping = await getOrDeployPing({ ...a, args: [endpoint] });
 const pong = await getOrDeployPong({ ...b, args: [endpoint] });
-await ping.contract.write.setPeer([eidB, pad(pong.contract.address, { size: 32 })]);
 ```
 
-The deploy script for the same topology differs only in how the clients are built — see [`examples/multi-chain`](https://github.com/raycashxyz/deployoor/tree/main/examples/multi-chain), which deploys Ping on Sepolia and Pong on Base Sepolia from one file.
+## Run an ops script against contracts already deployed
 
-**And a fork is not a special mode.** Because the node is somebody else's job, "test against forked mainnet" means pointing a client at `anvil --fork-url …` and changing nothing else.
-
-## Everything else is downstream
-
-The rest of what deployoor does follows from those three decisions rather than standing on its own:
-
-- **Named accounts** are `export const`. The indices in an `accounts` map resolve against an HD wallet, so `mnemonicToAccount(m, { addressIndex: 0 })` reproduces them exactly, and per-network variation is a `chainId` lookup instead of a config schema. The feature exists to solve referring to an account by name _when accounts are declared to a tool_.
-- **The deployer returns a typed viem contract**, not a record you wrap — `{ contract, deployment, freshDeploy, receipt? }` — because the client came from you, so there is no environment to route reads and writes through.
-- **The record is one flat file** at `deployments/<chainId>-<network>/<Contract>.json`, keyed by chainId because the chain came from the client rather than a config name. Address, full ABI, args, tx, deployer, and compiler settings together.
-- **Consumption is delegated** to [`@wagmi/cli`](https://wagmi.sh/cli) via `@deployoor/wagmi`, so your app depends on `viem`/`@wagmi/core` and never on deployoor.
-- **Idempotency, verification, and notifications** are a plugin pipeline over that record, not framework hooks.
-
-Which is also why the gaps below are gaps rather than objections: they are features, and features are catch-up work.
-
-## Where the others are ahead
-
-- **Bytecode-aware idempotency.** hardhat-deploy compares compiled bytecode with the metadata trailer stripped and redeploys when the code actually changed. deployoor reuses a recorded deployment until you pass `force: true`, so editing a contract and re-running keeps the old address and emits a warning. [Bytecode-diff redeploy is on the roadmap](https://github.com/raycashxyz/deployoor/blob/main/TODO.md).
-- **Proxies, diamonds, and deterministic addresses.** hardhat-deploy ships ERC-1967 / Transparent / UUPS / ERC-173 proxies, EIP-2535 diamonds, and CREATE2/CREATE3. deployoor has none of these yet, so upgradeable contracts are better served there today.
-- **Resumability.** Ignition's write-ahead journal, batched execution, fee bumping, and `ignition status` / `transactions` / `track-tx` recover a half-finished deploy. deployoor writes records atomically and takes a coarse lock, but a crash between broadcast and receipt needs manual recovery.
-- **Standalone re-verification.** `rocketh-verify` and `ignition verify <id>` read a saved deployment and submit it as their own command, with no deploy script involved. deployoor verifies through deploy-lifecycle plugins: they also fire on a reused deployment when the artifact metadata is still available, so re-running your deploy script retries a verification that failed — never pass `force: true` for this, as that bypasses the record and deploys a new contract at a new address. What is missing is the standalone entry point, [`deployoor verify` from committed records](https://github.com/raycashxyz/deployoor/blob/main/TODO.md).
-- **Deploying through a Safe.** A Safe cannot send a `to`-less transaction, so the route is Safe's `CreateCall` library and the address arrives in a `ContractCreation` event rather than `receipt.contractAddress` — which deployoor currently requires. Ignition has no Safe path either, and Safe's own backend presently blocks `CreateCall` delegatecalls; today you deploy via the Safe and `register` the address.
-- **Maturity.** Ignition is the official Hardhat tool on 3.x, bundled as a peer of both recommended toolboxes. deployoor is 0.x; pre-1.0 minor releases may break.
-
-## Feature-level detail
-
-Useful for checking a specific requirement. The rows are downstream of the sections above.
-
-|                                     | **deployoor**                                         | **hardhat-deploy v2 / rocketh**                         | **Hardhat Ignition**                          | **`forge script`**                        |
-| ----------------------------------- | ----------------------------------------------------- | ------------------------------------------------------- | --------------------------------------------- | ----------------------------------------- |
-| Reads artifacts from                | Hardhat v2 **and** v3, Foundry, plain `.sol` via tevm | Hardhat 3                                               | Hardhat 3 (v2 via the `0.15.x` line)          | Foundry                                   |
-| Deploy runs without a framework CLI | Yes — `tsx scripts/deploy.ts`                         | `rocketh` CLI (no Hardhat needed); browser too          | No — a Hardhat plugin                         | No — `forge script`                       |
-| Signer supplied as                  | Any viem `WalletClient` you construct                 | Config index / address / `protocol:` string             | Hardhat `accounts` config                     | CLI flag / keystore                       |
-| Networks supplied as                | A viem `chain` + transport, per call                  | Hardhat config (or provider override)                   | Hardhat config, `--network`                   | `--rpc-url` per invocation                |
-| Chains per script run               | Many — one client each                                | Hardhat 3 connections                                   | Hardhat 3 connections; no official example    | Many — `vm.createSelectFork` in Solidity  |
-| Address **and** ABI in one file     | Yes                                                   | Yes                                                     | No — split across two files                   | No — broadcasts carry no ABI              |
-| chainId in the record path          | Yes — `deployments/<chainId>-<network>/`              | No — network name, chainId in a `.chain` sidecar        | Yes — `chain-<chainId>/`                      | Yes                                       |
-| Idempotency default                 | Record exists → reuse                                 | Bytecode changed → redeploy                             | Reconcile journal; changed future → **error** | None — `--resume` only retries failed txs |
-| Typed app access outside the tool   | `@wagmi/cli` via `@deployoor/wagmi`                   | First-party `rocketh-export --ts`                       | None                                          | `@wagmi/cli` foundry plugin               |
-| Proxies / diamonds                  | Planned                                               | Yes — UUPS, Transparent, ERC-173, ERC-1967, EIP-2535    | Via guides / `m.contractAt`                   | Manual                                    |
-| Deterministic CREATE2 / CREATE3     | Exploring                                             | Yes                                                     | Opt-in `--strategy create2` (CreateX)         | Manual                                    |
-| Verification                        | On fresh deploy — Etherscan V2 + Sourcify plugins     | Yes, **re-runnable from the record** — `rocketh-verify` | Yes, **re-runnable** — `ignition verify <id>` | At broadcast time                         |
-| Maturity                            | **0.x, early**                                        | 2.0.x, ~1.3k stars                                      | 3.1.x, official Hardhat tool                  | Stable                                    |
-
-## When to use which
-
-**Reach for deployoor when** you want your wallet and your chain list to be code rather than config, the same script to run as a test and as a production deploy, one tool across Hardhat and Foundry, and a committed flat-JSON record any language can read.
-
-**Reach for hardhat-deploy v2 / rocketh when** you're on Hardhat 3 and want the mature, batteries-included option: proxies and diamonds, deterministic addresses, and bytecode-diff redeploys. Or when you want a deploy system with no Hardhat at all and Hardhat-shaped artifacts are fine.
-
-**Reach for Hardhat Ignition when** you want the officially-supported Hardhat path, you like describing a deployment declaratively, and resumability of large multi-step deploys matters more than what the on-disk record looks like.
-
-**Stay with `forge script` when** your team lives in Solidity and you're happy reading addresses out of broadcast JSON — or pair it with deployoor, which reads Foundry's `out/` directly.
-
-### Two things about Foundry worth stating plainly
-
-Because they're easy to omit and would make the table look unfair:
-
-- **There is a read-back cheatcode.** `vm.getDeployment(name[, chainId])` has shipped in forge-std since late 2024 and finds an address in `broadcast/` without `fs_permissions`. Its limits are real, though: it returns an address and nothing else (no ABI, no args, no compiler), it's callable only from Solidity — so it can't feed a frontend or CI — it's keyed on the same `contractName` that goes `null` when bytecode matching fails, and it's undocumented (every `/reference/cheatcodes/get-deployment*` page 404s).
-- **`@wagmi/cli`'s foundry plugin can read broadcasts.** `includeBroadcasts` (added Jan 2026, **off by default**) scrapes deploys out of `broadcast/`. It only globs `run-latest.json`, so a script run with `--sig "deploy()"` is invisible to it; it only counts top-level `CREATE`/`CREATE2`, so factory deploys are skipped; and it's last-writer-wins across files with no timestamp ordering.
-
-Foundry's own multi-chain guide recommends hand-writing a deployment manifest with `vm.serializeAddress` + `vm.writeJson` into `deployments/<chainId>.json`, and lists "track all deployments in version control" as a best practice. That hand-rolled manifest is, more or less, the artifact deployoor generates for you — with the ABI, args, and compiler settings attached.
-
-## They compose
-
-deployoor is not an all-or-nothing adoption. `register` records a contract you didn't deploy — an existing hardhat-deploy address, USDC, a factory-created contract — with no transaction:
+**hardhat-deploy** — through the environment, with the account named in config:
 
 ```ts
-await register({ publicClient, deploymentName: "Token", address: "0x…", abi: tokenAbi });
+await env.execute(Counter, { account: env.namedAccounts.deployer, functionName: "inc", args: [] });
 ```
 
-That's the basis of the [migration guide](/guides/migrate-from-hardhat-deploy): bring your existing addresses into `deployments/` and adopt deployoor for the next deploy, without redeploying anything.
+**Ignition** — post-deploy calls belong in a module as `m.call`, which is reconciled on re-run; for an ad-hoc transaction you write a Hardhat script and fetch the contract through the connection's viem helper.
+
+**deployoor** — the committed record is the source of truth, so an ops script is a script. The generated wagmi bindings give you the same typed access your frontend uses, addresses included:
+
+```ts
+import { writeCounterInc } from "./src/generated"; // from `wagmi generate`
+await writeCounterInc(config, { chainId: base.id });
+```
+
+Or re-call the deployer: it's idempotent, so it returns the recorded contract without sending a transaction.
+
+## Hand deployments to the frontend team
+
+**Ignition** — nothing ships for this. `deployed_addresses.json` holds addresses keyed `Module#Future`, ABIs live in `artifacts/<Module>#<Future>.json`, and you join them yourself. `wagmi`, `frontend`, and `typed` appear nowhere in the Ignition docs.
+
+**hardhat-deploy** — first-party and good: `rocketh-export -e <env> --ts src/contracts.ts` emits `export default { … } as const` with `{ chain, name, contracts: { Name: { abi, address, startBlock } } }`. Its own format.
+
+**Foundry** — `broadcast/<Script>.s.sol/<chainId>/<sig>-latest.json` is a transaction log with **no ABI**, and `contractName` can be `null`. `@wagmi/cli`'s foundry plugin can scrape it via `includeBroadcasts` (off by default, only globs `run-latest.json`, skips factory deploys). Solidity can read an address back with `vm.getDeployment`, but it returns only an address and can't feed an app.
+
+**deployoor** — the record is already the interchange format, so you delegate to the tool the frontend team already uses:
+
+```ts
+// wagmi.config.ts
+export default defineConfig({
+  out: "src/generated.ts",
+  plugins: [deployments({ path: "./deployments" }), actions()], // or react() for hooks
+});
+```
+
+The same contract across chains folds into one entry with a `chainId → address` map. The generated file imports `viem`/`@wagmi/core` and never deployoor, so the frontend takes no dependency on your deploy tool. See [consumption](/guides/consumption).
+
+## What the others do that deployoor does not
+
+- **Bytecode-aware idempotency** — hardhat-deploy redeploys when compiled bytecode changed; deployoor reuses a record until you pass `force: true`, and only warns. [Roadmap.](https://github.com/raycashxyz/deployoor/blob/main/TODO.md)
+- **Proxies, diamonds, CREATE2/CREATE3** — hardhat-deploy ships all of these; deployoor has none yet, so upgradeable contracts are better served there today.
+- **Resumability** — Ignition's journal, batching, fee bumping, and `status` / `track-tx` recover a half-finished deploy; deployoor needs manual recovery after a crash between broadcast and receipt.
+- **Standalone re-verification** — `rocketh-verify` and `ignition verify <id>` are their own commands. deployoor's verifier plugins do fire on a reused deployment, so re-running the script retries a failed verification, but there's no `deployoor verify` yet.
+- **Deploying through a Safe** — needs Safe's `CreateCall`, where the address arrives in an event rather than `receipt.contractAddress`. Ignition has no Safe path either; today you deploy via the Safe and `register` the address.
+- **Reaching a deployment without its constructor args** — `getOrDeploy<Name>` requires `args` even when it only returns the recorded contract. Use the wagmi bindings for pure interaction.
+- **Maturity** — Ignition is the official Hardhat tool on 3.x; deployoor is 0.x and pre-1.0 minors may break.
+
+## Which to reach for
+
+- **deployoor** — your team writes TypeScript, and you want the wallet and chain list to be code, one script serving as both test and production deploy, and a record any language can read. Runs over Hardhat v2/v3, Foundry, or plain `.sol` via tevm.
+- **hardhat-deploy v2 / rocketh** — you're on Hardhat 3 and want batteries included: proxies, diamonds, deterministic addresses, bytecode-diff redeploys.
+- **Hardhat Ignition** — you want the officially-supported path, prefer declaring a deployment over scripting it, and resumability matters most.
+- **`forge script`** — your team lives in Solidity. It pairs with deployoor, which reads `out/` directly: keep `forge build` and `forge test`, add typed TypeScript deploys, ops scripts, and integration tests over the same artifacts.
+
+Adoption isn't all-or-nothing — `register` records a contract you didn't deploy, with no transaction, which is the basis of the [migration guide](/guides/migrate-from-hardhat-deploy).
