@@ -80,8 +80,15 @@ const sidecarChainId = (): number | undefined => {
 };
 
 const main = async (): Promise<void> => {
+  // Fail closed. With no sidecar there is nothing proving which network these records belong to,
+  // and guessing would file another chain's addresses under `chain` — silently corrupting the
+  // source of truth. hardhat-deploy always writes one, so a missing sidecar means a hand-assembled
+  // folder that deserves a look.
   const recorded = sidecarChainId();
-  if (recorded !== undefined && recorded !== chain.id) {
+  if (recorded === undefined) {
+    throw new Error(`${legacyDir} has no .chain or .chainId sidecar — refusing to guess its network`);
+  }
+  if (recorded !== chain.id) {
     throw new Error(`${legacyDir} records chain ${recorded}, but this script is set to ${chain.id}`);
   }
   const live = await publicClient.getChainId();
