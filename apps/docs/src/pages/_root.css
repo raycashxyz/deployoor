@@ -398,10 +398,14 @@
   mask-size: contain;
 }
 
-.way-framework {
-  -webkit-mask-image: url("/icons/hardhat.svg");
-  mask-image: url("/icons/hardhat.svg");
-  opacity: 0.6;
+/* Real, full-colour vendor logos render as <img>: masking them would flatten the artwork
+   to a single-colour silhouette. Only our own monochrome D uses the mask above. */
+.tool-logo {
+  display: inline-block;
+  width: auto; /* logos are a mix of square symbols and wide wordmarks */
+  height: 1.15em;
+  margin-right: 0.4em;
+  vertical-align: -0.15em;
 }
 
 .way-deployoor {
@@ -424,13 +428,17 @@
 
 [data-v-sidebar-section] a[href^="/comparison/"]::before {
   flex: none;
-  width: 0.9em;
-  height: 0.9em;
+  width: 1em;
+  height: 1em;
   content: "";
-  background-color: currentColor;
-  opacity: 0.6;
-  -webkit-mask: url("/icons/hardhat.svg") center / contain no-repeat;
-  mask: url("/icons/hardhat.svg") center / contain no-repeat;
+  background-position: center;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-image: url("/icons/tools/hardhat.svg");
+}
+
+[data-v-sidebar-section] a[href="/comparison/hardhat-deploy"]::before {
+  background-image: url("/icons/tools/rocketh.svg");
 }
 
 /* "Works with any viem-compatible wallet" row. Entries are wordmarks until a real vendor SVG
@@ -470,15 +478,86 @@
   opacity: 0.85;
 }
 
-.wallet-strip-logo {
-  display: block;
-  width: 5.5rem;
-  height: 1.25rem;
-  background-color: currentColor;
-  -webkit-mask-position: center;
-  -webkit-mask-repeat: no-repeat;
-  -webkit-mask-size: contain;
-  mask-position: center;
-  mask-repeat: no-repeat;
-  mask-size: contain;
+/* Recipe pages carry their vendor's logo in the sidebar, same as the comparison pages. */
+[data-v-sidebar-section] a[href^="/recipes/"]::before {
+  flex: none;
+  width: 1em;
+  height: 1em;
+  content: "";
+  background-position: center;
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+[data-v-sidebar-section] a[href^="/recipes/"] {
+  justify-content: flex-start;
+  gap: 0.45em;
+}
+
+[data-v-sidebar-section] a[href="/recipes/coinbase-cdp"]::before {
+  width: 5em;
+  background-image: url("/icons/wallets/coinbase.svg");
+}
+
+:root[data-vocs-theme="dark"] [data-v-sidebar-section] a[href="/recipes/coinbase-cdp"]::before {
+  background-image: url("/icons/wallets/coinbase-white.svg");
+}
+
+/* Vendor wordmarks in recipe headings. Each brand ships its own light and dark file, so the
+   theme swaps the asset rather than filtering it: Privy's brand terms forbid altering their
+   graphics, and recolouring counts. Width is set per brand from the file's own aspect ratio. */
+.brand {
+  display: inline-block;
+  height: 1.05em;
+  margin-right: 0.45em;
+  vertical-align: -0.1em;
+  background-position: left center;
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+.brand-privy {
+  width: 3.47em; /* 258x78 */
+  background-image: url("/icons/wallets/privy.svg");
+}
+
+:root[data-vocs-theme="dark"] .brand-privy {
+  background-image: url("/icons/wallets/privy-white.svg");
+}
+
+.brand-coinbase {
+  width: 5.87em; /* wordmark cropped to its ink box, aspect 5.59 */
+  background-image: url("/icons/wallets/coinbase.svg");
+}
+
+:root[data-vocs-theme="dark"] .brand-coinbase {
+  background-image: url("/icons/wallets/coinbase-white.svg");
+}
+
+.brand-turnkey {
+  width: 3.94em; /* 180x48 */
+  background-image: url("/icons/wallets/turnkey.svg");
+}
+
+:root[data-vocs-theme="dark"] .brand-turnkey {
+  background-image: url("/icons/wallets/turnkey-white.svg");
+}
+
+/* Sidebar: same assets, same theme swap. */
+[data-v-sidebar-section] a[href="/recipes/privy"]::before {
+  width: 3.1em;
+  background-image: url("/icons/wallets/privy.svg");
+}
+
+:root[data-vocs-theme="dark"] [data-v-sidebar-section] a[href="/recipes/privy"]::before {
+  background-image: url("/icons/wallets/privy-white.svg");
+}
+
+[data-v-sidebar-section] a[href="/recipes/turnkey"]::before {
+  width: 3.5em;
+  background-image: url("/icons/wallets/turnkey.svg");
+}
+
+:root[data-vocs-theme="dark"] [data-v-sidebar-section] a[href="/recipes/turnkey"]::before {
+  background-image: url("/icons/wallets/turnkey-white.svg");
 }

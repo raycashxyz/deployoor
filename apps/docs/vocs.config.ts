@@ -81,6 +81,15 @@ export default defineConfig({
       ],
     },
     {
+      text: "Recipes",
+      link: "/recipes",
+      items: [
+        { text: "Privy", link: "/recipes/privy" },
+        { text: "Coinbase CDP", link: "/recipes/coinbase-cdp" },
+        { text: "Turnkey", link: "/recipes/turnkey" },
+      ],
+    },
+    {
       text: "Guides",
       items: [
         { text: "Deploy scripts", link: "/guides/deploy" },

@@ -1,0 +1,71 @@
+# <span className="brand brand-coinbase" /> Coinbase CDP
+
+[CDP](https://docs.cdp.coinbase.com) server accounts implement viem's account interface directly, so `toAccount` is all that stands between a CDP account and a deploy.
+
+## Install
+
+```bash
+pnpm add @coinbase/cdp-sdk viem
+pnpm add -D deployoor
+```
+
+## The account
+
+```ts
+// accounts.ts
+import { CdpClient } from "@coinbase/cdp-sdk";
+import { toAccount } from "viem/accounts";
+
+const cdp = new CdpClient(); // reads CDP_API_KEY_ID / CDP_API_KEY_SECRET / CDP_WALLET_SECRET
+
+// createAccount is idempotent when you name it, so this is safe to call on every run
+const cdpAccount = await cdp.evm.getOrCreateAccount({ name: "deployer" });
+
+export const deployer = toAccount(cdpAccount);
+```
+
+`toAccount` comes from `viem/accounts`, not from the CDP SDK. CDP accounts already expose the `signMessage` / `signTransaction` / `signTypedData` surface viem expects, so wrapping them produces a viem Custom Account.
+
+## The deploy
+
+```ts
+// scripts/deploy.ts, run with `tsx scripts/deploy.ts`
+import { createPublicClient, createWalletClient, http } from "viem";
+import { baseSepolia } from "viem/chains";
+import { deployer } from "../accounts";
+import { getOrDeployCounter } from "../deployers";
+
+const transport = http(process.env.RPC_URL);
+const clients = {
+  walletClient: createWalletClient({ account: deployer, chain: baseSepolia, transport }),
+  publicClient: createPublicClient({ chain: baseSepolia, transport }),
+};
+
+const { contract, freshDeploy } = await getOrDeployCounter({ ...clients, args: [0n] });
+if (freshDeploy) await contract.write.inc();
+```
+
+## Multi-chain with one account
+
+A CDP account is not bound to a chain, so the same account deploys everywhere. Build a client per chain and loop:
+
+```ts
+import { base, optimism, arbitrum } from "viem/chains";
+
+for (const chain of [base, optimism, arbitrum]) {
+  const transport = http(rpcUrls[chain.id]);
+  await getOrDeployCounter({
+    walletClient: createWalletClient({ account: deployer, chain, transport }),
+    publicClient: createPublicClient({ chain, transport }),
+    args: [0n],
+  });
+}
+```
+
+Each deploy records under its own `deployments/<chainId>-<network>/`, so one run leaves you three committed records and three addresses your app can read.
+
+## Notes
+
+- CDP has its own faucet for testnets, which pairs well with a first deploy to Base Sepolia.
+- Credentials live in `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, and `CDP_WALLET_SECRET`. The wallet secret authorises signing, so treat it as the sensitive one.
+- `getOrCreateAccount` keyed by name means CI reuses the same deployer address across runs instead of creating a new one each time.

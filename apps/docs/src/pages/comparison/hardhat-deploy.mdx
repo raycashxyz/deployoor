@@ -1,4 +1,4 @@
-# <span className="way way-framework" /> hardhat-deploy
+# <img src="/icons/tools/rocketh.svg" alt="" className="tool-logo" /> hardhat-deploy
 
 The tool that recognised what plain Hardhat was missing. It added committed deployment records, idempotent redeploys, named accounts, and proxy support, the same gaps that motivated deployoor, solved years earlier and in more depth. On proxies, diamonds, and deterministic addresses it is still further along.
 
@@ -6,7 +6,7 @@ The difference is where it solved them. v2 is a Hardhat plugin built on [rocketh
 
 ## Project setup
 
-### <span className="way way-framework" /> hardhat-deploy
+### <img src="/icons/tools/rocketh.svg" alt="" className="tool-logo" /> hardhat-deploy
 
 Accounts are declared to the tool, as indices resolved against the provider's `eth_accounts`:
 
@@ -51,7 +51,7 @@ Those are the same addresses an `accounts` map resolves to, derived directly. Pe
 
 ## Deploying to one chain
 
-### <span className="way way-framework" /> hardhat-deploy
+### <img src="/icons/tools/rocketh.svg" alt="" className="tool-logo" /> hardhat-deploy
 
 ```ts
 const deployment = await deploy("Counter", {
@@ -91,7 +91,7 @@ Any viem `Account` works: an encrypted keystore, AWS or GCP KMS, Turnkey, Privy,
 
 ## Deploying to many chains
 
-### <span className="way way-framework" /> hardhat-deploy
+### <img src="/icons/tools/rocketh.svg" alt="" className="tool-logo" /> hardhat-deploy
 
 Under Hardhat the network comes from the Hardhat runtime, one per invocation. rocketh's own CLI takes `-e <environment>`, again one at a time, with the environment naming a chain and its accounts.
 
@@ -108,7 +108,7 @@ Each deploy lands in its own `deployments/<chainId>-<network>/`. Records are key
 
 ## Running ops scripts
 
-### <span className="way way-framework" /> hardhat-deploy
+### <img src="/icons/tools/rocketh.svg" alt="" className="tool-logo" /> hardhat-deploy
 
 Through the environment, with the account named in config:
 
@@ -131,7 +131,7 @@ await writeCounterInc(config, { chainId: base.id });
 
 ## Handing deployments to the frontend team
 
-### <span className="way way-framework" /> hardhat-deploy
+### <img src="/icons/tools/rocketh.svg" alt="" className="tool-logo" /> hardhat-deploy
 
 First-party and good: `rocketh-export -e <env> --ts src/contracts.ts` emits an `as const` object shaped `{ chain, name, contracts: { Name: { abi, address, startBlock } } }`. It is the tool's own format, and consuming it means writing the glue between that shape and whatever your app expects.
 
@@ -149,7 +149,7 @@ The codegen is the wagmi team's, so the output is what a wagmi or viem app alrea
 
 ## Testing
 
-### <span className="way way-framework" /> hardhat-deploy
+### <img src="/icons/tools/rocketh.svg" alt="" className="tool-logo" /> hardhat-deploy
 
 Deployment fixtures run through the environment, and under Hardhat the chain comes from Hardhat. rocketh accepts a whole-run `provider` override, documented as a test idiom, which replaces the transport for the entire run rather than per call.
 

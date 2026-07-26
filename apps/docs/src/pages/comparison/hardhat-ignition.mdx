@@ -1,10 +1,10 @@
-# <span className="way way-framework" /> Hardhat Ignition
+# <img src="/icons/tools/hardhat.svg" alt="" className="tool-logo" /> Hardhat Ignition
 
 Hardhat's official deploy tool. You describe a deployment as a module and run it through the CLI.
 
 ## Project setup
 
-### <span className="way way-framework" /> Hardhat Ignition
+### <img src="/icons/tools/hardhat.svg" alt="" className="tool-logo" /> Hardhat Ignition
 
 Three files and a CLI flag before the first contract goes out.
 
@@ -90,7 +90,7 @@ No module to author, no network list, no accounts stanza.
 
 ## Deploying to one chain
 
-### <span className="way way-framework" /> Hardhat Ignition
+### <img src="/icons/tools/hardhat.svg" alt="" className="tool-logo" /> Hardhat Ignition
 
 The chain is chosen outside the code:
 
@@ -125,7 +125,7 @@ const { contract } = await getOrDeployCounter({ ...clients, args: [0n] });
 
 ## Deploying to many chains
 
-### <span className="way way-framework" /> Hardhat Ignition
+### <img src="/icons/tools/hardhat.svg" alt="" className="tool-logo" /> Hardhat Ignition
 
 Hardhat 3 can hold connections to several chains in one process, so this is possible. Each chain still has to be declared in config, each needs its own deployment id, there is no official multi-chain example, and modules cannot branch on chain ID, so anything that differs per chain lives outside the module.
 
@@ -144,7 +144,7 @@ Each deploy lands in its own `deployments/<chainId>-<network>/`. [`examples/mult
 
 ## Running ops scripts
 
-### <span className="way way-framework" /> Hardhat Ignition
+### <img src="/icons/tools/hardhat.svg" alt="" className="tool-logo" /> Hardhat Ignition
 
 Post-deploy calls belong in a module as `m.call`, reconciled on the next run. A one-off transaction means writing a Hardhat script, creating a connection, and fetching the contract through the connection's viem helper.
 
@@ -159,7 +159,7 @@ await writeCounterInc(config, { chainId: base.id });
 
 ## Handing deployments to the frontend team
 
-### <span className="way way-framework" /> Hardhat Ignition
+### <img src="/icons/tools/hardhat.svg" alt="" className="tool-logo" /> Hardhat Ignition
 
 Nothing ships for this. Addresses sit in `deployed_addresses.json` keyed `Module#Future`, ABIs sit in `artifacts/<Module>#<Future>.json`, and joining them is your job. The words `wagmi`, `frontend`, and `typed` appear nowhere in the Ignition docs.
 
@@ -177,7 +177,7 @@ One contract across several chains folds into a single entry with a `chainId →
 
 ## Testing
 
-### <span className="way way-framework" /> Hardhat Ignition
+### <img src="/icons/tools/hardhat.svg" alt="" className="tool-logo" /> Hardhat Ignition
 
 Tests run under Hardhat and take their chain from it:
 

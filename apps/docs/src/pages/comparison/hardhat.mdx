@@ -1,10 +1,10 @@
-# <span className="way way-framework" /> Hardhat
+# <img src="/icons/tools/hardhat.svg" alt="" className="tool-logo" /> Hardhat
 
 Deploying with a plain Hardhat script, no deploy plugin involved.
 
 ## Project setup
 
-### <span className="way way-framework" /> Hardhat
+### <img src="/icons/tools/hardhat.svg" alt="" className="tool-logo" /> Hardhat
 
 Networks and accounts live in config. A chain you have not listed is a chain you cannot reach, and there is no documented way to connect to an arbitrary RPC on the fly.
 
@@ -33,7 +33,7 @@ That reads your artifacts and writes one typed function per contract. There is n
 
 ## Deploying to one chain
 
-### <span className="way way-framework" /> Hardhat
+### <img src="/icons/tools/hardhat.svg" alt="" className="tool-logo" /> Hardhat
 
 ```ts
 // scripts/deploy.ts, run with `hardhat run scripts/deploy.ts --network sepolia`
@@ -64,7 +64,7 @@ The deploy is recorded to `deployments/<chainId>-<network>/Counter.json`, with t
 
 ## Deploying to many chains
 
-### <span className="way way-framework" /> Hardhat
+### <img src="/icons/tools/hardhat.svg" alt="" className="tool-logo" /> Hardhat
 
 `hardhat run` takes one `--network`. Hardhat 3 can hold several connections in one process through `network.create()`, though each chain still has to be declared in config first. Hardhat 2 cannot do it at all, since `hre.network` is a single connection fixed at startup, so fifteen chains means fifteen invocations sequenced by a shell script.
 
@@ -83,7 +83,7 @@ Each deploy lands in its own `deployments/<chainId>-<network>/`. [`examples/mult
 
 ## Running ops scripts
 
-### <span className="way way-framework" /> Hardhat
+### <img src="/icons/tools/hardhat.svg" alt="" className="tool-logo" /> Hardhat
 
 Every script starts by finding the address again, usually from an environment variable you maintain by hand:
 
@@ -106,7 +106,7 @@ await writeCounterInc(config, { chainId: base.id });
 
 ## Handing deployments to the frontend team
 
-### <span className="way way-framework" /> Hardhat
+### <img src="/icons/tools/hardhat.svg" alt="" className="tool-logo" /> Hardhat
 
 Nothing is produced for this. Someone copies the address out of a script's output and the ABI out of `artifacts/contracts/Counter.sol/Counter.json`, then pastes both into the app. Redeploy and every copy goes stale without saying so.
 
@@ -126,7 +126,7 @@ One contract deployed to several chains becomes a single entry with a `chainId` 
 
 ## Testing
 
-### <span className="way way-framework" /> Hardhat
+### <img src="/icons/tools/hardhat.svg" alt="" className="tool-logo" /> Hardhat
 
 Tests run inside Hardhat and take their chain, accounts, and fixtures from it. Deploying in a test goes through a different code path than deploying in production, because production is a script you wrote and the test is `viem.deployContract` against the built-in network.
 

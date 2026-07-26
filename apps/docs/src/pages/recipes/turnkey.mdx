@@ -1,0 +1,72 @@
+# <span className="brand brand-turnkey" /> Turnkey
+
+[Turnkey](https://turnkey.com) keys live in a TEE and are reached through a stamped API call. `@turnkey/viem` wraps that as a viem account.
+
+## Install
+
+```bash
+pnpm add @turnkey/viem @turnkey/http @turnkey/api-key-stamper viem
+pnpm add -D deployoor
+```
+
+## The account
+
+```ts
+// accounts.ts
+import { createAccount } from "@turnkey/viem";
+import { TurnkeyClient } from "@turnkey/http";
+import { ApiKeyStamper } from "@turnkey/api-key-stamper";
+
+const httpClient = new TurnkeyClient(
+  { baseUrl: "https://api.turnkey.com" },
+  new ApiKeyStamper({
+    apiPublicKey: process.env.TURNKEY_API_PUBLIC_KEY as string,
+    apiPrivateKey: process.env.TURNKEY_API_PRIVATE_KEY as string,
+  }),
+);
+
+export const deployer = await createAccount({
+  client: httpClient,
+  organizationId: process.env.TURNKEY_ORGANIZATION_ID as string,
+  signWith: process.env.TURNKEY_SIGN_WITH as string, // wallet account address, private key id, or private key address
+});
+```
+
+`signWith` names what signs. Passing an address that Turnkey already knows means you can skip `ethereumAddress`; supply it explicitly only when signing with a private key id whose address you want to pin.
+
+For a browser flow, swap `ApiKeyStamper` for `WebauthnStamper` and the account is passkey-backed instead. Nothing downstream changes.
+
+## The deploy
+
+```ts
+// scripts/deploy.ts, run with `tsx scripts/deploy.ts`
+import { createPublicClient, createWalletClient, http } from "viem";
+import { sepolia } from "viem/chains";
+import { deployer } from "../accounts";
+import { getOrDeployCounter } from "../deployers";
+
+const transport = http(process.env.RPC_URL);
+const clients = {
+  walletClient: createWalletClient({ account: deployer, chain: sepolia, transport }),
+  publicClient: createPublicClient({ chain: sepolia, transport }),
+};
+
+const { contract } = await getOrDeployCounter({ ...clients, args: [0n] });
+```
+
+## Splitting roles
+
+Turnkey policies are per-account, which maps onto the pattern of deploying from one key and owning from another. Create two accounts and pass whichever the step needs:
+
+```ts
+export const deployer = await createAccount({ client: httpClient, organizationId, signWith: DEPLOYER });
+export const admin = await createAccount({ client: httpClient, organizationId, signWith: ADMIN });
+```
+
+Then deploy with `deployer` and hand ownership to `admin` (or better, to a Safe) as the last step of the script. deployoor records who deployed, so the committed JSON shows which key produced the contract.
+
+## Notes
+
+- The API private key authorises signing requests, so it is the credential to protect. Turnkey policies can restrict what it is allowed to sign, which is worth setting up before a mainnet run.
+- Every signature is a network round trip. That is unnoticeable for a deploy, but a script sending hundreds of transactions will feel it.
+- `@turnkey/viem` supports legacy, EIP-2930, EIP-1559, EIP-4844, and EIP-7702 transaction types, so it is not limited to plain deploys.
