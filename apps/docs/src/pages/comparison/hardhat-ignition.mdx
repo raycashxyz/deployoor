@@ -1,0 +1,212 @@
+# <span className="way way-framework" /> Hardhat Ignition
+
+Hardhat's official deploy tool. You describe a deployment as a module and run it through the CLI.
+
+## Project setup
+
+### <span className="way way-framework" /> Hardhat Ignition
+
+Three files and a CLI flag before the first contract goes out.
+
+Networks and signers are declared in config:
+
+```ts
+// hardhat.config.ts
+export default {
+  plugins: [hardhatIgnitionViemPlugin],
+  networks: {
+    sepolia: {
+      type: "http",
+      chainType: "l1", // l1 | op | generic
+      url: configVariable("SEPOLIA_RPC_URL"),
+      accounts: [configVariable("SEPOLIA_PRIVATE_KEY")],
+    },
+  },
+};
+```
+
+Then the deployment, as a module:
+
+```ts
+// ignition/modules/Counter.ts
+export default buildModule("CounterModule", (m) => {
+  const counter = m.contract("Counter", [0n]);
+  m.call(counter, "inc");
+  return { counter };
+});
+```
+
+Nothing in that module is checked against your ABI by TypeScript. From the shipped types:
+
+```ts
+contract<ContractNameT extends string>(contractName: ContractNameT, args?: ArgumentType[], …)
+call<ContractNameT extends string, FunctionNameT extends string>(contractFuture, functionName: FunctionNameT, args?: ArgumentType[], …)
+type ArgumentType = BaseArgumentType | ArgumentType[] | { [field: string]: ArgumentType }
+```
+
+Ignition validates futures against your compiled artifacts during deployment planning, so a misspelled contract or function name is caught before any transaction goes out. The difference is when: a validation error on the deploy run, rather than a red squiggle in your editor or a failing `tsc` in CI.
+
+Accounts are reached by index, `m.getAccount(accountIndex: number)`, and a module cannot branch on chain ID.
+
+### <span className="way way-deployoor" /> deployoor
+
+```bash
+npx deployoor generate
+```
+
+One typed function per contract, checked against the ABI. This block is type-checked when these docs build. Hover `CounterArgs`, and note that both errors are real `tsc` output:
+
+```ts twoslash
+// @errors: 2322 2339
+import { defineDeployer } from "deployoor";
+import type { PublicClient, WalletClient } from "viem";
+const counterArtifact = {
+  name: "Counter",
+  abi: [
+    { type: "constructor", inputs: [{ name: "initial", type: "uint256" }], stateMutability: "nonpayable" },
+    { type: "function", name: "inc", inputs: [], outputs: [], stateMutability: "nonpayable" },
+  ],
+  bytecode: "0x60",
+  metadata: {
+    fullyQualifiedName: "src/Counter.sol:Counter",
+    compilerVersion: "0.8.24",
+    standardJsonInput: { language: "Solidity", sources: {}, settings: {} },
+    libraryPlaceholders: {},
+  },
+} as const;
+const getOrDeployCounter = defineDeployer(counterArtifact, {});
+declare const walletClient: WalletClient;
+declare const publicClient: PublicClient;
+// ---cut---
+// `args` comes from Counter's constructor, not from a generic array:
+type CounterArgs = Parameters<typeof getOrDeployCounter>[0]["args"];
+//   ^?
+
+const { contract } = await getOrDeployCounter({ walletClient, publicClient, args: ["1"] });
+await contract.write.inkrement();
+```
+
+No module to author, no network list, no accounts stanza.
+
+## Deploying to one chain
+
+### <span className="way way-framework" /> Hardhat Ignition
+
+The chain is chosen outside the code:
+
+```bash
+hardhat ignition deploy ./ignition/modules/Counter.ts --network sepolia
+```
+
+Or from a script, which still needs the Hardhat runtime present:
+
+```ts
+const connection = await hre.network.create();
+const { counter } = await connection.ignition.deploy(CounterModule);
+```
+
+State goes to `ignition/deployments/chain-<chainId>/`, and that deployment id is permanently bound to one chain. Pointing it at another errors with `HHE10900`.
+
+### <span className="way way-deployoor" /> deployoor
+
+A Node program. You build the signer and the chain:
+
+```ts
+// scripts/deploy.ts, run with `tsx scripts/deploy.ts`
+const clients = {
+  walletClient: createWalletClient({ account, chain: sepolia, transport }),
+  publicClient: createPublicClient({ chain: sepolia, transport }),
+};
+
+const { contract } = await getOrDeployCounter({ ...clients, args: [0n] });
+```
+
+`account` is any viem `Account`. An encrypted keystore, AWS or GCP KMS, Turnkey, Privy, a Ledger, or a JSON-RPC account. deployoor hands the transaction to the wallet client you supply: local accounts sign in-process, JSON-RPC accounts delegate to the provider. Either way it never sees a secret, so moving from a test key to a hardware wallet changes one line.
+
+## Deploying to many chains
+
+### <span className="way way-framework" /> Hardhat Ignition
+
+Hardhat 3 can hold connections to several chains in one process, so this is possible. Each chain still has to be declared in config, each needs its own deployment id, there is no official multi-chain example, and modules cannot branch on chain ID, so anything that differs per chain lives outside the module.
+
+Hardhat 2 cannot do it in one run at all.
+
+### <span className="way way-deployoor" /> deployoor
+
+```ts
+for (const chain of [mainnet, base, optimism, arbitrum]) {
+  const clients = clientsFor(chain, rpcUrls[chain.id]);
+  await getOrDeployCounter({ ...clients, args: [0n] });
+}
+```
+
+Each deploy lands in its own `deployments/<chainId>-<network>/`. [`examples/multi-chain`](https://github.com/raycashxyz/deployoor/tree/main/examples/multi-chain) deploys across two chains and wires them as LayerZero peers in one file.
+
+## Running ops scripts
+
+### <span className="way way-framework" /> Hardhat Ignition
+
+Post-deploy calls belong in a module as `m.call`, reconciled on the next run. A one-off transaction means writing a Hardhat script, creating a connection, and fetching the contract through the connection's viem helper.
+
+### <span className="way way-deployoor" /> deployoor
+
+The record holds the address, so an ops script uses the same bindings as the frontend:
+
+```ts
+import { writeCounterInc } from "./src/generated"; // from `wagmi generate`
+await writeCounterInc(config, { chainId: base.id });
+```
+
+## Handing deployments to the frontend team
+
+### <span className="way way-framework" /> Hardhat Ignition
+
+Nothing ships for this. Addresses sit in `deployed_addresses.json` keyed `Module#Future`, ABIs sit in `artifacts/<Module>#<Future>.json`, and joining them is your job. The words `wagmi`, `frontend`, and `typed` appear nowhere in the Ignition docs.
+
+### <span className="way way-deployoor" /> deployoor
+
+```ts
+// wagmi.config.ts
+export default defineConfig({
+  out: "src/generated.ts",
+  plugins: [deployments({ path: "./deployments" }), actions()], // or react() for hooks
+});
+```
+
+One contract across several chains folds into a single entry with a `chainId → address` map. The generated file imports `viem` and `@wagmi/core`, never deployoor. See [consumption](/guides/consumption).
+
+## Testing
+
+### <span className="way way-framework" /> Hardhat Ignition
+
+Tests run under Hardhat and take their chain from it:
+
+```ts
+import { network } from "hardhat";
+const { ignition } = await network.create();
+const { counter } = await ignition.deploy(CounterModule);
+```
+
+The in-memory chain, the accounts, and the fixture helpers all belong to Hardhat. Live-network testing works the same way from the other end, through `--network sepolia` and the same config, so a test cannot reach an undeclared chain, and cannot run outside the framework.
+
+### <span className="way way-deployoor" /> deployoor
+
+```ts
+const clients = await createTestClients(); // in-memory EVM + ephemeral store
+const { contract } = await getOrDeployCounter({ ...clients, args: [0n] });
+```
+
+Any runner, no Hardhat, no node. Test deploys use an ephemeral store and never touch your committed records. Because a chain is a client, multi-chain tests look like multi-chain deploys:
+
+```ts
+const a = await createTestClients();
+const b = await createTestClients();
+const ping = await getOrDeployPing({ ...a, args: [endpoint] });
+const pong = await getOrDeployPong({ ...b, args: [endpoint] });
+```
+
+## Where Ignition is ahead
+
+- **Resumability.** A write-ahead journal and reconciliation let an interrupted deploy resume and adapt to module changes. `status` reports what executed, and `track-tx` repairs a transaction missing from the state when Ignition tells you to run it. deployoor writes records atomically and takes a lock, but a crash between broadcast and receipt needs manual recovery.
+- **Standalone re-verification.** `ignition verify <id>` is its own command. deployoor's verifier plugins fire on a reused deployment, so re-running the script retries a failed verification, but there is no `deployoor verify` yet.
+- **Maturity.** Ignition is the official Hardhat tool on 3.x, bundled with both recommended toolboxes. deployoor is 0.x, and pre-1.0 minors may break.

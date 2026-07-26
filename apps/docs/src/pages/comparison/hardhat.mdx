@@ -1,0 +1,142 @@
+# <span className="way way-framework" /> Hardhat
+
+Deploying with a plain Hardhat script, no deploy plugin involved.
+
+## Project setup
+
+### <span className="way way-framework" /> Hardhat
+
+Networks and accounts live in config. A chain you have not listed is a chain you cannot reach, and there is no documented way to connect to an arbitrary RPC on the fly.
+
+```ts
+// hardhat.config.ts
+export default {
+  plugins: [hardhatViemPlugin],
+  networks: {
+    sepolia: {
+      type: "http",
+      chainType: "l1",
+      url: configVariable("SEPOLIA_RPC_URL"),
+      accounts: [configVariable("SEPOLIA_PRIVATE_KEY")],
+    },
+  },
+};
+```
+
+### <span className="way way-deployoor" /> deployoor
+
+```bash
+npx deployoor generate
+```
+
+That reads your artifacts and writes one typed function per contract. There is no network list and no accounts stanza. `deployoor.config.ts` is optional, and holds output paths and plugins.
+
+## Deploying to one chain
+
+### <span className="way way-framework" /> Hardhat
+
+```ts
+// scripts/deploy.ts, run with `hardhat run scripts/deploy.ts --network sepolia`
+const { viem } = await network.create();
+const counter = await viem.deployContract("Counter", [0n]);
+console.log("Counter:", counter.address);
+```
+
+That address exists in one console line and nowhere else. Nothing on disk records what you deployed, so it ends up in a `.env`, a Notion page, or a Slack message, while the ABI gets copied separately out of `artifacts/`. Run the script twice and you get two contracts, because there is no notion of "already deployed".
+
+### <span className="way way-deployoor" /> deployoor
+
+```ts
+// scripts/deploy.ts, run with `tsx scripts/deploy.ts`
+const account = privateKeyToAccount(process.env.PK as `0x${string}`);
+const transport = http(process.env.RPC_URL);
+const clients = {
+  walletClient: createWalletClient({ account, chain: sepolia, transport }),
+  publicClient: createPublicClient({ chain: sepolia, transport }),
+};
+
+const { contract, freshDeploy } = await getOrDeployCounter({ ...clients, args: [0n] });
+```
+
+The deploy is recorded to `deployments/<chainId>-<network>/Counter.json`, with the address, ABI, constructor args, transaction, and compiler settings in one file. Run it again and you get the recorded contract back without sending a transaction. `freshDeploy` tells you which of the two just happened.
+
+`account` is any viem `Account`. An encrypted keystore, AWS or GCP KMS, Turnkey, Privy, a Ledger, or a JSON-RPC account where no key exists in the process at all. deployoor hands the transaction to the wallet client you supply and never sees a secret.
+
+## Deploying to many chains
+
+### <span className="way way-framework" /> Hardhat
+
+`hardhat run` takes one `--network`. Hardhat 3 can hold several connections in one process through `network.create()`, though each chain still has to be declared in config first. Hardhat 2 cannot do it at all, since `hre.network` is a single connection fixed at startup, so fifteen chains means fifteen invocations sequenced by a shell script.
+
+### <span className="way way-deployoor" /> deployoor
+
+A chain is an argument, so it is a loop:
+
+```ts
+for (const chain of [mainnet, base, optimism, arbitrum]) {
+  const clients = clientsFor(chain, rpcUrls[chain.id]);
+  await getOrDeployCounter({ ...clients, args: [0n] });
+}
+```
+
+Each deploy lands in its own `deployments/<chainId>-<network>/`. [`examples/multi-chain`](https://github.com/raycashxyz/deployoor/tree/main/examples/multi-chain) does two chains and wires them together as LayerZero peers in a single file.
+
+## Running ops scripts
+
+### <span className="way way-framework" /> Hardhat
+
+Every script starts by finding the address again, usually from an environment variable you maintain by hand:
+
+```ts
+const { viem } = await network.create();
+const counter = await viem.getContractAt("Counter", process.env.COUNTER_ADDRESS as `0x${string}`);
+await counter.write.inc();
+```
+
+The script has to run through Hardhat, and the address is only as correct as whatever you last pasted into `.env`.
+
+### <span className="way way-deployoor" /> deployoor
+
+The record already knows the address, so an ops script uses the same generated bindings as the frontend:
+
+```ts
+import { writeCounterInc } from "./src/generated"; // from `wagmi generate`
+await writeCounterInc(config, { chainId: base.id });
+```
+
+## Handing deployments to the frontend team
+
+### <span className="way way-framework" /> Hardhat
+
+Nothing is produced for this. Someone copies the address out of a script's output and the ABI out of `artifacts/contracts/Counter.sol/Counter.json`, then pastes both into the app. Redeploy and every copy goes stale without saying so.
+
+### <span className="way way-deployoor" /> deployoor
+
+The record is the handoff format, so you point [`@wagmi/cli`](https://wagmi.sh/cli) at it:
+
+```ts
+// wagmi.config.ts
+export default defineConfig({
+  out: "src/generated.ts",
+  plugins: [deployments({ path: "./deployments" }), actions()], // or react() for hooks
+});
+```
+
+One contract deployed to several chains becomes a single entry with a `chainId` to address map. The generated file imports `viem` and `@wagmi/core`, never deployoor, so the frontend takes no dependency on your deploy tooling. See [consumption](/guides/consumption).
+
+## Testing
+
+### <span className="way way-framework" /> Hardhat
+
+Tests run inside Hardhat and take their chain, accounts, and fixtures from it. Deploying in a test goes through a different code path than deploying in production, because production is a script you wrote and the test is `viem.deployContract` against the built-in network.
+
+### <span className="way way-deployoor" /> deployoor
+
+The deployer you ship is the deployer under test. Swap the clients, keep the call:
+
+```ts
+const clients = await createTestClients(); // in-memory EVM plus an ephemeral store
+const { contract } = await getOrDeployCounter({ ...clients, args: [0n] });
+```
+
+Any runner, no Hardhat, no node. Test deploys use an ephemeral store, so they never touch your committed records. Point the same call at `http(rpcUrl)` and it becomes a live-network test, including against a fork.

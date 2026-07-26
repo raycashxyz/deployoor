@@ -380,3 +380,47 @@
   margin: calc(-1 * var(--vocs-spacing-content-py, 2.5rem)) calc(-1 * var(--vocs-spacing-content-px, 3rem));
   padding-top: 2rem;
 }
+
+/* Comparison pages: distinguish "the framework way" from "the deployoor way" with real
+   icons. Masked SVGs follow currentColor, so they track the theme, same approach as the
+   landing social links. */
+.way {
+  display: inline-block;
+  width: 0.95em;
+  height: 0.95em;
+  margin-right: 0.45em;
+  vertical-align: -0.08em;
+  background-color: currentColor;
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+}
+
+.way-framework {
+  -webkit-mask-image: url("/icons/framework.svg");
+  mask-image: url("/icons/framework.svg");
+  opacity: 0.55;
+}
+
+.way-deployoor {
+  -webkit-mask-image: url("/icons/bolt.svg");
+  mask-image: url("/icons/bolt.svg");
+  background-color: var(--vocs-color-accent);
+}
+
+/* The three tool pages nested under Comparisons in the sidebar. */
+[data-v-sidebar-section] a[href^="/comparison/"]::before {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  margin-right: 0.45em;
+  vertical-align: -0.05em;
+  content: "";
+  background-color: currentColor;
+  opacity: 0.55;
+  -webkit-mask: url("/icons/framework.svg") center / contain no-repeat;
+  mask: url("/icons/framework.svg") center / contain no-repeat;
+}

@@ -65,9 +65,13 @@ export default defineConfig({
       link: "/introduction",
     },
     {
-      // Route stays /comparison — it's what people search for and what external links point at.
-      text: "Developer flows",
+      text: "Comparisons",
       link: "/comparison",
+      items: [
+        { text: "Hardhat", link: "/comparison/hardhat" },
+        { text: "Hardhat Ignition", link: "/comparison/hardhat-ignition" },
+        { text: "hardhat-deploy", link: "/comparison/hardhat-deploy" },
+      ],
     },
     {
       text: "Getting started",

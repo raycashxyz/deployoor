@@ -1,0 +1,169 @@
+# <span className="way way-framework" /> hardhat-deploy
+
+The tool that recognised what plain Hardhat was missing. It added committed deployment records, idempotent redeploys, named accounts, and proxy support, the same gaps that motivated deployoor, solved years earlier and in more depth. On proxies, diamonds, and deterministic addresses it is still further along.
+
+The difference is where it solved them. v2 is a Hardhat plugin built on [rocketh](https://rocketh.dev), so artifacts, networks, and accounts still arrive through a runtime that owns them. rocketh itself runs standalone, with its own CLI and no Hardhat, which makes it the closer comparison. There the coupling is not to a framework, but to the tool's own account and extension model.
+
+## Project setup
+
+### <span className="way way-framework" /> hardhat-deploy
+
+Accounts are declared to the tool, as indices resolved against the provider's `eth_accounts`:
+
+```ts
+// rocketh/config.ts
+accounts: {
+  deployer: { default: 0 },
+  admin: { default: 1 },
+},
+```
+
+Capabilities arrive as extensions spread into the same config, viem among them:
+
+```ts
+import * as deployExtension from "@rocketh/deploy";
+import * as readExecuteExtension from "@rocketh/read-execute";
+import * as viemExtension from "@rocketh/viem";
+
+const extensions = { ...deployExtension, ...readExecuteExtension, ...viemExtension };
+```
+
+So viem is something the tool grants you through `@rocketh/viem` rather than a dependency you own, and a new viem release is usable once that package ships support for it.
+
+### <span className="way way-deployoor" /> deployoor
+
+```bash
+npx deployoor generate
+```
+
+Accounts are values in your own module, so naming them is what `export const` does:
+
+```ts
+// accounts.ts
+import { mnemonicToAccount } from "viem/accounts";
+
+const m = process.env.MNEMONIC as string;
+export const deployer = mnemonicToAccount(m, { addressIndex: 0 });
+export const admin = mnemonicToAccount(m, { addressIndex: 1 });
+```
+
+Those are the same addresses an `accounts` map resolves to, derived directly. Per-network variation is a `chainId` lookup rather than a config schema. viem is your dependency, so bumping it is the whole upgrade.
+
+## Deploying to one chain
+
+### <span className="way way-framework" /> hardhat-deploy
+
+```ts
+const deployment = await deploy("Counter", {
+  account: deployer, // a name, resolved from config
+  artifact: artifacts.Counter,
+  args: [0n],
+});
+```
+
+You get back a deployment record. Reads and writes then route through the environment, or through a viem wrapper you ask the environment for:
+
+```ts
+await env.execute(Counter, {
+  account: env.namedAccounts.deployer,
+  functionName: "inc",
+  args: [],
+});
+
+const contract = env.viem.getContract(deployment);
+await contract.read.count();
+```
+
+`env` is present in every one of those lines.
+
+The account is a name, not an object. `AccountDefinition` is `EIP1193Account | string | number`, with no object form, so a viem `Account` cannot reach a deploy call. Custody instead goes through a `signerProtocols` entry in config that returns an EIP-1193 shim. The extension point is real, and the only implementation shipped is `privateKey`.
+
+### <span className="way way-deployoor" /> deployoor
+
+```ts
+const { contract } = await getOrDeployCounter({ walletClient, publicClient, args: [0n] });
+await contract.write.inc();
+```
+
+The typed viem contract comes back on the first line, with no environment in the middle. Account and chain are properties of the client you passed, so the same function deploys from a test key, from CI, or from a Ledger on mainnet.
+
+Any viem `Account` works: an encrypted keystore, AWS or GCP KMS, Turnkey, Privy, Fireblocks, hardware, or a JSON-RPC account where no key exists in the process. deployoor hands the transaction to your wallet client and never sees a secret, which is also why it has no opinion about where secrets live.
+
+## Deploying to many chains
+
+### <span className="way way-framework" /> hardhat-deploy
+
+Under Hardhat the network comes from the Hardhat runtime, one per invocation. rocketh's own CLI takes `-e <environment>`, again one at a time, with the environment naming a chain and its accounts.
+
+### <span className="way way-deployoor" /> deployoor
+
+```ts
+for (const chain of [mainnet, base, optimism, arbitrum]) {
+  const clients = clientsFor(chain, rpcUrls[chain.id]);
+  await getOrDeployCounter({ ...clients, args: [0n] });
+}
+```
+
+Each deploy lands in its own `deployments/<chainId>-<network>/`. Records are keyed by chain id; hardhat-deploy keys folders by network name and keeps the chain id in a `.chain` sidecar, so the path alone does not tell you the chain.
+
+## Running ops scripts
+
+### <span className="way way-framework" /> hardhat-deploy
+
+Through the environment, with the account named in config:
+
+```ts
+await env.execute(Counter, {
+  account: env.namedAccounts.deployer,
+  functionName: "inc",
+  args: [],
+});
+```
+
+### <span className="way way-deployoor" /> deployoor
+
+Through the same generated bindings your frontend uses:
+
+```ts
+import { writeCounterInc } from "./src/generated"; // from `wagmi generate`
+await writeCounterInc(config, { chainId: base.id });
+```
+
+## Handing deployments to the frontend team
+
+### <span className="way way-framework" /> hardhat-deploy
+
+First-party and good: `rocketh-export -e <env> --ts src/contracts.ts` emits an `as const` object shaped `{ chain, name, contracts: { Name: { abi, address, startBlock } } }`. It is the tool's own format, and consuming it means writing the glue between that shape and whatever your app expects.
+
+### <span className="way way-deployoor" /> deployoor
+
+```ts
+// wagmi.config.ts
+export default defineConfig({
+  out: "src/generated.ts",
+  plugins: [deployments({ path: "./deployments" }), actions()], // or react() for hooks
+});
+```
+
+The codegen is the wagmi team's, so the output is what a wagmi or viem app already expects. See [consumption](/guides/consumption).
+
+## Testing
+
+### <span className="way way-framework" /> hardhat-deploy
+
+Deployment fixtures run through the environment, and under Hardhat the chain comes from Hardhat. rocketh accepts a whole-run `provider` override, documented as a test idiom, which replaces the transport for the entire run rather than per call.
+
+### <span className="way way-deployoor" /> deployoor
+
+```ts
+const clients = await createTestClients(); // in-memory EVM + ephemeral store
+const { contract } = await getOrDeployCounter({ ...clients, args: [0n] });
+```
+
+Same function as production, different clients. Test deploys use an ephemeral store and never touch your committed records.
+
+## Where hardhat-deploy is ahead
+
+- **Proxies, diamonds, deterministic addresses.** ERC-1967, Transparent, UUPS, ERC-173, EIP-2535, and CREATE2/CREATE3 all ship. deployoor has none of them yet, so upgradeable contracts are better served there today.
+- **Bytecode-aware idempotency.** It redeploys when compiled bytecode actually changed, with the metadata trailer stripped. deployoor reuses a record until you pass `force: true`, and only warns.
+- **Standalone re-verification.** `rocketh-verify` reads a saved deployment and submits it as its own command.
