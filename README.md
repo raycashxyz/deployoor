@@ -34,9 +34,9 @@ deployoor takes the other position. A deploy needs compiled artifacts, a chain, 
 - **Your wallet, not ours** — any viem `WalletClient`: a local mnemonic, an encrypted keystore, AWS or GCP KMS, Turnkey, Privy, Fireblocks, a Ledger, or a JSON-RPC account where no key exists in the process at all. deployoor never sees a secret, so it has no opinion about where yours lives.
 - **Your chains, not a config file** — a chain is an argument, so one script can cover as many as you like. The same is true in tests.
 - **Scripts with no environment** — plain TypeScript you run like any Node file (`tsx scripts/deploy.ts`). Nothing to boot, no `env` threaded through your code.
-- **Tests that are the same code** — the deployer you ship is the deployer under test, against an in-memory EVM.
-- **One source of truth** — every deploy recorded as plain JSON in your repo: mainnet, testnet, local nodes, and the in-memory chains in your test suite.
-- **Idempotent by default** — run a deploy script twice; contracts already on-chain are reused, not redeployed.
+- **Tests that are the same code** — the deployer you ship is the deployer under test, against an in-memory EVM and an ephemeral store, so tests never write to your committed records.
+- **One source of truth** — real deploys, on mainnet, testnets, or a local node, are recorded as plain JSON you commit.
+- **Idempotent by default** — run a deploy script twice and the recorded contract is reused instead of redeployed.
 
 Everything else follows from that split. **Built for TypeScript teams** — which is also why Foundry artifacts are first-class: a Foundry project keeps `forge build` and `forge test`, and gains typed deploy scripts and TS integration tests over the same `out/`, with no Hardhat added.
 

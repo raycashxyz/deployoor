@@ -16,7 +16,7 @@ deployoor takes the other position. A deploy needs compiled artifacts, a chain, 
 - **Your chains, not a config file** — a chain is an argument, so one script can cover as many as you like. The same is true in tests.
 - **Scripts with no environment** — `tsx scripts/deploy.ts`. Nothing to boot, no `env` threaded through your code.
 - **Tests that are the same code** — [`@deployoor/testing`](/guides/testing) hands you viem clients over an in-memory EVM, so the deployer you ship is the deployer under test.
-- **One source of truth** — every deploy recorded as plain JSON in your repo: mainnet, testnet, local nodes, and the in-memory chains in your test suite.
+- **One source of truth** — real deploys, on mainnet, testnets, or a local node, are recorded as plain JSON you commit; a later run reuses the recorded contract instead of deploying again. Tests use an ephemeral in-memory store, so they never write to that folder.
 - **Typed end to end** — generated `getOrDeploy<Name>` functions return typed viem contract objects, and [`@wagmi/cli`](/guides/consumption) turns the same records into typed app access.
 
 Everything else here follows from that split.

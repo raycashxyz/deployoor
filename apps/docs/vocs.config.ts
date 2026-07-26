@@ -65,7 +65,8 @@ export default defineConfig({
       link: "/introduction",
     },
     {
-      text: "Comparison",
+      // Route stays /comparison — it's what people search for and what external links point at.
+      text: "Developer flows",
       link: "/comparison",
     },
     {
