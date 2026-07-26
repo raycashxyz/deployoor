@@ -17,3 +17,4 @@ coverage
 # VHS's full-res output is a regenerable intermediate (~2.5MB). Only the optimized
 # demo-sm.gif that README.md embeds is committed — `pnpm demo:record` rebuilds both.
 assets/brand/dist/demo.gif
+.gstack/

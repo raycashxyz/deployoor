@@ -1,4 +1,5 @@
 import { CopyBlock } from "./CopyBlock";
+import { WalletStrip } from "./WalletStrip";
 import { Link } from "vocs";
 
 type TabOption = {
@@ -73,9 +74,11 @@ export function Landing() {
       </div>
 
       <p className="landing-lead">
-        Deploy contracts from <strong>TypeScript</strong>. Bring your own wallet — a deploy is an artifact
-        plus a viem client, so your scripts, tests, and app share the same typed objects.
+        Deploy contracts from <strong>TypeScript</strong>. Bring your own wallet: a deploy is an artifact plus
+        a viem client, so your scripts, tests, and app share the same typed objects.
       </p>
+
+      <WalletStrip />
 
       <div className="landing-commands">
         <TabbedCommands name="install" label="Install" options={INSTALL_OPTIONS} />

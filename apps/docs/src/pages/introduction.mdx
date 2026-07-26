@@ -12,7 +12,7 @@ That coupling has costs, and they show up late. The signing path in production i
 
 deployoor takes the other position. A deploy needs compiled artifacts, a chain, and something that can sign — so pass the last two in, and read the first from whatever compiled it.
 
-- **Your wallet, not ours** — any viem `WalletClient`: a local mnemonic, an encrypted keystore, AWS or GCP KMS, Turnkey, Privy, Fireblocks, a Ledger, or a JSON-RPC account where no key exists in the process at all. deployoor never sees a secret, so it has no opinion about where yours lives.
+- **Your wallet, not ours.** Any viem `WalletClient`: a local mnemonic, an encrypted keystore, AWS or GCP KMS, Turnkey, Privy, Fireblocks, a Ledger, or a JSON-RPC account where no key exists in the process at all. deployoor never sees a secret, so it has no opinion about where yours lives.
 - **Your chains, not a config file** — a chain is an argument, so one script can cover as many as you like. The same is true in tests.
 - **Scripts with no environment** — `tsx scripts/deploy.ts`. Nothing to boot, no `env` threaded through your code.
 - **Tests that are the same code** — [`@deployoor/testing`](/guides/testing) hands you viem clients over an in-memory EVM, so the deployer you ship is the deployer under test.
@@ -20,6 +20,10 @@ deployoor takes the other position. A deploy needs compiled artifacts, a chain, 
 - **Typed end to end** — generated `getOrDeploy<Name>` functions return typed viem contract objects, and [`@wagmi/cli`](/guides/consumption) turns the same records into typed app access.
 
 Everything else here follows from that split.
+
+import { WalletStrip } from "../components/WalletStrip";
+
+<WalletStrip />
 
 ## Who this is for
 
