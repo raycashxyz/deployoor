@@ -1,11 +1,24 @@
 import { Changelog, defineConfig } from "vocs/config";
 
-const baseUrl =
-  process.env.VERCEL_ENV === "production"
-    ? "https://www.deployoor.dev"
-    : process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : undefined;
+// Set this ONLY where the public hostname is known — i.e. production.
+//
+// Vocs turns `baseUrl` into a `<base href="…">` tag, and `<base>` re-resolves *every* relative
+// URL on the page. So a baseUrl that isn't the host actually serving the page silently breaks
+// the whole site: markup like `src="/og.png"` and `href="/getting-started/installation"` stays
+// relative in the HTML but the browser resolves it against `<base>` instead.
+//
+// This previously used `https://${VERCEL_URL}` on previews. VERCEL_URL is the *per-deployment*
+// host (`<project>-<hash>-<team>.vercel.app`), not the branch alias you open from a PR, so every
+// asset and link on a branch preview pointed at a different origin — and since this project has
+// Vercel Authentication on all deployments except custom domains, that origin demands SSO. Net
+// effect: broken hero image and nav links on every preview.
+//
+// Leaving it undefined off production means no `<base>` is emitted and relative URLs resolve
+// against whichever host serves them — branch alias, deployment URL, or localhost. The tradeoff
+// is that previews carry no canonical/og:url/og:image; that costs nothing here, because those
+// only matter to external crawlers and no crawler can reach an SSO-gated preview anyway. To
+// review a change to the OG image itself, open `/api/og?title=…` on the preview directly.
+const baseUrl = process.env.VERCEL_ENV === "production" ? "https://www.deployoor.dev" : undefined;
 
 const githubChangelog = Changelog.github({ repo: "raycashxyz/deployoor" });
 const deployoorChangelog = Changelog.from({
@@ -23,14 +36,13 @@ const deployoorChangelog = Changelog.from({
 export default defineConfig({
   title: "deployoor",
   description:
-    "Quality-of-life for smart contract teams — simplify chain ops. Deploy once, use typed viem contract objects in your apps and tests. Hardhat, Foundry, and tevm.",
+    "Deploy EVM contracts from TypeScript with your own viem wallet. A deploy is an artifact plus a client, so scripts, tests, and your app share typed contract objects. Hardhat, Foundry, and tevm.",
   baseUrl,
   // Keep docs pages prerendered while allowing Vocs' dynamic OG endpoint to run on Vercel.
   renderStrategy: "partial-static",
   mcp: { enabled: false },
   accentColor: "light-dark(#111513, #BEF4BE)",
   colorScheme: "light dark",
-  themeColor: "light-dark(#BEF4BE, #111513)",
   logoUrl: {
     light: "/favicon.svg",
     dark: "/favicon-dark.svg",
@@ -52,10 +64,37 @@ export default defineConfig({
       link: "/introduction",
     },
     {
+      text: "Comparisons",
+      link: "/comparison",
+      items: [
+        { text: "Hardhat", link: "/comparison/hardhat" },
+        { text: "Hardhat Ignition", link: "/comparison/hardhat-ignition" },
+        { text: "hardhat-deploy", link: "/comparison/hardhat-deploy" },
+      ],
+    },
+    {
       text: "Getting started",
       items: [
         { text: "Installation", link: "/getting-started/installation" },
         { text: "Quickstart", link: "/getting-started/quickstart" },
+      ],
+    },
+    {
+      text: "Concepts",
+      items: [
+        { text: "Deployment records", link: "/concepts/deployment-records" },
+        { text: "Deployment stores", link: "/concepts/deployment-stores" },
+        { text: "Idempotent deploys", link: "/concepts/idempotency" },
+      ],
+    },
+    {
+      text: "Recipes",
+      link: "/recipes",
+      items: [
+        { text: "Privy", link: "/recipes/privy" },
+        { text: "Coinbase CDP", link: "/recipes/coinbase-cdp" },
+        { text: "Turnkey", link: "/recipes/turnkey" },
+        { text: "Openfort", link: "/recipes/openfort" },
       ],
     },
     {
@@ -72,10 +111,11 @@ export default defineConfig({
       ],
     },
     {
-      text: "Concepts",
+      text: "Migrate from",
       items: [
-        { text: "Deployment records", link: "/concepts/deployment-records" },
-        { text: "Idempotent deploys", link: "/concepts/idempotency" },
+        { text: "Hardhat", link: "/migrate/hardhat" },
+        { text: "Hardhat Ignition", link: "/migrate/hardhat-ignition" },
+        { text: "hardhat-deploy", link: "/migrate/hardhat-deploy" },
       ],
     },
     {

@@ -22,4 +22,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The docs contain `ts twoslash` blocks importing `deployoor`, and twoslash
+      # type-checks them against its built .d.ts — so build the package first.
+      # Same reason apps/docs/vercel.json builds it before running vocs.
+      - run: pnpm --filter deployoor build
       - run: pnpm --filter @deployoor/docs build

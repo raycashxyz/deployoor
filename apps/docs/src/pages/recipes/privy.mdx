@@ -1,0 +1,76 @@
+# <span className="brand brand-privy" /> Privy
+
+[Privy](https://privy.io) server wallets keep the wallet's own signing key on their side and expose it as a viem account, so your process never holds the key that controls the funds. Depending on how the wallet is configured, it may still hold an authorization key, which is covered below.
+
+## Install
+
+```bash
+pnpm add @privy-io/node viem
+pnpm add -D deployoor tsx
+```
+
+## The account
+
+`@privy-io/node/viem` turns a Privy wallet into a viem account:
+
+```ts
+// accounts.ts
+import { PrivyClient } from "@privy-io/node";
+import { createViemAccount } from "@privy-io/node/viem";
+
+const privy = new PrivyClient({
+  appId: process.env.PRIVY_APP_ID as string,
+  appSecret: process.env.PRIVY_APP_SECRET as string,
+});
+
+export const deployer = await createViemAccount(privy, {
+  walletId: process.env.PRIVY_WALLET_ID as string,
+  address: process.env.PRIVY_WALLET_ADDRESS as `0x${string}`,
+});
+```
+
+Wallets that require an authorization context take one more field. Note what this changes: an authorization key **is** a private key, and this variant puts one in your process.
+
+```ts
+export const deployer = await createViemAccount(privy, {
+  walletId: process.env.PRIVY_WALLET_ID as string,
+  address: process.env.PRIVY_WALLET_ADDRESS as `0x${string}`,
+  authorizationContext: {
+    authorization_private_keys: [process.env.PRIVY_AUTHORIZATION_KEY as string],
+  },
+});
+```
+
+:::warning
+`PRIVY_AUTHORIZATION_KEY` is a private key, not an API token. It does not control the wallet on its own, but it authorises wallet actions, so store it wherever you keep signing material rather than beside ordinary config, keep it out of source control, and rotate it on the same schedule as your other secrets.
+:::
+
+## The deploy
+
+```ts
+// scripts/deploy.ts, run with `tsx scripts/deploy.ts`
+import { createPublicClient, createWalletClient, http } from "viem";
+import { base } from "viem/chains";
+import { deployer } from "../accounts";
+import { getOrDeployCounter } from "../deployers";
+
+const transport = http(process.env.RPC_URL);
+const clients = {
+  walletClient: createWalletClient({ account: deployer, chain: base, transport }),
+  publicClient: createPublicClient({ chain: base, transport }),
+};
+
+const { contract, freshDeploy, deployment } = await getOrDeployCounter({ ...clients, args: [0n] });
+
+console.log(freshDeploy ? `deployed at ${contract.address}` : `already at ${contract.address}`);
+console.log(`recorded to deployments/${deployment.networkName}/`);
+```
+
+`deployer` is a local account as far as viem is concerned: it signs the transaction, then viem broadcasts the raw result. Privy performs the signing, and your `PRIVY_APP_SECRET` never authorises anything beyond the wallet you named.
+
+## Notes
+
+- On the basic flow your process holds an app secret and a wallet id, and no private key. The wallet id is not a secret and is not the boundary: `PRIVY_APP_SECRET` authorises action on any wallet and resource your app owns, so a leak reaches more than the one wallet you named. Keep it server-only, scope it, and rotate it like any other credential.
+- On the authorization-context flow it also holds `PRIVY_AUTHORIZATION_KEY`, which is a private key. Protect and rotate it as such.
+- The same `deployer` works in an ops script. Import it, build clients for the chain you want, and call the generated bindings.
+- For tests, keep using [`@deployoor/testing`](/guides/testing). There is no reason to spend Privy calls on an in-memory chain.

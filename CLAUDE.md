@@ -8,7 +8,7 @@ Guidance for AI agents (and humans) working in the **deployoor** monorepo.
 
 **Two parts, with a plain `deployments/` folder as the stable contract between them:**
 
-```
+```text
 artifacts (Hardhat artifacts/ or Foundry out/)
         │  Part 1 — `deployoor generate` + your deploy script
         ▼
@@ -24,7 +24,7 @@ North star: "contracts as plain TypeScript objects." On the deploy side, `getOrD
 
 ## Layout
 
-```
+```text
 packages/
   deployoor/            — the engine: codegen + CLI (`deployoor generate` / `deployoor init`) + the deploy pipeline. Exports `deployoor` (main), `deployoor/plugin` (the plugin SDK subpath), and `deployoor/generate` (the programmatic `generateDeployers`, used by `@deployoor/hardhat`).
   deployoor-wagmi/      — @deployoor/wagmi: a @wagmi/cli plugin sourcing contracts from deployments/
@@ -67,7 +67,7 @@ Turbo orders `^build` before each task, so the `deployoor` core builds before pl
 
 ## Build/CI gotchas (already fixed — don't regress)
 
-- **`unrun` is an explicit devDep of every package.** tsdown's config loader (`unrun`) is declared an _optional peer_, so pnpm skips it and a clean `--frozen-lockfile` build fails with "Failed to import module unrun". Keep it pinned in each package's devDependencies.
+- **`unrun` is an explicit devDep of every package that builds with tsdown** — i.e. all of `packages/*`. tsdown's config loader (`unrun`) is declared an _optional peer_, so pnpm skips it and a clean `--frozen-lockfile` build fails with "Failed to import module unrun". Keep it pinned in those packages' devDependencies. `examples/*` have no build step, so they must **not** declare it — it would be an unused dependency.
 - **Building requires Node 20+** (rolldown — tsdown's engine — uses `node:util.styleText`). CI builds on Node **20/22/24**. The published dist targets node18, so `engines: ">=18"` (runtime) is correct; only the dev toolchain needs 20+.
 
 ## Conventions (match the existing code)
@@ -77,7 +77,8 @@ Turbo orders `^build` before each task, so the `deployoor` core builds before pl
 - **No `as any`.** `!` (non-null) and unnecessary `?` are code smells — fix the root cause: narrow with guards (`if (x === undefined) throw …`), `as const`, or restructure so nullability is impossible.
 - **Errors in Effect's channel** (tagged errors). No nested try/catch; no complex ternaries (prefer `Match` / `Option` / `pipe`).
 - **Tests (Vitest):** third-person `it("does X when Y")` (no "should", no test-case IDs); assert specific errors; for state changes, assert the precondition before and the postcondition after; use `vi.fn()` spies; real-EVM via tevm. Plugin tests inject a mock `fetch` via `PluginDeps`.
-- Always run `tsc --noEmit` (+ root `oxlint`/`prettier`) on **every** package you touch; fix all diagnostics, not just the ones that seem important. Break calls with >3 args across multiple lines. Use mermaid (never ASCII art) in docs.
+- Always run `tsc --noEmit` (+ root `oxlint`/`prettier`) on **every** package you touch; fix all diagnostics, not just the ones that seem important. Break calls with >3 args across multiple lines.
+- **Diagrams: mermaid for relationships, fenced `text` for paths.** Anything showing how things relate (architecture, sequence, state) is a mermaid block — never hand-drawn ASCII boxes. Directory trees and file-path pipelines stay plain ` ```text ` blocks, because the literal paths and their column alignment _are_ the content and mermaid cannot preserve them (see the layout tree and the `artifacts → deployments/` flow above). Always tag the fence so markdownlint MD040 passes.
 - **Commits:** Conventional Commits, grouped into logical units (no mega-commits). **No AI co-author / "generated with" attribution lines. No "test plan" sections in PRs** — verify before opening, not after.
 
 ## Releasing (Changesets)

@@ -61,7 +61,9 @@ Type "find deployments -name '*.json'"
 Enter
 Sleep 2000ms
 
-Type "sed -n '1,18p' deployments/*/Counter.json"
+# Show the scalar fields, not the ABI/bytecode blobs — "it's all in one file" is the point,
+# and `sed -n 1,18p` spends the whole frame inside the abi array.
+Type 'grep -E "(contractName|address|chainId|networkName|transactionHash|deployer|version)" deployments/*/Counter.json'
 Enter
 Sleep 4000ms
 

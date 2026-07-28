@@ -380,3 +380,281 @@
   margin: calc(-1 * var(--vocs-spacing-content-py, 2.5rem)) calc(-1 * var(--vocs-spacing-content-px, 3rem));
   padding-top: 2rem;
 }
+
+/* Comparison pages: distinguish the framework way from the deployoor way.
+
+   These are masks rather than <img>, which matters: every icon here is normalised to
+   `fill="currentColor"`, and an <img> resolves currentColor against the SVG's own
+   document, where it falls back to black. That is invisible in dark mode. A mask
+   inherits the surrounding text colour instead. */
+.way {
+  display: inline-block;
+  height: 0.95em;
+  margin-right: 0.45em;
+  vertical-align: -0.08em;
+  background-color: currentColor;
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+}
+
+.way-hardhat {
+  width: 1.37em; /* ink 27.95 x 19.32 */
+  -webkit-mask-image: url("/icons/tools/hardhat.svg");
+  mask-image: url("/icons/tools/hardhat.svg");
+}
+
+.way-rocketh {
+  width: 0.95em; /* ink 184.46 x 193.26 */
+  -webkit-mask-image: url("/icons/tools/rocketh.svg");
+  mask-image: url("/icons/tools/rocketh.svg");
+}
+
+/* Our D is a letterform, so it is sized and seated like a capital letter: box height at
+   roughly the font's cap height, bottom of the box on the text baseline. The file's
+   viewBox is cropped to the D's ink, so the glyph fills the box exactly and those two
+   edges really are the cap line and the baseline. */
+.way-deployoor {
+  width: 0.56em; /* ink 307.6 x 396.4, aspect 0.776 */
+  height: 0.72em;
+  vertical-align: baseline;
+  background-color: var(--vocs-color-accent);
+  -webkit-mask-image: url("/icons/deployoor.svg");
+  mask-image: url("/icons/deployoor.svg");
+}
+
+/* ---------------------------------------------------------------------------
+   Third-party logos.
+
+   Every mark is drawn as a CSS mask filled with `currentColor`, so all of them
+   are one colour and follow the surrounding text in both themes. That is a
+   deliberate choice over honouring each vendor's brand colours: a docs sidebar
+   full of competing brand palettes is noisier than it is informative, and it
+   removes the need for per-vendor light/dark files.
+
+   Every viewBox in /public/icons is cropped to the artwork's own ink bounds
+   (measured with getBBox, see public/icons/README.md), so `contain` fills the
+   slot with no baked-in padding to fight.
+   --------------------------------------------------------------------------- */
+
+/* Sidebar marks. Vocs styles these anchors as flex with justify-between, which
+   would push the ::before marker and the label to opposite edges, so pin left
+   and use gap for the spacing. */
+[data-v-sidebar-section] a[href^="/comparison/"],
+[data-v-sidebar-section] a[href^="/migrate/"],
+[data-v-sidebar-section] a[href^="/recipes/"] {
+  justify-content: flex-start;
+  gap: 0.5em;
+}
+
+/* One uniform square slot for every sidebar mark, so the labels all start at
+   the same x regardless of how wide or tall a given logo happens to be. Each
+   glyph is centred and scaled to fit inside that square. */
+[data-v-sidebar-section] a[href^="/comparison/"]::before,
+[data-v-sidebar-section] a[href^="/migrate/"]::before,
+[data-v-sidebar-section] a[href^="/recipes/"]::before {
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+  content: "";
+  background-color: currentColor;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+/* Inline mark in a page heading, same treatment at text size. */
+.brand {
+  display: inline-block;
+  width: 1.05em;
+  height: 1.05em;
+  margin-right: 0.4em;
+  vertical-align: -0.12em;
+  background-color: currentColor;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+/* Hardhat covers both the Hardhat and Hardhat Ignition pages. */
+[data-v-sidebar-section] a[href^="/comparison/"]::before,
+[data-v-sidebar-section] a[href^="/migrate/"]::before {
+  -webkit-mask-image: url("/icons/tools/hardhat.svg");
+  mask-image: url("/icons/tools/hardhat.svg");
+}
+
+[data-v-sidebar-section] a[href="/comparison/hardhat-deploy"]::before,
+[data-v-sidebar-section] a[href="/migrate/hardhat-deploy"]::before {
+  -webkit-mask-image: url("/icons/tools/rocketh.svg");
+  mask-image: url("/icons/tools/rocketh.svg");
+}
+
+.brand-privy,
+[data-v-sidebar-section] a[href="/recipes/privy"]::before {
+  -webkit-mask-image: url("/icons/wallets/privy.svg");
+  mask-image: url("/icons/wallets/privy.svg");
+}
+
+.brand-coinbase,
+[data-v-sidebar-section] a[href="/recipes/coinbase-cdp"]::before {
+  -webkit-mask-image: url("/icons/wallets/coinbase.svg");
+  mask-image: url("/icons/wallets/coinbase.svg");
+}
+
+.brand-turnkey,
+[data-v-sidebar-section] a[href="/recipes/turnkey"]::before {
+  -webkit-mask-image: url("/icons/wallets/turnkey.svg");
+  mask-image: url("/icons/wallets/turnkey.svg");
+}
+
+.brand-openfort,
+[data-v-sidebar-section] a[href="/recipes/openfort"]::before {
+  -webkit-mask-image: url("/icons/wallets/openfort.svg");
+  mask-image: url("/icons/wallets/openfort.svg");
+}
+
+/* ---------------------------------------------------------------------------
+   Homepage / introduction logo cloud. Full wordmarks rather than icon marks,
+   all at one height, each width derived from that logo's measured aspect ratio
+   so none of them is stretched.
+   --------------------------------------------------------------------------- */
+.wallet-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+  /* .landing is a flex column with no gap, so the bottom margin is what keeps
+     this off the install commands below it. */
+  margin: 2rem 0 2.5rem;
+}
+
+.wallet-strip-heading {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--vocs-color-text3);
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+.wallet-strip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.wallet-strip-item {
+  display: flex;
+  align-items: center;
+}
+
+.wallet-strip-also {
+  max-width: 30rem;
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--vocs-color-text3);
+  text-align: center;
+  opacity: 0.8;
+}
+
+/* Each logo carries its own height, because matching bounding boxes does not
+   match what the eye reads. A wordmark's box includes ascenders, descenders and
+   whatever padding the vendor exported, so the share of the box actually filled
+   by lettering ranges from 0.54 (Openfort) to 0.91 (the .env badge). Sizing on
+   the box alone therefore makes the airy logos look small. These heights instead
+   equalise the band holding the lettering, then move halfway toward equal ink
+   area so that very bold and very light marks meet in the middle. Re-measure
+   with the same method if you add or replace a logo. */
+.wordmark {
+  --wordmark-height: 1.25rem;
+
+  height: var(--wordmark-height);
+  /* The row centres each box, but a logo's baseline is not at its box centre: how far the
+     box runs past the baseline depends on whether the wordmark has descenders, which
+     varies from none (Coinbase) to 0.235 of the box (Openfort). Centring alone therefore
+     leaves the lettering sitting on six different lines. Each nudge is measured, and
+     shifts the box so all six baselines coincide. */
+  transform: translateY(var(--wordmark-nudge, 0));
+  background-color: currentColor;
+  opacity: 0.75;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+.wordmark-dotenv {
+  --wordmark-nudge: -0.133rem;
+  /* lettering fills 0.91 of the box */
+  --wordmark-height: 1.31rem;
+
+  width: calc(var(--wordmark-height) * 1);
+  -webkit-mask-image: url("/icons/wordmarks/dotenv.svg");
+  mask-image: url("/icons/wordmarks/dotenv.svg");
+}
+
+.wordmark-privy {
+  --wordmark-nudge: -0.005rem;
+  /* lettering fills 0.84 of the box */
+  --wordmark-height: 1.08rem;
+
+  width: calc(var(--wordmark-height) * 4.471);
+  -webkit-mask-image: url("/icons/wordmarks/privy.svg");
+  mask-image: url("/icons/wordmarks/privy.svg");
+}
+
+.wordmark-turnkey {
+  --wordmark-nudge: 0.126rem;
+  /* lettering fills 0.63 of the box */
+  --wordmark-height: 1.39rem;
+
+  width: calc(var(--wordmark-height) * 4.615);
+  -webkit-mask-image: url("/icons/wordmarks/turnkey.svg");
+  mask-image: url("/icons/wordmarks/turnkey.svg");
+}
+
+.wordmark-coinbase {
+  --wordmark-nudge: -0.071rem;
+  /* lettering fills 0.65 of the box */
+  --wordmark-height: 1.21rem;
+
+  width: calc(var(--wordmark-height) * 5.598);
+  -webkit-mask-image: url("/icons/wordmarks/coinbase.svg");
+  mask-image: url("/icons/wordmarks/coinbase.svg");
+}
+
+.wordmark-dfns {
+  --wordmark-nudge: -0.051rem;
+  /* lettering fills 0.77 of the box */
+  --wordmark-height: 1.22rem;
+
+  width: calc(var(--wordmark-height) * 3.887);
+  -webkit-mask-image: url("/icons/wordmarks/dfns.svg");
+  mask-image: url("/icons/wordmarks/dfns.svg");
+}
+
+.wordmark-openfort {
+  --wordmark-nudge: 0.133rem;
+  /* lettering fills 0.54 of the box */
+  --wordmark-height: 1.47rem;
+
+  width: calc(var(--wordmark-height) * 5.452);
+  -webkit-mask-image: url("/icons/wordmarks/openfort.svg");
+  mask-image: url("/icons/wordmarks/openfort.svg");
+}

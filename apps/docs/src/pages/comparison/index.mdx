@@ -1,0 +1,33 @@
+# Comparisons
+
+Three ways to deploy an EVM contract from a JavaScript project, and how each one differs from deployoor.
+
+- [Hardhat](/comparison/hardhat), where scripts run against the Hardhat runtime and nothing records what you deployed
+- [Hardhat Ignition](/comparison/hardhat-ignition), where you describe a deployment as a module and run it through the CLI
+- [hardhat-deploy](/comparison/hardhat-deploy), which adds records and idempotency but keeps them inside the framework
+
+Every page covers the same five jobs: setting up a project, deploying to one chain, deploying to many, running ops scripts, and handing deployments to the frontend team. The other tool goes first, deployoor second.
+
+## The one idea
+
+A deploy needs three things. Compiled artifacts, a chain to talk to, and something that can sign.
+
+Frameworks bundle all three. Once a tool owns your compiler it ends up owning your wallet and your network list too, because they all arrive through the same runtime.
+
+deployoor reads artifacts from whatever compiled them, and takes the other two as arguments:
+
+```ts
+const { contract } = await getOrDeployCounter({ walletClient, publicClient, args: [0n] });
+```
+
+That `walletClient` carries the account and the chain. Nothing gets registered anywhere, so no config file sits between you and either one.
+
+That is the whole design. Multi-chain as a loop, tests that are just the deploy script, ops scripts sharing the frontend's bindings: all of it follows from that single split.
+
+Deployment should stop being a framework feature, the way data access did once an ORM became a library you call instead of something your web framework handed you.
+
+## What the framework keeps
+
+Hardhat and Foundry stay good at the things they are genuinely good at. Compiling Solidity into artifacts. Running a local node with real dev controls, so you can move balances, warp time, take snapshots, and impersonate accounts. Forking a live chain.
+
+You bring the wallet.

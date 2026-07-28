@@ -1,0 +1,368 @@
+import { Tabs, Tab } from "vocs";
+
+# <span className="way way-rocketh" /> hardhat-deploy
+
+The tool that recognised what plain Hardhat was missing. It added committed deployment records, idempotent redeploys, named accounts, and proxy support, the same gaps that motivated deployoor, solved years earlier and in more depth. On proxies, diamonds, and deterministic addresses it is still further along.
+
+The difference is where it solved them. v2 is a Hardhat plugin built on [rocketh](https://rocketh.dev), so artifacts, networks, and accounts still arrive through a runtime that owns them. rocketh itself runs standalone, with its own CLI and no Hardhat, which makes it the closer comparison. There the coupling is not to a framework, but to the tool's own account and extension model.
+
+The same project built twice. Each job below lists the files it touches.
+
+## Minimum setup
+
+### <span className="way way-rocketh" /> hardhat-deploy
+
+<Tabs>
+<Tab title="rocketh/config.ts">
+
+Capabilities arrive as extensions spread into the config, viem among them.
+
+```ts
+import * as deployExtension from "@rocketh/deploy";
+import * as readExecuteExtension from "@rocketh/read-execute";
+import * as viemExtension from "@rocketh/viem";
+
+const extensions = { ...deployExtension, ...readExecuteExtension, ...viemExtension };
+```
+
+</Tab>
+<Tab title="hardhat.config.ts">
+
+Under the Hardhat plugin, networks still come from the framework.
+
+```ts
+import "hardhat-deploy";
+
+export default {
+  solidity: "0.8.24",
+  networks: {
+    sepolia: {
+      url: process.env.SEPOLIA_RPC_URL,
+      accounts: [process.env.SEPOLIA_PRIVATE_KEY],
+    },
+  },
+};
+```
+
+</Tab>
+</Tabs>
+
+```bash
+npm install --save-dev hardhat-deploy @rocketh/deploy @rocketh/read-execute @rocketh/viem
+npx hardhat compile
+```
+
+- 🚫 An extensions list before the first contract goes out
+- 🚫 viem is granted through `@rocketh/viem` rather than owned by you, so a new viem release is usable once that package ships support for it
+- 🚫 Under the Hardhat plugin the chain list is still framework config
+
+### <span className="way way-deployoor" /> deployoor
+
+No files.
+
+```bash
+pnpm add -D deployoor
+npx hardhat compile        # or `forge build`
+npx deployoor generate
+```
+
+- ✅ Nothing to configure before the first deploy: no extensions to spread, no accounts stanza
+- ✅ viem is your dependency, so bumping it is the whole upgrade
+- ✅ No network list, because a chain is an argument
+
+## Deploying to one chain
+
+### <span className="way way-rocketh" /> hardhat-deploy
+
+<Tabs>
+<Tab title="deploy/001_counter.ts">
+
+```ts
+const deployment = await deploy("Counter", {
+  account: 0, // an index, or an address; not an object
+  artifact: artifacts.Counter,
+  args: [0n],
+});
+```
+
+You get back a deployment record. Reads and writes then route through the environment, or through a viem wrapper you ask the environment for:
+
+```ts
+await env.execute(Counter, {
+  account: 0, // an index, or an address; not an object
+  functionName: "inc",
+  args: [],
+});
+
+const contract = env.viem.getContract(deployment);
+await contract.read.count();
+```
+
+`env` is present in every one of those lines.
+
+</Tab>
+<Tab title="rocketh/config.ts">
+
+Custody is an extension point in config, not an argument at the call site.
+
+```ts
+signerProtocols: {
+  // the only implementation shipped
+  privateKey: privateKeySigner,
+},
+```
+
+</Tab>
+</Tabs>
+
+```bash
+npx hardhat deploy --network sepolia
+```
+
+- 🚫 The account is an index, an address, or a name, never an object. `AccountDefinition` is `EIP1193Account | string | number`, so a viem `Account` cannot reach a deploy call
+- 🚫 Custody instead goes through a `signerProtocols` entry returning an EIP-1193 shim. The extension point is real, and the only implementation shipped is `privateKey`
+- 🚫 `env` sits between you and the contract on every line
+
+### <span className="way way-deployoor" /> deployoor
+
+<Tabs>
+<Tab title="scripts/deploy.ts">
+
+```ts
+import { sepolia } from "viem/chains";
+import { clientsFor } from "../clients"; // your viem clients
+import { getOrDeployCounter } from "../deployers";
+
+const { contract } = await getOrDeployCounter({ ...clientsFor(sepolia), args: [0n] });
+
+await contract.write.inc();
+```
+
+</Tab>
+</Tabs>
+
+```bash
+tsx scripts/deploy.ts
+```
+
+- ✅ The typed viem contract comes back on the first line, with no environment in the middle
+- ✅ Account and chain are properties of the client you passed, so the same function deploys from a test key, from CI, or from a Ledger on mainnet
+- ✅ Any viem `Account` works: a keystore, AWS or GCP KMS, [Turnkey](/recipes/turnkey), [Privy](/recipes/privy), [Openfort](/recipes/openfort), Fireblocks, hardware, or a JSON-RPC account where no key exists in the process
+
+## Deploying to many chains
+
+### <span className="way way-rocketh" /> hardhat-deploy
+
+<Tabs>
+<Tab title="deploy-all.sh">
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+# under Hardhat
+for net in sepolia base optimism; do
+  npx hardhat deploy --network "$net"
+done
+
+# or, with rocketh's own CLI, one environment at a time
+for env in sepolia base optimism; do
+  npx rocketh-deploy -e "$env"
+done
+```
+
+</Tab>
+</Tabs>
+
+- 🚫 Under Hardhat the network comes from the Hardhat runtime, one per invocation
+- 🚫 rocketh's own CLI takes `-e <environment>`, again one at a time, with the environment naming a chain and its accounts
+- 🚫 Nothing carries across invocations
+
+### <span className="way way-deployoor" /> deployoor
+
+<Tabs>
+<Tab title="scripts/deploy.ts">
+
+```ts
+import { base, mainnet, optimism } from "viem/chains";
+import { clientsFor } from "../clients"; // your viem clients
+import { getOrDeployCounter } from "../deployers";
+
+for (const chain of [mainnet, base, optimism]) {
+  await getOrDeployCounter({ ...clientsFor(chain), args: [0n] });
+}
+```
+
+Same `clients.ts` as the single-chain deploy. Only the loop is new.
+
+</Tab>
+</Tabs>
+
+```bash
+tsx scripts/deploy.ts
+```
+
+- ✅ The same file and the same command as one chain
+- ✅ Each deploy lands in its own `deployments/<chainId>-<network>/`
+- ✅ Records are keyed by chain id. hardhat-deploy keys folders by network name and keeps the chain id in a `.chain` sidecar, so the path alone does not tell you the chain
+
+## Running ops scripts
+
+### <span className="way way-rocketh" /> hardhat-deploy
+
+<Tabs>
+<Tab title="scripts/inc.ts">
+
+Through the environment, with the account given as an index.
+
+```ts
+await env.execute(Counter, {
+  account: 0, // an index, or an address; not an object
+  functionName: "inc",
+  args: [],
+});
+```
+
+</Tab>
+</Tabs>
+
+- 🚫 The environment has to exist before you can touch a contract
+- 🚫 The function name is a string in an options bag rather than a method on the contract
+- 🚫 The frontend gets a different shape than this, so ops code and app code diverge
+
+### <span className="way way-deployoor" /> deployoor
+
+<Tabs>
+<Tab title="scripts/inc.ts">
+
+```ts
+import { base } from "viem/chains";
+import { writeCounterInc } from "../src/generated"; // from `wagmi generate`
+import { config } from "../src/wagmi";
+
+await writeCounterInc(config, { chainId: base.id });
+```
+
+</Tab>
+</Tabs>
+
+```bash
+tsx scripts/inc.ts
+```
+
+- ✅ Through the same generated bindings your frontend uses
+- ✅ No environment, and no address to look up
+
+## Handing deployments to the frontend team
+
+### <span className="way way-rocketh" /> hardhat-deploy
+
+<Tabs>
+<Tab title="src/contracts.ts">
+
+First-party and good. `rocketh-export` emits an `as const` object:
+
+```ts
+// generated by: rocketh-export -e <env> --ts src/contracts.ts
+export default {
+  chain: { id: 11155111, name: "sepolia" },
+  name: "sepolia",
+  contracts: {
+    Counter: { abi: [...], address: "0x...", startBlock: 1234567 },
+  },
+} as const;
+```
+
+</Tab>
+</Tabs>
+
+```bash
+npx rocketh-export -e sepolia --ts src/contracts.ts
+```
+
+- ✅ This one is genuinely good, and it is first-party
+- 🚫 It is the tool's own format, so consuming it means writing the glue between that shape and whatever your app expects
+
+### <span className="way way-deployoor" /> deployoor
+
+<Tabs>
+<Tab title="wagmi.config.ts">
+
+```ts
+import { defineConfig } from "@wagmi/cli";
+import { actions } from "@wagmi/cli/plugins";
+import { deployments } from "@deployoor/wagmi";
+
+export default defineConfig({
+  out: "src/generated.ts",
+  plugins: [deployments({ path: "./deployments" }), actions()], // or react() for hooks
+});
+```
+
+</Tab>
+</Tabs>
+
+```bash
+npx wagmi generate
+```
+
+- ✅ The codegen is the wagmi team's, so the output is what a wagmi or viem app already expects
+- ✅ No glue layer between the tool's format and your app
+
+See [consumption](/guides/consumption).
+
+## Testing
+
+### <span className="way way-rocketh" /> hardhat-deploy
+
+<Tabs>
+<Tab title="test/counter.test.ts">
+
+Deployment fixtures run through the environment, and under Hardhat the chain comes from Hardhat.
+
+```ts
+const env = await loadEnvironment({ provider }); // whole-run override
+await env.fixtures.Counter();
+```
+
+</Tab>
+</Tabs>
+
+- 🚫 Under Hardhat, the chain, the accounts, and the fixtures all belong to Hardhat
+- 🚫 rocketh accepts a whole-run `provider` override, documented as a test idiom, which replaces the transport for the entire run rather than per call
+
+### <span className="way way-deployoor" /> deployoor
+
+<Tabs>
+<Tab title="test/counter.test.ts">
+
+```ts
+import { describe, it, expect } from "vitest";
+import { createTestClients } from "@deployoor/testing";
+import { getOrDeployCounter } from "../deployers";
+
+describe("Counter", () => {
+  it("increments", async () => {
+    const clients = await createTestClients(); // in-memory EVM plus an ephemeral store
+    const { contract } = await getOrDeployCounter({ ...clients, args: [0n] });
+
+    await contract.write.inc();
+    expect(await contract.read.count()).toBe(1n);
+  });
+});
+```
+
+</Tab>
+</Tabs>
+
+```bash
+vitest
+```
+
+- ✅ Same function as production, different clients, chosen per call
+- ✅ Any runner, no Hardhat, no node
+- ✅ Test deploys use an ephemeral [store](/concepts/deployment-stores) and never touch your committed records
+
+See [testing](/guides/testing).
+
+Coming from hardhat-deploy? See [migrate from hardhat-deploy](/migrate/hardhat-deploy).

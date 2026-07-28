@@ -1,0 +1,87 @@
+# Recipes
+
+deployoor asks for a viem `WalletClient`. It never asks where the key lives, so any wallet that can produce a viem account works, and swapping between them changes one import.
+
+```ts
+const { contract } = await getOrDeployCounter({ walletClient, publicClient, args: [0n] });
+```
+
+## Why every viem wallet works
+
+viem accepts an account as long as it can sign. The full contract is an address plus three methods:
+
+```ts
+// viem's own CustomSource, abridged to the parts that matter here
+import type { Address, Hex } from "viem";
+
+type CustomSource = {
+  address: Address;
+  signMessage: (args: { message: unknown }) => Promise<Hex>;
+  signTransaction: (transaction: unknown, options?: { serializer?: unknown }) => Promise<Hex>;
+  signTypedData: (typedData: unknown) => Promise<Hex>;
+};
+```
+
+A deploy only ever calls `signTransaction`. Anything that can produce a secp256k1 signature over a hash can therefore back a deploy, whether the key sits in a local file, an HSM, or a vendor's TEE.
+
+Two shapes exist, and both work:
+
+- **Local accounts** sign in-process, then viem sends `eth_sendRawTransaction`. Vendor SDKs that return a viem account (Privy, Coinbase CDP, Turnkey, Dfns, KMS wrappers) all land here.
+- **JSON-RPC accounts** are just an address. viem sends `eth_sendTransaction` and the wallet signs, so no key material enters your process at all. A node, Frame, Clef, or an EIP-1193 provider like Fireblocks fits this shape.
+
+deployoor reads `walletClient.chain` and `walletClient.account.address`, then calls `deployContract`. That is the whole surface it touches, which is why none of the recipes below need anything from deployoor itself.
+
+## Recipes
+
+- [Privy](/recipes/privy) — server wallets via `@privy-io/node`
+- [Coinbase CDP](/recipes/coinbase-cdp) — server accounts via `@coinbase/cdp-sdk`
+- [Turnkey](/recipes/turnkey) — API-key or passkey signing via `@turnkey/viem`
+- [Openfort](/recipes/openfort) — backend wallets via `@openfort/openfort-node`
+
+## Anything else
+
+The same pattern covers wallets without a purpose-built recipe:
+
+| Wallet                 | How it reaches viem                                                |
+| ---------------------- | ------------------------------------------------------------------ |
+| Local key or mnemonic  | `privateKeyToAccount`, `mnemonicToAccount` from `viem/accounts`    |
+| Encrypted keystore     | decrypt at startup, then `privateKeyToAccount`                     |
+| AWS or GCP KMS         | a `toAccount` wrapper that signs via the KMS API                   |
+| Ledger or Trezor       | `@ledgerhq/hw-app-eth` behind `toAccount`, or an EIP-1193 provider |
+| Fireblocks             | `@fireblocks/fireblocks-web3-provider`, then `custom(provider)`    |
+| A node, Frame, or Clef | pass the address and let the provider sign                         |
+
+For KMS and hardware the shape is always the same: implement `signTransaction` so it hashes the serialized transaction, gets a signature from wherever the key lives, and re-serializes.
+
+```ts
+import { toAccount } from "viem/accounts";
+import {
+  keccak256,
+  serializeTransaction,
+  hashMessage,
+  hashTypedData,
+  serializeSignature,
+  type Hex,
+} from "viem";
+
+// `sign` is whatever your KMS, HSM, or device exposes: a hash in, a signature out.
+declare function sign(hash: Hex): Promise<{ r: Hex; s: Hex; yParity: number }>;
+
+const account = toAccount({
+  address, // derived from the public key your signer exposes
+  async signTransaction(tx, { serializer = serializeTransaction } = {}) {
+    const { r, s, yParity } = await sign(keccak256(serializer(tx)));
+    return serializer(tx, { r, s, yParity });
+  },
+  signMessage: ({ message }) => sign(hashMessage(message)).then(serializeSignature),
+  signTypedData: (typedData) => sign(hashTypedData(typedData)).then(serializeSignature),
+});
+```
+
+Signers need to be **secp256k1**. AWS KMS calls that `ECC_SECG_P256K1` and GCP calls it `EC_SIGN_SECP256K1_SHA256`; the default P-256 keys both offer will not work.
+
+## Picking a signer for production
+
+A deploy key and a treasury key are different things. The usual pattern is to deploy from a throwaway EOA funded just for gas, then transfer ownership to a Safe or a timelock as the last scripted step, which is why a hot deploy key is normally acceptable: after handoff it controls nothing.
+
+Whatever you pick, the deploy script does not change. Only the account you construct does.

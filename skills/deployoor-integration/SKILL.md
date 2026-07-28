@@ -135,7 +135,7 @@ await reset({ publicClient, deploymentName: "Token" }); // omit `deploymentName`
 
 ## Verification & notifications (plugins)
 
-Plugins are deploy-lifecycle hooks configured in `deployoor.config.ts`; they run on a fresh deploy (a reused deployment carries no compiler metadata to verify). Skip one for a single contract with a per-deploy override:
+Plugins are deploy-lifecycle hooks configured in `deployoor.config.ts`. `onContractDeployed` fires on a fresh deploy and also on a reused one — with `ctx.reused: true`, and with `ctx.metadata` still populated from the current artifact. So verifiers can retry a failed verification on a plain re-run (they skip only when `ctx.metadata` is undefined), while notifiers should `if (ctx.reused) return` to avoid announcing a deploy that didn't happen. Never reach for `force: true` to retry verification — it bypasses the record and deploys a new contract at a new address. Skip a plugin for a single contract with a per-deploy override:
 
 ```ts
 await getOrDeployVault({ ...clients, args: [token.address], plugins: { etherscan: false } });
@@ -163,7 +163,7 @@ export default defineConfig({
 npx wagmi generate
 ```
 
-This emits ABIs as `const`, per-chain address maps (the same contract across chains becomes one entry keyed by `chainId`), and typed actions/hooks. The generated `src/generated.ts` depends only on `viem` (plus `wagmi` if you use `react()`) — not on deployoor.
+This emits ABIs as `const`, per-chain address maps (the same contract across chains becomes one entry keyed by `chainId`), and typed actions/hooks. The generated `src/generated.ts` never imports deployoor. Its only runtime dependency comes from the `@wagmi/cli` plugin you pair with `deployments()`: `actions()` imports `@wagmi/core`, `react()` imports `wagmi`, and with neither you get plain `viem`-only `abi` + address consts.
 
 ## Writing a custom plugin
 

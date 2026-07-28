@@ -1,0 +1,149 @@
+# <span className="way way-hardhat" /> Migrate from Hardhat scripts
+
+Coming from plain `hardhat run` deploy scripts, with no deploy plugin. Keep Hardhat for what it is good at, compiling and running a node, and move the deploy step out of the runtime.
+
+The [comparison](/comparison/hardhat) covers what differs job by job. This is the mechanical path.
+
+## What you have today
+
+Nothing on disk records what you deployed. The addresses live wherever your team put them: an `.env`, a spreadsheet, a pinned Slack message, a `constants.ts` in the frontend. That is the thing migration fixes, and it is also the only fiddly part, because deployoor cannot import records that were never written.
+
+## Step 1: Install alongside
+
+Nothing about your Hardhat setup changes yet.
+
+```bash
+pnpm add -D deployoor
+npx hardhat compile
+npx deployoor generate
+```
+
+`generate` reads `artifacts/` and writes one typed function per contract into `./deployers`. Your existing scripts keep working.
+
+If you would rather not run `generate` by hand, [`@deployoor/hardhat`](/guides/hardhat) hooks it onto `hardhat compile`.
+
+## Step 2: Import the addresses you already have
+
+Plain Hardhat left you no file to read, so list the addresses once, from wherever they currently live.
+
+```ts
+// scripts/import.ts, run with `RPC_URL=https://… tsx scripts/import.ts`
+import { readFileSync } from "node:fs";
+import { createPublicClient, http, type Abi } from "viem";
+import { sepolia } from "viem/chains";
+import { register } from "../deployers";
+
+const chain = sepolia; // the viem chain these addresses are on
+
+// Whatever you have been passing around by hand.
+const contracts = [
+  { deploymentName: "Counter", address: "0x...", artifact: "artifacts/contracts/Counter.sol/Counter.json" },
+  { deploymentName: "Token", address: "0x...", artifact: "artifacts/contracts/Token.sol/Token.json" },
+] as const;
+
+const publicClient = createPublicClient({ chain, transport: http(process.env.RPC_URL) });
+
+// Filing one chain's addresses under another silently corrupts the records, so check
+// the RPC really is the chain named above before writing anything.
+const liveChainId = await publicClient.getChainId();
+if (liveChainId !== chain.id) throw new Error(`RPC is chain ${liveChainId}, expected ${chain.id}`);
+
+for (const { deploymentName, address, artifact } of contracts) {
+  const { abi } = JSON.parse(readFileSync(artifact, "utf8")) as { abi: Abi };
+  await register({ publicClient, deploymentName, address, abi });
+}
+```
+
+Check each address against a block explorer first. There is no sidecar here to cross-check against, so a wrong address becomes a wrong record with nothing to catch it. Commit the `deployments/` folder it writes.
+
+If you have nothing worth keeping, skip this step. Deploy fresh and let the records accumulate.
+
+:::warning
+`register` records a contract deployoor did not deploy, with no transaction and no gas. Imported records have `kind: "external"`, carry no compiler metadata, and run no plugins, so nothing tries to verify them. `register` will not overwrite a record from a real deployoor deploy: on a collision, [`reset`](/concepts/idempotency) first, or import under a different name.
+:::
+
+:::info
+A packaged migrator is planned, which will reduce this step to a single command. Until then, the script above is the path.
+:::
+
+## Step 3: Port a deploy script
+
+The old script, which needed the runtime and printed an address into the void:
+
+```ts
+// scripts/deploy.ts, run with `hardhat run scripts/deploy.ts --network sepolia`
+import hre from "hardhat";
+
+const counter = await hre.viem.deployContract("Counter", [0n]);
+console.log("Counter:", counter.address);
+```
+
+The new one, which is an ordinary Node program:
+
+```ts
+// scripts/deploy.ts, run with `tsx scripts/deploy.ts`
+import { sepolia } from "viem/chains";
+import { clientsFor } from "../clients"; // your viem clients
+import { getOrDeployCounter } from "../deployers";
+
+const { contract, freshDeploy } = await getOrDeployCounter({
+  ...clientsFor(sepolia),
+  args: [0n],
+});
+
+if (freshDeploy) await contract.write.increment();
+```
+
+`accounts.ts` builds the signer once and `clients.ts` turns a chain into the two clients. Both are set up in the [quickstart](/getting-started/quickstart), and every script, test and ops task imports them from there. Moving to a hosted or hardware wallet later is an edit to `accounts.ts` alone, so see the [recipes](/recipes).
+
+Two other things changed. There is no `--network`, because the chain is an argument. And the result is recorded, so a second run returns the existing contract instead of deploying another.
+
+## Step 4: Point the frontend at the records
+
+If your app imports a hand-maintained address map, replace it with generated bindings:
+
+```ts
+// wagmi.config.ts
+import { defineConfig } from "@wagmi/cli";
+import { actions } from "@wagmi/cli/plugins";
+import { deployments } from "@deployoor/wagmi";
+
+export default defineConfig({
+  out: "src/generated.ts",
+  plugins: [deployments({ path: "./deployments" }), actions()], // or react() for hooks
+});
+```
+
+```bash
+npx wagmi generate
+```
+
+See [consumption](/guides/consumption).
+
+## Step 5: Move the tests
+
+Hardhat tests keep working, and you can leave them. The reason to move one is that a deployoor test calls the same function your deploy script calls, so the deploy path gets covered:
+
+```ts
+import { describe, it, expect } from "vitest";
+import { createTestClients } from "@deployoor/testing";
+import { getOrDeployCounter } from "../deployers";
+
+describe("Counter", () => {
+  it("increments", async () => {
+    const clients = await createTestClients(); // in-memory EVM plus an ephemeral store
+    const { contract } = await getOrDeployCounter({ ...clients, args: [0n] });
+
+    await contract.write.increment();
+    expect(await contract.read.number()).toBe(1n);
+  });
+});
+```
+
+Test deploys use an ephemeral [store](/concepts/deployment-stores), so they never touch your committed records. See [testing](/guides/testing).
+
+## What you keep
+
+Hardhat stays. It compiles your Solidity, runs the local node with its dev controls, and forks live chains. `hardhat compile` remains the step that feeds `deployoor generate`.
+
+What leaves is the deploy step, the `--network` flag, and the config stanza that decided which chains and which signers your scripts were allowed to use.

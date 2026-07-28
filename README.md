@@ -5,7 +5,7 @@
 [![CI](https://github.com/raycashxyz/deployoor/actions/workflows/ci.yml/badge.svg)](https://github.com/raycashxyz/deployoor/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/deployoor)](https://www.npmjs.com/package/deployoor)
 
-**Quality-of-life for smart contract teams — simplify your chain ops.**
+**Deploy contracts from TypeScript. Bring your own wallet.**
 
 Deploy once. Use typed viem contract objects in your apps, scripts, and tests — one source of truth across every network you ship to.
 
@@ -13,32 +13,32 @@ Deploy once. Use typed viem contract objects in your apps, scripts, and tests �
 
 Hardhat (v2 and v3), Foundry, and plain-Solidity via tevm. Idempotent deploys, plain-JSON records, zero lock-in.
 
-</div>
+<!-- Regenerate with `pnpm demo:record` (needs VHS + Foundry's anvil). assets/brand/dist is committed. -->
 
-<!-- Demo GIF: run `pnpm demo:record` (needs VHS + Foundry's anvil) to write
-     assets/brand/dist/demo-sm.gif — the assets/brand/dist folder is committed —
-     then uncomment the line below.
-![deployoor demo](assets/brand/dist/demo-sm.gif)
--->
+![deployoor demo: hardhat compile generates typed deployers, a deploy writes deployments/Counter.json, and re-running sends no transaction](assets/brand/dist/demo-sm.gif)
+
+<sub>`hardhat compile` generates typed deployers → deploy writes the JSON record → re-run sends no transaction.</sub>
+
+</div>
 
 ---
 
 ## Why we built this
 
-deployoor exists to simplify **chain ops** for smart contract teams — deploying contracts, tracking what's live where, and keeping your stack aligned with on-chain reality.
+**Deployment should stop being a framework feature.** Data access made that move years ago: an ORM used to be something your web framework handed you, and now Prisma, Drizzle, and Kysely are libraries you call from any runtime, so one query layer serves your API, your migrations, your scripts, and your tests. Contract deployment is still pre-shift — a deploy generally needs a framework runtime present, which means the framework also ends up owning your wallet and your network list.
 
-The days of one contract on one network are over. You push fresh builds to testnet, promote new versions to production, and run the same protocol across multiple chains. Modern projects juggle many contracts, many networks, and many releases — but most deployment tooling still assumes the opposite.
+That coupling has costs, and they show up late. The signing path in production is configured differently from the one your tests exercise. Deploying across fifteen chains turns into a shell loop over a config file. Using a hardware wallet or a KMS means waiting for a plugin.
 
-We tried every path. Each was strong in one dimension and painful in another. In the **Hardhat** ecosystem, deploy flows tend to stay inside the framework — great for getting bytecode on-chain, weaker for handing typed, portable contract access to your app, CI, and frontend. In the **Foundry** world, scripting and artifacts are first-class — but there's no shared, git-committed record your whole stack can import without reinventing the glue.
+deployoor takes the other position. A deploy needs compiled artifacts, a chain, and something that can sign — so pass the last two in, and read the first from whatever compiled it:
 
-deployoor is the chain-ops layer we wanted:
+- **Your wallet, not ours** — any viem `WalletClient`: a local mnemonic, an encrypted keystore, AWS or GCP KMS, Turnkey, Privy, Fireblocks, a Ledger, or a JSON-RPC account where no key exists in the process at all. deployoor never sees a secret, so it has no opinion about where yours lives.
+- **Your chains, not a config file** — a chain is an argument, so one script can cover as many as you like. The same is true in tests.
+- **Scripts with no environment** — plain TypeScript you run like any Node file (`tsx scripts/deploy.ts`). Nothing to boot, no `env` threaded through your code.
+- **Tests that are the same code** — the deployer you ship is the deployer under test, against an in-memory EVM and an ephemeral store, so tests never write to your committed records.
+- **One source of truth** — real deploys, on mainnet, testnets, or a local node, are recorded as plain JSON you commit.
+- **Idempotent by default** — run a deploy script twice and the recorded contract is reused instead of redeployed.
 
-- **One source of truth** — every deployment recorded as plain JSON in your repo: mainnet, testnet, local dev nodes, and in-memory chains for your test suite.
-- **Environment-agnostic scripts** — plain TypeScript you run like any Node file (`tsx scripts/deploy.ts`). Bring your own RPC and signer; deployoor writes the record.
-- **Idempotent by default** — run a deploy script twice; contracts already on-chain are reused, not redeployed.
-- **The same deployers in tests** — write integration tests in JavaScript or TypeScript and call the identical functions from your favourite test runner.
-
-Your team stops copying addresses. Your chain ops get boring — in the best way.
+Everything else follows from that split. **Built for TypeScript teams** — which is also why Foundry artifacts are first-class: a Foundry project keeps `forge build` and `forge test`, and gains typed deploy scripts and TS integration tests over the same `out/`, with no Hardhat added.
 
 ## Contracts as viem objects
 
@@ -103,6 +103,17 @@ if (freshDeploy) await token.write.initialize([owner]); // one-time setup, only 
 await token.write.transfer([to, amount]);
 ```
 
+### Let your coding agent wire it up
+
+deployoor ships an [**agent skill**](skills/deployoor-integration/SKILL.md) — one file that teaches Claude Code, Cursor, or any LLM to integrate deployoor end to end: install, config, generate, a deploy script with your real constructor args, plugins, tests, and wagmi consumption. Point your agent at it:
+
+```text
+Read https://github.com/raycashxyz/deployoor/blob/main/skills/deployoor-integration/SKILL.md
+and wire deployoor into this project.
+```
+
+It spells out the parts an agent otherwise guesses wrong — idempotency semantics, `deploymentName` for tracking several instances of one artifact, per-deploy plugin overrides, and the tagged error names. Copy it into `.claude/skills/` to keep it local.
+
 ### Multi-chain (Sepolia + Base Sepolia)
 
 One script, two viem clients — deploy **Ping** on Sepolia and **Pong** on Base Sepolia, then wire them as [LayerZero](https://layerzero.network/) peers. Each `getOrDeploy` call takes its own `walletClient` / `publicClient`; deployoor writes a separate record per chain.
@@ -146,7 +157,7 @@ Full runnable example: [`examples/multi-chain/`](examples/multi-chain/).
 
 Running a single-chain deploy writes one record per contract — this is your committed source of truth:
 
-```
+```text
 deployments/
 └─ 11155111-sepolia/
    └─ Token.json
@@ -180,8 +191,6 @@ Deploy more contracts, or to more networks, and you get `deployments/11155111-se
 `deployoor generate` reads your artifacts and emits one typed `getOrDeploy<Name>` per contract. Config lives in `deployoor.config.ts`. Plugins are deploy-lifecycle hooks authored against the `deployoor/plugin` SDK.
 
 Generated deployers are **TypeScript** (`.ts`). The CLI and config work in JS projects, but you need `tsx`, Bun, or vitest to run deploy scripts that import them — bare `node` won't load `.ts` without a runner.
-
-> **Using an AI agent?** [`skills/deployoor-integration`](skills/deployoor-integration/SKILL.md) is a SKILL an LLM can follow to wire deployoor into a project end-to-end.
 
 ## Testing
 
@@ -248,6 +257,21 @@ pnpm format       # prettier --write
 
 Releases are managed with [Changesets](https://github.com/changesets/changesets): add one with `pnpm changeset`; merging the auto-opened "Version Packages" PR publishes to npm with provenance.
 
+New contributors: [CONTRIBUTING.md](CONTRIBUTING.md) covers the build loop, the changeset gate, the conventions that trip people up, and how to write a plugin.
+
+## How it compares
+
+Full table, checked against each tool's July 2026 release: **[deployoor.dev/comparison](https://deployoor.dev/comparison)** · Coming from hardhat-deploy? **[Migration guide](https://deployoor.dev/migrate/hardhat-deploy)**
+
+The difference isn't a feature list — it's where three decisions live: **who owns your wallet, who owns your network list, and whether a deploy script needs a framework runtime.** deployoor answers "you do, you do, and no", which leaves Hardhat and Foundry doing what they're best at — compiling, and running a node with dev controls and forking. Named accounts, deterministic addresses, and idempotent deployers all follow from that rather than standing on their own.
+
+Tool by tool:
+
+- **[hardhat-deploy](https://github.com/wighawag/hardhat-deploy) v2 / [rocketh](https://rocketh.dev)** — the closest relatives (v2 is viem-only, Hardhat 3, built on rocketh; `rocketh-export` emits typed address + ABI). They cover proxies, diamonds, deterministic addresses, named accounts, and bytecode-diff redeploys, which deployoor does not yet. deployoor's three deliberate differences: one tool across **Hardhat v2/v3, Foundry, and plain Solidity**; a deployer takes viem clients only, so account and chain come from the client, and it resolves to `{ contract, deployment, freshDeploy, receipt? }` — a ready-to-use typed viem contract **alongside** the record, where hardhat-deploy returns the record and you wrap it to get a contract; and accounts live in your own viem module, not a tool config.
+- **[Hardhat Ignition](https://hardhat.org/ignition)** — Hardhat's official tool; declarative modules, a write-ahead journal, strong resumability, viem **and** ethers. It splits addresses (`deployed_addresses.json`) from ABIs (`artifacts/<Module>#<Future>.json`) and ships no typed access outside the Hardhat process; deployoor keeps address + ABI + chainId + args + compiler in one file per contract.
+- **`forge script` broadcasts** — a transaction log, not a deployment record: no ABI, `contractName` can be `null`, and `--resume` retries interrupted transactions rather than skipping what's already deployed. deployoor reads Foundry's `out/` directly, so the two pair well.
+- **[`@wagmi/cli`](https://wagmi.sh/cli)** — not a competitor; deployoor feeds it. wagmi needs addresses; deployoor produces them from your own deploys, including local and testnet chains explorers never see.
+
 ## Status
 
 Early. The deploy core, the plugin model, and the wagmi bridge are stabilizing. `deployoor generate` reads Foundry (`out/`) and Hardhat v2 **and** v3 (`artifacts/`) artifacts, and can compile a plain-Solidity project directly with tevm — no Hardhat or Foundry required.
@@ -258,30 +282,30 @@ Pre-1.0, minor releases may include breaking API changes. Deployment records car
 
 Grouped **done → in progress → planned → backlog**. _In progress_ is actively being built; _planned_ is the committed near-term focus; _backlog_ is on the radar and feedback-driven — open an issue to pull something forward.
 
-| Area    | What                                                                                   | Status      |
-| ------- | -------------------------------------------------------------------------------------- | ----------- |
-| Compat  | Foundry, Hardhat v2 & v3 artifacts, and tevm-compiled plain-Solidity sources           | Done        |
-| Deploy  | Idempotent `getOrDeploy`, `register` / `reset`, stale-reuse warning                    | Done        |
-| Deploy  | Atomic record writes, deploy lock, chainId record identity + mismatch guard            | Done        |
-| Stores  | Pluggable `StoreAdapter` + in-memory store                                             | Done        |
-| Verify  | Etherscan V2 + Sourcify                                                                | Done        |
-| Testing | `@deployoor/testing` — same deployers on tevm, in-memory EVM, no node                  | Done        |
-| DX      | `@deployoor/wagmi` bridge, plugin SDK + Slack, Hardhat/Hardhat 3/Foundry/tevm examples | Done        |
-| Deploy  | Richer `getOrDeploy` return (`{ contract, freshDeploy, receipt, deployment }`)         | Done        |
-| DX      | `@deployoor/hardhat` — auto-generate deployers on `hardhat compile`                    | Done        |
-| Testing | First-class tevm targets (forks, fixtures, CI — beyond in-memory today)                | Planned     |
-| DX      | Flagship end-to-end example (deploy → committed record → wagmi)                        | In progress |
-| DX      | Migration guide + comparison table (hardhat-deploy, Ignition, rocketh)                 | In progress |
-| Compat  | `@deployoor/hardhat` auto-generate on Hardhat 3 (`@deployoor/hardhat/v3`)              | Done        |
-| Verify  | `deployoor verify` from committed records                                              | Planned     |
-| Deploy  | Bytecode-diff redeploy (opt-in policy; today it only warns)                            | Planned     |
-| Deploy  | Proxies & diamonds, deterministic addresses (CREATE2 / CREATE3), dry run               | Backlog     |
-| Deploy  | Pending-transaction recovery from interrupted deploys                                  | Backlog     |
-| Stores  | HTTP + browser store adapters                                                          | Backlog     |
-| Verify  | More explorers (Blockscout-native, OKLink, custom endpoints)                           | Backlog     |
-| DX      | `--watch`, `deployoor list` / `status`, import records, standalone scaffold            | Backlog     |
-| Plugins | `onGenerated` hook, gas report, Tenderly, Discord, IPFS, Safe                          | Backlog     |
-| AI      | Upgrade-safety diff, deployments MCP, deploy-script scaffolding (separate pkg)         | Backlog     |
+| Area    | What                                                                                   | Status  |
+| ------- | -------------------------------------------------------------------------------------- | ------- |
+| Compat  | Foundry, Hardhat v2 & v3 artifacts, and tevm-compiled plain-Solidity sources           | Done    |
+| Deploy  | Idempotent `getOrDeploy`, `register` / `reset`, stale-reuse warning                    | Done    |
+| Deploy  | Atomic record writes, deploy lock, chainId record identity + mismatch guard            | Done    |
+| Stores  | Pluggable `StoreAdapter` + in-memory store                                             | Done    |
+| Verify  | Etherscan V2 + Sourcify                                                                | Done    |
+| Testing | `@deployoor/testing` — same deployers on tevm, in-memory EVM, no node                  | Done    |
+| DX      | `@deployoor/wagmi` bridge, plugin SDK + Slack, Hardhat/Hardhat 3/Foundry/tevm examples | Done    |
+| Deploy  | Richer `getOrDeploy` return (`{ contract, freshDeploy, receipt, deployment }`)         | Done    |
+| DX      | `@deployoor/hardhat` — auto-generate deployers on `hardhat compile`                    | Done    |
+| Testing | First-class tevm targets (forks, fixtures, CI — beyond in-memory today)                | Planned |
+| DX      | Flagship end-to-end example (deploy → committed record → wagmi)                        | Done    |
+| DX      | Migration guide + comparison table (hardhat-deploy, Ignition, rocketh)                 | Done    |
+| Compat  | `@deployoor/hardhat` auto-generate on Hardhat 3 (`@deployoor/hardhat/v3`)              | Done    |
+| Verify  | `deployoor verify` from committed records                                              | Planned |
+| Deploy  | Bytecode-diff redeploy (opt-in policy; today it only warns)                            | Planned |
+| Deploy  | Proxies & diamonds, deterministic addresses (CREATE2 / CREATE3), dry run               | Backlog |
+| Deploy  | Pending-transaction recovery from interrupted deploys                                  | Backlog |
+| Stores  | HTTP + browser store adapters                                                          | Backlog |
+| Verify  | More explorers (Blockscout-native, OKLink, custom endpoints)                           | Backlog |
+| DX      | `--watch`, `deployoor list` / `status`, import records, standalone scaffold            | Backlog |
+| Plugins | `onGenerated` hook, gas report, Tenderly, Discord, IPFS, Safe                          | Backlog |
+| AI      | Upgrade-safety diff, deployments MCP, deploy-script scaffolding (separate pkg)         | Backlog |
 
 Full detail and rationale in [TODO.md](TODO.md).
 

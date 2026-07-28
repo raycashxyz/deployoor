@@ -17,10 +17,10 @@ deployoor auto-detects Hardhat (`artifacts/`) or Foundry (`out/` + `out/build-in
 npx deployoor generate
 ```
 
-This writes `./deployers/` — one typed `getOrDeploy<Name>` per deployable contract.
+This writes `./deployers/`, one typed `getOrDeploy<Name>` per deployable contract.
 
 ```ts
-// deployers/Counter.ts — generated; do not edit by hand
+// deployers/Counter.ts, generated; do not edit by hand
 import { defineDeployer } from "deployoor";
 import config from "../deployoor.config";
 import { counterArtifact } from "./types/Counter";
@@ -28,7 +28,7 @@ import { counterArtifact } from "./types/Counter";
 export const getOrDeployCounter = defineDeployer(counterArtifact, config);
 ```
 
-Call it from a script or test — you get back a typed viem contract object:
+Call it from a script or test, and you get back a typed viem contract object:
 
 ```ts
 const { contract, freshDeploy } = await getOrDeployCounter({
@@ -40,29 +40,60 @@ const { contract, freshDeploy } = await getOrDeployCounter({
 await contract.write.increment();
 ```
 
-## 3. Write a deploy script
+## 3. Set up your wallet, once
+
+Two small modules that every script, test, and ops task will import. You write them one time.
+
+```ts
+// accounts.ts
+import { privateKeyToAccount } from "viem/accounts";
+
+export const deployer = privateKeyToAccount(process.env.PK as `0x${string}`);
+```
+
+```ts
+// clients.ts
+import { createPublicClient, createWalletClient, http, type Chain } from "viem";
+import { baseSepolia, sepolia } from "viem/chains";
+import { deployer } from "./accounts";
+
+const rpcUrls: Record<number, string | undefined> = {
+  [sepolia.id]: process.env.SEPOLIA_RPC_URL,
+  [baseSepolia.id]: process.env.BASE_SEPOLIA_RPC_URL,
+};
+
+export const clientsFor = (chain: Chain) => {
+  const rpcUrl = rpcUrls[chain.id];
+  // http() with no url silently falls back to the chain's public RPC, which is not
+  // something a deploy should do by accident.
+  if (rpcUrl === undefined) throw new Error(`No RPC URL for chain ${chain.id} (${chain.name})`);
+
+  const transport = http(rpcUrl);
+  return {
+    walletClient: createWalletClient({ account: deployer, chain, transport }),
+    publicClient: createPublicClient({ chain, transport }),
+  };
+};
+```
+
+`privateKeyToAccount` is one option. Swap in an encrypted keystore, AWS or GCP KMS, [Turnkey](/recipes/turnkey), [Privy](/recipes/privy), or a Ledger, and `accounts.ts` is the only file that changes, because deployoor reaches your signer only through viem. It never sees a key, so it has no opinion about where yours lives.
+
+## 4. Write a deploy script
 
 ```ts
 // scripts/deploy.ts
-import { createWalletClient, createPublicClient, http } from "viem";
 import { sepolia } from "viem/chains";
-import { privateKeyToAccount } from "viem/accounts";
+import { deployer } from "../accounts";
+import { clientsFor } from "../clients";
 import { getOrDeployToken } from "../deployers";
 
-const account = privateKeyToAccount(process.env.PK as `0x${string}`);
-const transport = http(process.env.RPC_URL);
-const clients = {
-  walletClient: createWalletClient({ account, chain: sepolia, transport }),
-  publicClient: createPublicClient({ chain: sepolia, transport }),
-};
-
 const { contract: token, freshDeploy } = await getOrDeployToken({
-  ...clients,
-  args: [account.address],
+  ...clientsFor(sepolia),
+  args: [deployer.address],
 });
 
 if (freshDeploy) {
-  console.log("Deployed fresh — run one-time setup here");
+  console.log("Deployed fresh, run one-time setup here");
 }
 
 await token.write.transfer([recipient, amount]);
@@ -72,34 +103,33 @@ await token.write.transfer([recipient, amount]);
 tsx --env-file=.env scripts/deploy.ts
 ```
 
+No deployoor CLI in this step, and no framework to boot: it is a Node program.
+
+Two things about that script are deliberate, and they are why the rest of these docs look the way they do:
+
+- **You built the account**, in `accounts.ts`, and every caller imports it rather than rebuilding it.
+- **You chose the chain.** `chain` and `transport` are arguments, not config entries, so a second chain is another `clientsFor` call and testing against a fork means changing the transport.
+
+Both are what make the next two sections possible: another call to `clientsFor` gives you a multi-chain deploy, and in-memory clients turn the identical `getOrDeployToken` call into a test.
+
 ## Multi-chain deploy (LayerZero Ping / Pong)
 
-One script can target **multiple networks** — pass a different viem client pair per chain. deployoor records each deploy under its own `deployments/<chainId>-<network>/` folder.
+One script can target **multiple networks**, one `clientsFor` call per chain. deployoor records each deploy under its own `deployments/<chainId>-<network>/` folder.
 
 This example deploys **Ping** on Sepolia and **Pong** on Base Sepolia, then links them as LayerZero peers:
 
 ```ts
-// scripts/deploy.ts — full version in examples/multi-chain/
-import { createPublicClient, createWalletClient, http, pad, type Address } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
+// scripts/deploy.ts, full version in examples/multi-chain/
+import { pad, type Address } from "viem";
 import { baseSepolia, sepolia } from "viem/chains";
+import { clientsFor } from "../clients";
 import { getOrDeployPing, getOrDeployPong } from "../deployers";
 
 const LZ_ENDPOINT = "0x6EDCE65408990e3A38e31dE08b74da7D5258d898";
 const LZ_EID = { sepolia: 40_161, baseSepolia: 40_245 } as const;
 
-function clientsFor(chain: typeof sepolia, rpcUrl: string, privateKey: `0x${string}`) {
-  const account = privateKeyToAccount(privateKey);
-  const transport = http(rpcUrl);
-  return {
-    walletClient: createWalletClient({ account, chain, transport }),
-    publicClient: createPublicClient({ chain, transport }),
-  };
-}
-
-const key = process.env.PRIVATE_KEY as `0x${string}`;
-const sepoliaClients = clientsFor(sepolia, process.env.SEPOLIA_RPC_URL!, key);
-const baseClients = clientsFor(baseSepolia, process.env.BASE_SEPOLIA_RPC_URL!, key);
+const sepoliaClients = clientsFor(sepolia);
+const baseClients = clientsFor(baseSepolia);
 
 const { contract: ping } = await getOrDeployPing({ ...sepoliaClients, args: [LZ_ENDPOINT] });
 const { contract: pong } = await getOrDeployPong({ ...baseClients, args: [LZ_ENDPOINT] });
@@ -127,7 +157,7 @@ deployments/
 
 Runnable contracts + script: [`examples/multi-chain`](https://github.com/raycashxyz/deployoor/tree/main/examples/multi-chain).
 
-## 4. Check the record
+## 5. Check the record
 
 Every deploy writes a committed JSON file:
 
@@ -145,7 +175,7 @@ First run deploys and records. Later runs return the same contract with **no tra
 
 ```ts
 {
-  contract,      // typed viem contract — read/write immediately
+  contract,      // typed viem contract, read/write immediately
   freshDeploy,   // true only when this call broadcast a deploy tx
   receipt,       // deploy receipt (only on fresh deploy)
   deployment,    // full DeploymentRecord
