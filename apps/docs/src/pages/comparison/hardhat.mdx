@@ -1,17 +1,55 @@
-# <img src="/icons/tools/hardhat.svg" alt="" className="tool-logo" /> Hardhat
+import { Tabs, Tab } from "vocs";
 
-Deploying with a plain Hardhat script, no deploy plugin involved.
+# <span className="way way-hardhat" /> Hardhat
 
-## Project setup
+The same project built three times: a Counter deployed to a testnet, deployed again across several chains, incremented by an ops script, covered by a test, and handed to a frontend. Plain Hardhat scripts, no deploy plugin involved. Hardhat 2 and Hardhat 3 differ enough that each gets its own section, with deployoor alongside.
 
-### <img src="/icons/tools/hardhat.svg" alt="" className="tool-logo" /> Hardhat
+Each job below lists the files it touches. That file list is the comparison.
 
-Networks and accounts live in config. A chain you have not listed is a chain you cannot reach, and there is no documented way to connect to an arbitrary RPC on the fly.
+## Minimum setup
+
+### <span className="way way-hardhat" /> Hardhat v2
+
+<Tabs>
+<Tab title="hardhat.config.js">
+
+```js
+require("@nomicfoundation/hardhat-viem");
+
+module.exports = {
+  solidity: "0.8.24",
+  networks: {
+    sepolia: {
+      url: process.env.SEPOLIA_RPC_URL,
+      accounts: [process.env.SEPOLIA_PRIVATE_KEY],
+    },
+  },
+};
+```
+
+</Tab>
+</Tabs>
+
+```bash
+npm install --save-dev hardhat @nomicfoundation/hardhat-viem
+npx hardhat compile
+```
+
+- 🚫 A chain you have not listed is a chain you cannot reach
+- 🚫 The signer is whatever a private key can be, so a hardware or hosted wallet needs a plugin that understands it
+
+### <span className="way way-hardhat" /> Hardhat v3
+
+<Tabs>
+<Tab title="hardhat.config.ts">
 
 ```ts
-// hardhat.config.ts
+import { configVariable } from "hardhat/config";
+import hardhatViemPlugin from "@nomicfoundation/hardhat-viem";
+
 export default {
   plugins: [hardhatViemPlugin],
+  solidity: "0.8.24",
   networks: {
     sepolia: {
       type: "http",
@@ -23,120 +61,672 @@ export default {
 };
 ```
 
-### <span className="way way-deployoor" /> deployoor
+</Tab>
+</Tabs>
 
 ```bash
+npm install --save-dev hardhat @nomicfoundation/hardhat-viem
+npx hardhat compile
+```
+
+`configVariable` is a real improvement on v2: secrets come from an encrypted keystore rather than a plain environment read.
+
+- 🚫 The chain list is still config, so an RPC you have not declared is out of reach
+- 🚫 The keystore holds keys, so a signer that is not a key still needs a plugin
+
+### <span className="way way-deployoor" /> deployoor
+
+No files.
+
+```bash
+pnpm add -D deployoor
+npx hardhat compile        # or `forge build`
 npx deployoor generate
 ```
 
-That reads your artifacts and writes one typed function per contract. There is no network list and no accounts stanza. `deployoor.config.ts` is optional, and holds output paths and plugins.
+`generate` reads your artifacts and writes one typed function per contract into `./deployers`. There is no network list and no accounts stanza, because a chain and a signer are arguments.
+
+- ✅ Nothing to configure before the first deploy
+- ✅ `deployoor.config.ts` exists for output paths and plugins, and stays optional
 
 ## Deploying to one chain
 
-### <img src="/icons/tools/hardhat.svg" alt="" className="tool-logo" /> Hardhat
+### <span className="way way-hardhat" /> Hardhat v2
+
+Plus `hardhat.config.js`, from setup.
+
+<Tabs>
+<Tab title="scripts/deploy.ts">
 
 ```ts
-// scripts/deploy.ts, run with `hardhat run scripts/deploy.ts --network sepolia`
+import hre from "hardhat";
+
+const counter = await hre.viem.deployContract("Counter", [0n]);
+console.log("Counter:", counter.address);
+```
+
+</Tab>
+</Tabs>
+
+```bash
+npx hardhat run scripts/deploy.ts --network sepolia
+```
+
+- 🚫 The address exists in the console output and nowhere else
+- 🚫 Nothing on disk records what was deployed, so it lands in an env var, a Notion page, or a Slack message
+- 🚫 The ABI is copied separately out of `artifacts/`
+- 🚫 Run the script twice and you get two contracts, because there is no notion of "already deployed"
+
+### <span className="way way-hardhat" /> Hardhat v3
+
+Plus `hardhat.config.ts`, from setup.
+
+<Tabs>
+<Tab title="scripts/deploy.ts">
+
+```ts
+import { network } from "hardhat";
+
 const { viem } = await network.create();
 const counter = await viem.deployContract("Counter", [0n]);
 console.log("Counter:", counter.address);
 ```
 
-That address exists in one console line and nowhere else. Nothing on disk records what you deployed, so it ends up in a `.env`, a Notion page, or a Slack message, while the ABI gets copied separately out of `artifacts/`. Run the script twice and you get two contracts, because there is no notion of "already deployed".
+</Tab>
+</Tabs>
+
+```bash
+npx hardhat run scripts/deploy.ts --network sepolia
+```
+
+- 🚫 Same story: the address is console output, and nothing records it
+- 🚫 The ABI is still copied out of `artifacts/`
+- 🚫 Still no idempotency, so a second run is a second contract
 
 ### <span className="way way-deployoor" /> deployoor
 
+<Tabs>
+<Tab title="accounts.ts">
+
+The one place a signer is built. Swapping custody is a change to this file and nothing else.
+
 ```ts
-// scripts/deploy.ts, run with `tsx scripts/deploy.ts`
-const account = privateKeyToAccount(process.env.PK as `0x${string}`);
-const transport = http(process.env.RPC_URL);
-const clients = {
-  walletClient: createWalletClient({ account, chain: sepolia, transport }),
-  publicClient: createPublicClient({ chain: sepolia, transport }),
+import { privateKeyToAccount } from "viem/accounts";
+
+export const deployer = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+```
+
+</Tab>
+<Tab title="clients.ts">
+
+A chain in, the two clients out. Written once, imported by every script and test.
+
+```ts
+import { createPublicClient, createWalletClient, http, type Chain } from "viem";
+import { base, optimism, sepolia } from "viem/chains";
+import { deployer } from "./accounts";
+
+const rpcUrls: Record<number, string | undefined> = {
+  [sepolia.id]: process.env.SEPOLIA_RPC_URL,
+  [base.id]: process.env.BASE_RPC_URL,
+  [optimism.id]: process.env.OP_RPC_URL,
 };
 
-const { contract, freshDeploy } = await getOrDeployCounter({ ...clients, args: [0n] });
+export const clientsFor = (chain: Chain) => {
+  const transport = http(rpcUrls[chain.id]);
+  return {
+    walletClient: createWalletClient({ account: deployer, chain, transport }),
+    publicClient: createPublicClient({ chain, transport }),
+  };
+};
 ```
 
-The deploy is recorded to `deployments/<chainId>-<network>/Counter.json`, with the address, ABI, constructor args, transaction, and compiler settings in one file. Run it again and you get the recorded contract back without sending a transaction. `freshDeploy` tells you which of the two just happened.
-
-`account` is any viem `Account`. An encrypted keystore, AWS or GCP KMS, Turnkey, Privy, a Ledger, or a JSON-RPC account where no key exists in the process at all. deployoor hands the transaction to the wallet client you supply and never sees a secret.
-
-## Deploying to many chains
-
-### <img src="/icons/tools/hardhat.svg" alt="" className="tool-logo" /> Hardhat
-
-`hardhat run` takes one `--network`. Hardhat 3 can hold several connections in one process through `network.create()`, though each chain still has to be declared in config first. Hardhat 2 cannot do it at all, since `hre.network` is a single connection fixed at startup, so fifteen chains means fifteen invocations sequenced by a shell script.
-
-### <span className="way way-deployoor" /> deployoor
-
-A chain is an argument, so it is a loop:
+</Tab>
+<Tab title="scripts/deploy.ts">
 
 ```ts
-for (const chain of [mainnet, base, optimism, arbitrum]) {
-  const clients = clientsFor(chain, rpcUrls[chain.id]);
-  await getOrDeployCounter({ ...clients, args: [0n] });
-}
-```
+import { sepolia } from "viem/chains";
+import { clientsFor } from "../clients";
+import { getOrDeployCounter } from "../deployers";
 
-Each deploy lands in its own `deployments/<chainId>-<network>/`. [`examples/multi-chain`](https://github.com/raycashxyz/deployoor/tree/main/examples/multi-chain) does two chains and wires them together as LayerZero peers in a single file.
-
-## Running ops scripts
-
-### <img src="/icons/tools/hardhat.svg" alt="" className="tool-logo" /> Hardhat
-
-Every script starts by finding the address again, usually from an environment variable you maintain by hand:
-
-```ts
-const { viem } = await network.create();
-const counter = await viem.getContractAt("Counter", process.env.COUNTER_ADDRESS as `0x${string}`);
-await counter.write.inc();
-```
-
-The script has to run through Hardhat, and the address is only as correct as whatever you last pasted into `.env`.
-
-### <span className="way way-deployoor" /> deployoor
-
-The record already knows the address, so an ops script uses the same generated bindings as the frontend:
-
-```ts
-import { writeCounterInc } from "./src/generated"; // from `wagmi generate`
-await writeCounterInc(config, { chainId: base.id });
-```
-
-## Handing deployments to the frontend team
-
-### <img src="/icons/tools/hardhat.svg" alt="" className="tool-logo" /> Hardhat
-
-Nothing is produced for this. Someone copies the address out of a script's output and the ABI out of `artifacts/contracts/Counter.sol/Counter.json`, then pastes both into the app. Redeploy and every copy goes stale without saying so.
-
-### <span className="way way-deployoor" /> deployoor
-
-The record is the handoff format, so you point [`@wagmi/cli`](https://wagmi.sh/cli) at it:
-
-```ts
-// wagmi.config.ts
-export default defineConfig({
-  out: "src/generated.ts",
-  plugins: [deployments({ path: "./deployments" }), actions()], // or react() for hooks
+const { contract, freshDeploy } = await getOrDeployCounter({
+  ...clientsFor(sepolia),
+  args: [0n],
 });
 ```
 
-One contract deployed to several chains becomes a single entry with a `chainId` to address map. The generated file imports `viem` and `@wagmi/core`, never deployoor, so the frontend takes no dependency on your deploy tooling. See [consumption](/guides/consumption).
+</Tab>
+</Tabs>
 
-## Testing
+```bash
+tsx scripts/deploy.ts
+```
 
-### <img src="/icons/tools/hardhat.svg" alt="" className="tool-logo" /> Hardhat
+- ✅ Address, ABI, constructor args, transaction, and compiler settings recorded to `deployments/<chainId>-<network>/Counter.json`
+- ✅ Run it again and you get the recorded contract back with no transaction sent, and `freshDeploy` tells you which happened
+- ✅ The signer is any viem `Account`: a keystore, AWS or GCP KMS, [Turnkey](/recipes/turnkey), [Privy](/recipes/privy), [Openfort](/recipes/openfort), a Ledger, or a JSON-RPC account where no key exists in the process
 
-Tests run inside Hardhat and take their chain, accounts, and fixtures from it. Deploying in a test goes through a different code path than deploying in production, because production is a script you wrote and the test is `viem.deployContract` against the built-in network.
+## Deploying to many chains
+
+### <span className="way way-hardhat" /> Hardhat v2
+
+<Tabs>
+<Tab title="hardhat.config.js">
+
+Every chain is another entry, and another key wired in before any script can use it.
+
+```js
+networks: {
+  sepolia:  { url: process.env.SEPOLIA_RPC_URL, accounts: [process.env.SEPOLIA_PRIVATE_KEY] },
+  base:     { url: process.env.BASE_RPC_URL,    accounts: [process.env.BASE_PRIVATE_KEY] },
+  optimism: { url: process.env.OP_RPC_URL,      accounts: [process.env.OP_PRIVATE_KEY] },
+}
+```
+
+</Tab>
+<Tab title="deploy-all.sh">
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+for net in sepolia base optimism; do
+  npx hardhat run scripts/deploy.ts --network "$net"
+done
+```
+
+</Tab>
+</Tabs>
+
+```bash
+./deploy-all.sh
+```
+
+- 🚫 `hre.network` is a single connection fixed at startup, so one process cannot reach two chains
+- 🚫 Fifteen chains means fifteen invocations sequenced by a shell
+- 🚫 Nothing carries across those invocations, so anything one chain needs to know about another is threaded through by hand
+
+### <span className="way way-hardhat" /> Hardhat v3
+
+<Tabs>
+<Tab title="hardhat.config.ts">
+
+Every chain is another entry, and another key wired in before any script can use it.
+
+```ts
+networks: {
+  sepolia:  { type: "http", chainType: "l1", url: configVariable("SEPOLIA_RPC_URL"), accounts: [configVariable("SEPOLIA_PRIVATE_KEY")] },
+  base:     { type: "http", chainType: "op", url: configVariable("BASE_RPC_URL"),    accounts: [configVariable("BASE_PRIVATE_KEY")] },
+  optimism: { type: "http", chainType: "op", url: configVariable("OP_RPC_URL"),      accounts: [configVariable("OP_PRIVATE_KEY")] },
+}
+```
+
+</Tab>
+<Tab title="scripts/deploy-all.ts">
+
+`network.create()` takes a network name, and connections are independent, so one script can reach all three. No shell loop.
+
+```ts
+import { network } from "hardhat";
+
+for (const target of ["sepolia", "base", "optimism"]) {
+  const connection = await network.create(target);
+
+  const counter = await connection.viem.deployContract("Counter", [0n]);
+  console.log(connection.networkName, counter.address);
+
+  await connection.close();
+}
+```
+
+Keep the loop sequential. Opening the first connections concurrently races the lazily built network manager, and each racer ends up with its own.
+
+</Tab>
+</Tabs>
+
+```bash
+npx hardhat run scripts/deploy-all.ts
+```
+
+This is the big v2 to v3 change, and it closes most of the gap. `--network` is omitted on purpose: it only sets what a bare `network.create()` resolves to, and a script that names its own networks ignores it.
+
+- 🚫 Each chain still has to be declared in config before a script can reach it
+- 🚫 The addresses are still only console output, so nothing records what landed where
+- 🚫 Still no idempotency, so re-running redeploys all three
 
 ### <span className="way way-deployoor" /> deployoor
 
-The deployer you ship is the deployer under test. Swap the clients, keep the call:
+<Tabs>
+<Tab title="scripts/deploy.ts">
 
 ```ts
-const clients = await createTestClients(); // in-memory EVM plus an ephemeral store
-const { contract } = await getOrDeployCounter({ ...clients, args: [0n] });
+import { base, optimism, sepolia } from "viem/chains";
+import { clientsFor } from "../clients";
+import { getOrDeployCounter } from "../deployers";
+
+for (const chain of [sepolia, base, optimism]) {
+  await getOrDeployCounter({ ...clientsFor(chain), args: [0n] });
+}
 ```
 
-Any runner, no Hardhat, no node. Test deploys use an ephemeral store, so they never touch your committed records. Point the same call at `http(rpcUrl)` and it becomes a live-network test, including against a fork.
+Same `accounts.ts` and `clients.ts` as the single-chain deploy. Only the loop is new.
+
+</Tab>
+</Tabs>
+
+```bash
+tsx scripts/deploy.ts
+```
+
+- ✅ The same file and the same command as one chain
+- ✅ One process, so a later chain can read what an earlier one produced
+- ✅ Each deploy lands in its own `deployments/<chainId>-<network>/`
+
+[`examples/multi-chain`](https://github.com/raycashxyz/deployoor/tree/main/examples/multi-chain) does two chains and wires them together as LayerZero peers in a single file.
+
+## Running ops scripts
+
+### <span className="way way-hardhat" /> Hardhat v2
+
+Plus `hardhat.config.js`, from setup.
+
+<Tabs>
+<Tab title="scripts/inc.ts">
+
+```ts
+import hre from "hardhat";
+
+const counter = await hre.viem.getContractAt("Counter", process.env.COUNTER_ADDRESS as `0x${string}`);
+await counter.write.increment();
+```
+
+</Tab>
+</Tabs>
+
+```bash
+npx hardhat run scripts/inc.ts --network sepolia
+```
+
+- 🚫 The script starts by finding the address again, and it is only as correct as whatever was last pasted in
+- 🚫 It has to run through Hardhat, so there is a runtime to boot before anything happens
+
+### <span className="way way-hardhat" /> Hardhat v3
+
+Plus `hardhat.config.ts`, from setup.
+
+<Tabs>
+<Tab title="scripts/inc.ts">
+
+```ts
+import { network } from "hardhat";
+
+const { viem } = await network.create();
+const counter = await viem.getContractAt("Counter", process.env.COUNTER_ADDRESS as `0x${string}`);
+await counter.write.increment();
+```
+
+</Tab>
+</Tabs>
+
+```bash
+npx hardhat run scripts/inc.ts --network sepolia
+```
+
+- 🚫 Same address hunt, because nothing recorded it in the first place
+- 🚫 Same runtime, because the script still runs through Hardhat
+
+### <span className="way way-deployoor" /> deployoor
+
+<Tabs>
+<Tab title="scripts/inc.ts">
+
+```ts
+import { writeCounterIncrement } from "../src/generated";
+import { config } from "../src/wagmi";
+
+await writeCounterIncrement(config, { chainId: base.id });
+```
+
+</Tab>
+</Tabs>
+
+```bash
+tsx scripts/inc.ts
+```
+
+- ✅ No address to find, because the record already knows it
+- ✅ The ops script uses the same generated bindings as the frontend
+- ✅ Plain Node, no runtime to boot
+
+## Handing deployments to the frontend team
+
+### <span className="way way-hardhat" /> Hardhat v2 and v3
+
+Plus the `hardhat.config` from setup, in either version.
+
+<Tabs>
+<Tab title="src/contracts.ts">
+
+```ts
+// maintained by hand
+export const counterAddress = {
+  11155111: "0x...", // sepolia
+  8453: "0x...", // base
+} as const;
+
+export const counterAbi = [/* pasted from artifacts/contracts/Counter.sol/Counter.json */] as const;
+```
+
+</Tab>
+</Tabs>
+
+Identical in both versions, because neither produces anything for this.
+
+- 🚫 There is no command, so someone copies the address out of a script's output and the ABI out of `artifacts/`
+- 🚫 Redeploy and every copy goes stale without saying so
+
+### <span className="way way-deployoor" /> deployoor
+
+<Tabs>
+<Tab title="wagmi.config.ts">
+
+```ts
+import { defineConfig } from "@wagmi/cli";
+import { actions } from "@wagmi/cli/plugins";
+import { deployments } from "@deployoor/wagmi";
+
+export default defineConfig({
+  out: "src/generated.ts",
+  // react() instead of actions() emits hooks; both read the same records.
+  plugins: [deployments({ path: "./deployments" }), actions()],
+});
+```
+
+</Tab>
+</Tabs>
+
+```bash
+npx wagmi generate
+```
+
+- ✅ The record is the handoff format, so nothing is copied
+- ✅ One contract on several chains becomes a single entry with a `chainId` to address map
+- ✅ The generated file imports `viem` and `@wagmi/core`, never deployoor, so the frontend takes no dependency on your deploy tooling
+
+See [consumption](/guides/consumption).
+
+## Testing
+
+### <span className="way way-hardhat" /> Hardhat v2
+
+Plus `hardhat.config.js`, from setup.
+
+<Tabs>
+<Tab title="test/counter.test.ts">
+
+```ts
+import hre from "hardhat";
+import { expect } from "chai";
+
+describe("Counter", () => {
+  it("increments", async () => {
+    const counter = await hre.viem.deployContract("Counter", [0n]);
+
+    await counter.write.increment();
+    expect(await counter.read.number()).to.equal(1n);
+  });
+});
+```
+
+</Tab>
+</Tabs>
+
+```bash
+npx hardhat test
+```
+
+- 🚫 Tests run inside Hardhat and take their chain, accounts, and fixtures from it
+- 🚫 The test deploys through `hre.viem.deployContract`, while production deploys through `scripts/deploy.ts`, which you wrote
+- 🚫 Those are two code paths, and the one carrying money is the one without a test
+
+### <span className="way way-hardhat" /> Hardhat v3
+
+Plus `hardhat.config.ts`, from setup.
+
+<Tabs>
+<Tab title="test/counter.test.ts">
+
+```ts
+import { network } from "hardhat";
+import { expect } from "chai";
+
+describe("Counter", () => {
+  it("increments", async () => {
+    const { viem } = await network.create();
+    const counter = await viem.deployContract("Counter", [0n]);
+
+    await counter.write.increment();
+    expect(await counter.read.number()).to.equal(1n);
+  });
+});
+```
+
+</Tab>
+</Tabs>
+
+```bash
+npx hardhat test
+```
+
+- 🚫 Still two code paths: `viem.deployContract` in the test, your own script in production
+- 🚫 Still inside the Hardhat runtime, so the test cannot run under a plain test runner
+
+### <span className="way way-deployoor" /> deployoor
+
+<Tabs>
+<Tab title="test/counter.test.ts">
+
+```ts
+import { describe, it, expect } from "vitest";
+import { createTestClients } from "@deployoor/testing";
+import { getOrDeployCounter } from "../deployers";
+
+describe("Counter", () => {
+  it("increments", async () => {
+    const clients = await createTestClients(); // in-memory EVM plus an ephemeral store
+    const { contract } = await getOrDeployCounter({ ...clients, args: [0n] });
+
+    await contract.write.increment();
+    expect(await contract.read.number()).toBe(1n);
+  });
+});
+```
+
+</Tab>
+</Tabs>
+
+```bash
+vitest
+```
+
+- ✅ The deployer you ship is the deployer under test, so only the clients change
+- ✅ Any runner, no Hardhat, no node
+- ✅ Test deploys use an ephemeral store and never touch your committed records
+- ✅ Point the same call at `http(rpcUrl)` and it becomes a live-network test, including against a fork
+
+See [testing](/guides/testing).
+
+## Signing with something other than a private key
+
+### <span className="way way-hardhat" /> Hardhat v2
+
+<Tabs>
+<Tab title="hardhat.config.js (Ledger)">
+
+```js
+require("@nomicfoundation/hardhat-ledger");
+
+module.exports = {
+  networks: {
+    sepolia: {
+      url: process.env.SEPOLIA_RPC_URL,
+      ledgerAccounts: ["0xa809931e3b38059adae9bc5455bc567d0509ab92"],
+    },
+  },
+};
+```
+
+Install the v2 line explicitly: `npm i -D @nomicfoundation/hardhat-ledger@hh2`.
+
+</Tab>
+<Tab title="hardhat.config.js (custom signer)">
+
+v2 exposes a hook for wrapping the provider, which is how the hosted-wallet plugins that exist were built.
+
+```js
+const { extendProvider } = require("hardhat/config");
+
+extendProvider(async (provider) => new MyCustodialProvider(provider));
+```
+
+</Tab>
+</Tabs>
+
+- ✅ Ledger is first-party and works here
+- ✅ `accounts: "remote"` hands signing to the node, which covers Frame, Clef, or a custodial node
+- ✅ `extendProvider` is a real escape hatch, and `@fireblocks/hardhat-fireblocks` uses it
+- 🚫 Everything else means writing that wrapper yourself
+
+### <span className="way way-hardhat" /> Hardhat v3
+
+<Tabs>
+<Tab title="hardhat.config.ts (Ledger)">
+
+```ts
+import hardhatLedgerPlugin from "@nomicfoundation/hardhat-ledger";
+
+export default {
+  plugins: [hardhatLedgerPlugin],
+  networks: {
+    sepolia: {
+      type: "http",
+      url: configVariable("SEPOLIA_RPC_URL"),
+      ledgerAccounts: ["0xa809931e3b38059adae9bc5455bc567d0509ab92"],
+    },
+  },
+};
+```
+
+Ledger is the one non-key signer Nomic ships. It does not support EIP-7702.
+
+</Tab>
+</Tabs>
+
+- ✅ Ledger is first-party here too
+- 🚫 `extendProvider` was removed in v3. It is a stub that throws and points you at `definePlugin`, so a custom signer now means authoring a plugin with network hook handlers
+- 🚫 `@fireblocks/hardhat-fireblocks` deep-imports `hardhat/internal/*` and does not work on v3. Its "Add Hardhat V3 support" issue has had no maintainer reply since November 2025
+- 🚫 Privy, Turnkey, Dfns and Openfort publish no Hardhat plugin at all
+- 🚫 The maintained AWS and GCP KMS plugins are all v2, and the busiest gets around 125 downloads a week
+
+`accounts` is a closed union in both versions: `"remote"`, an array of private keys, or an HD mnemonic. In v3 the array is `SensitiveString[]`, which resolves from an encrypted keystore, but it is still a private key. There is no slot for an object.
+
+### <span className="way way-deployoor" /> deployoor
+
+<Tabs>
+<Tab title="scripts/deploy.ts (Privy)">
+
+```ts
+// run with `tsx scripts/deploy.ts`
+import { PrivyClient } from "@privy-io/node";
+import { createViemAccount } from "@privy-io/node/viem";
+import { createPublicClient, createWalletClient, http } from "viem";
+import { sepolia } from "viem/chains";
+import { getOrDeployCounter } from "../deployers";
+
+const privy = new PrivyClient({
+  appId: process.env.PRIVY_APP_ID as string,
+  appSecret: process.env.PRIVY_APP_SECRET as string,
+});
+
+const deployer = await createViemAccount(privy, {
+  walletId: process.env.PRIVY_WALLET_ID as string,
+  address: process.env.PRIVY_WALLET_ADDRESS as `0x${string}`,
+});
+
+const transport = http(process.env.RPC_URL);
+
+const { contract } = await getOrDeployCounter({
+  walletClient: createWalletClient({ account: deployer, chain: sepolia, transport }),
+  publicClient: createPublicClient({ chain: sepolia, transport }),
+  args: [0n],
+});
+```
+
+</Tab>
+<Tab title="scripts/deploy.ts (Turnkey)">
+
+```ts
+// run with `tsx scripts/deploy.ts`
+import { ApiKeyStamper } from "@turnkey/api-key-stamper";
+import { TurnkeyClient } from "@turnkey/http";
+import { createAccount } from "@turnkey/viem";
+import { createPublicClient, createWalletClient, http } from "viem";
+import { sepolia } from "viem/chains";
+import { getOrDeployCounter } from "../deployers";
+
+const httpClient = new TurnkeyClient(
+  { baseUrl: "https://api.turnkey.com" },
+  new ApiKeyStamper({
+    apiPublicKey: process.env.TURNKEY_API_PUBLIC_KEY as string,
+    apiPrivateKey: process.env.TURNKEY_API_PRIVATE_KEY as string,
+  }),
+);
+
+const deployer = await createAccount({
+  client: httpClient,
+  organizationId: process.env.TURNKEY_ORGANIZATION_ID as string,
+  signWith: process.env.TURNKEY_SIGN_WITH as string,
+});
+
+const transport = http(process.env.RPC_URL);
+
+const { contract } = await getOrDeployCounter({
+  walletClient: createWalletClient({ account: deployer, chain: sepolia, transport }),
+  publicClient: createPublicClient({ chain: sepolia, transport }),
+  args: [0n],
+});
+```
+
+</Tab>
+</Tabs>
+
+Whole file, both times, so you can read the difference straight off: only the account block changes. Everything from `const transport` down is identical, which is why a real project lifts the top half into `accounts.ts` and the bottom half into `clients.ts` and never writes either again.
+
+- ✅ The signer is an argument, so there is nothing to configure and no plugin to wait for
+- ✅ Anything that produces a viem account works, including every vendor above, and a Ledger behind viem's `toAccount`. See the [recipes](/recipes)
+- ✅ A JSON-RPC account works too, where no key ever enters your process
+
+Dfns document this split themselves. Their own solution guides list the stack as Hardhat 3 for the contracts, then `tsx` plus viem plus `@dfns/sdk` for signing, because their KMS cannot reach a Hardhat deploy any other way.
+
+## What the file lists say
+
+Both projects hold the same contracts, the same tests, a config, and a `.env`. The difference is not how many files there are, it is what they carry.
+
+```text
+hardhat/                                deployoor/
+├── contracts/Counter.sol               ├── contracts/Counter.sol
+├── hardhat.config.ts   ← chains+keys   ├── hardhat.config.ts   ← solc only
+├── .env                                ├── .env
+├── scripts/deploy.ts                   ├── accounts.ts         ← who signs
+├── scripts/inc.ts                      ├── clients.ts          ← chain in, clients out
+├── deploy-all.sh       ← to loop       ├── scripts/{deploy,inc}.ts
+├── test/counter.test.ts                ├── test/counter.test.ts
+└── src/contracts.ts    ← by hand       ├── wagmi.config.ts
+                                        └── deployments/        ← generated
+```
+
+The same `hardhat.config.ts` exists on both sides, because both compile with Hardhat. On the left it also holds every chain you can reach and the keys that reach them; on the right it holds a Solidity version. `deploy-all.sh` exists only because the CLI takes one `--network` at a time. `src/contracts.ts` is an address book somebody keeps up to date by hand, and goes stale silently when they forget.
+
+`accounts.ts` and `clients.ts` are the same wiring as the left column's config stanza, written as two small modules you own and import. The difference is that a script can pick a chain at runtime, and swapping custody is an edit to one file rather than a plugin you wait for.
+
+The other three carry state the tool does not record: which chains exist, which keys reach them, and where the last deploy ended up. deployoor writes that state to `deployments/` as it goes, so the chain list becomes an argument, the shell script becomes a loop, and the address book is generated. What is left in each job is one script, which is code you would have written anyway.
