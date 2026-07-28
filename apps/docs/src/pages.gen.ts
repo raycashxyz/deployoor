@@ -13,6 +13,7 @@ type Page =
   | { path: '/comparison/hardhat'; render: 'static' }
   | { path: '/comparison'; render: 'static' }
   | { path: '/concepts/deployment-records'; render: 'static' }
+  | { path: '/concepts/deployment-stores'; render: 'static' }
   | { path: '/concepts/idempotency'; render: 'static' }
   | { path: '/getting-started'; render: 'static' }
   | { path: '/getting-started/installation'; render: 'static' }
@@ -22,15 +23,18 @@ type Page =
   | { path: '/guides/deploy'; render: 'static' }
   | { path: '/guides/foundry'; render: 'static' }
   | { path: '/guides/hardhat'; render: 'static' }
-  | { path: '/guides/migrate-from-hardhat-deploy'; render: 'static' }
   | { path: '/guides/plugins'; render: 'static' }
   | { path: '/guides/testing'; render: 'static' }
   | { path: '/guides/tevm'; render: 'static' }
   | { path: '/'; render: 'static' }
   | { path: '/introduction'; render: 'static' }
+  | { path: '/migrate/hardhat-deploy'; render: 'static' }
+  | { path: '/migrate/hardhat-ignition'; render: 'static' }
+  | { path: '/migrate/hardhat'; render: 'static' }
   | { path: '/packages'; render: 'static' }
   | { path: '/recipes/coinbase-cdp'; render: 'static' }
   | { path: '/recipes'; render: 'static' }
+  | { path: '/recipes/openfort'; render: 'static' }
   | { path: '/recipes/privy'; render: 'static' }
   | { path: '/recipes/turnkey'; render: 'static' }
   | { path: '/reference/cli'; render: 'static' }

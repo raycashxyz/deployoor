@@ -3,5 +3,12 @@
   "framework": null,
   "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
   "buildCommand": "cd ../.. && pnpm --filter deployoor build && pnpm --filter @deployoor/docs build",
-  "outputDirectory": null
+  "outputDirectory": null,
+  "redirects": [
+    {
+      "source": "/guides/migrate-from-hardhat-deploy",
+      "destination": "/migrate/hardhat-deploy",
+      "permanent": true
+    }
+  ]
 }

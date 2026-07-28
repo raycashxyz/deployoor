@@ -43,7 +43,6 @@ export default defineConfig({
   mcp: { enabled: false },
   accentColor: "light-dark(#111513, #BEF4BE)",
   colorScheme: "light dark",
-  themeColor: "light-dark(#BEF4BE, #111513)",
   logoUrl: {
     light: "/favicon.svg",
     dark: "/favicon-dark.svg",
@@ -81,12 +80,21 @@ export default defineConfig({
       ],
     },
     {
+      text: "Concepts",
+      items: [
+        { text: "Deployment records", link: "/concepts/deployment-records" },
+        { text: "Deployment stores", link: "/concepts/deployment-stores" },
+        { text: "Idempotent deploys", link: "/concepts/idempotency" },
+      ],
+    },
+    {
       text: "Recipes",
       link: "/recipes",
       items: [
         { text: "Privy", link: "/recipes/privy" },
         { text: "Coinbase CDP", link: "/recipes/coinbase-cdp" },
         { text: "Turnkey", link: "/recipes/turnkey" },
+        { text: "Openfort", link: "/recipes/openfort" },
       ],
     },
     {
@@ -100,14 +108,14 @@ export default defineConfig({
         { text: "Hardhat", link: "/guides/hardhat" },
         { text: "Foundry", link: "/guides/foundry" },
         { text: "TEVM", link: "/guides/tevm" },
-        { text: "Migrate from hardhat-deploy", link: "/guides/migrate-from-hardhat-deploy" },
       ],
     },
     {
-      text: "Concepts",
+      text: "Migrate from",
       items: [
-        { text: "Deployment records", link: "/concepts/deployment-records" },
-        { text: "Idempotent deploys", link: "/concepts/idempotency" },
+        { text: "Hardhat", link: "/migrate/hardhat" },
+        { text: "Hardhat Ignition", link: "/migrate/hardhat-ignition" },
+        { text: "hardhat-deploy", link: "/migrate/hardhat-deploy" },
       ],
     },
     {

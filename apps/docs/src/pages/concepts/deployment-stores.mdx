@@ -1,0 +1,94 @@
+# Deployment stores
+
+A [deployment record](/concepts/deployment-records) is the data. A **store** is where that data lives.
+
+Every deployer reads and writes through a store. By default it is a folder of JSON files in your repo, which is what you want almost always. The store is an interface, though, so the same deployer can write to memory during a test, or to a database or an object store if your team keeps deployment state somewhere central.
+
+```ts
+const { contract } = await getOrDeployCounter({ walletClient, publicClient, args: [0n] });
+// read the store, and if nothing is recorded, deploy and write to it
+```
+
+## The two built in
+
+Both are exported from `deployoor`.
+
+### `fsStore` (default)
+
+JSON files on disk, one per contract, under `deployments/<chainId>-<network>/<Contract>.json`. You do not construct it: a deployer builds one from `deploymentsPath` in your config, defaulting to `./deployments`.
+
+Commit that folder. It is the record of what your team has deployed, and it is what [`@wagmi/cli`](/guides/consumption) reads later.
+
+### `memoryStore`
+
+The same interface backed by a `Map`, so nothing touches disk and nothing survives the process.
+
+```ts
+import { memoryStore } from "deployoor";
+
+await getOrDeployCounter({ walletClient, publicClient, args: [0n], store: memoryStore() });
+```
+
+[`@deployoor/testing`](/guides/testing)'s `createTestClients()` includes one, so spreading `clients` into a call keeps test deploys off disk automatically. It also takes a seed, which is useful when a test needs to start from a contract that is already "deployed":
+
+```ts
+const store = memoryStore([existingRecord]);
+```
+
+## Choosing per call
+
+`store` is a call option, not global state, so one script can mix them:
+
+```ts
+// real deploy, recorded to the repo
+await getOrDeployCounter({ walletClient, publicClient, args: [0n] });
+
+// dry run against a fork, recording nowhere
+await getOrDeployCounter({ walletClient, publicClient, args: [0n], store: memoryStore() });
+```
+
+## Writing your own
+
+A store is four functions, plus an optional fifth. They can be sync or async.
+
+```ts
+interface StoreAdapter {
+  read: (network: string, name: string) => Awaitable<DeploymentRecord | null>;
+  write: (record: DeploymentRecord) => Awaitable<void>;
+  list: (network: string) => Awaitable<ReadonlyArray<DeploymentRecord>>;
+  remove: (network: string, name: string) => Awaitable<void>;
+  lock?: (network: string, name: string) => Awaitable<() => Awaitable<void>>;
+}
+```
+
+`network` is the same key the folder layout uses, `<chainId>-<slug>`, built from the chain on your wallet client. `name` is the deployment name, which is the contract name unless you passed `deploymentName`.
+
+A store that keeps records in a table, an S3 bucket, or a config service only has to implement those. Nothing else in deployoor knows the difference.
+
+```ts
+import type { StoreAdapter } from "deployoor";
+
+const s3Store = (bucket: string): StoreAdapter => ({
+  read: async (network, name) => (await getObject(bucket, `${network}/${name}.json`)) ?? null,
+  write: (record) => putObject(bucket, `${record.networkName}/${record.deploymentName}.json`, record),
+  list: (network) => listObjects(bucket, `${network}/`),
+  remove: (network, name) => deleteObject(bucket, `${network}/${name}.json`),
+});
+```
+
+### About `lock`
+
+`read → deploy → write` is not atomic. If two CI jobs deploy the same contract to the same chain at the same moment, both can read "nothing recorded" and both can deploy.
+
+`lock` is how a store closes that window. It takes the same network and name, and returns a release function. Implement it if your backend can hold a mutual exclusion; leave it out and the store still works, it just has no protection against a concurrent deploy of the same contract.
+
+`fsStore` implements it with an exclusive lock file next to the record. A waiter retries for about thirty seconds, and a lock whose file is older than five minutes is treated as abandoned and reclaimed, so a crashed job does not block the next one forever.
+
+## What `fsStore` guarantees
+
+Worth knowing if you are comparing it to a store of your own:
+
+- **Atomic writes.** A record is written to a temporary file and renamed into place, so a reader never sees a half-written file and a crash mid-write cannot corrupt an existing record.
+- **`bigint` is written as a string.** Records stay valid JSON that any tool can read. See [deployment records](/concepts/deployment-records).
+- **A damaged file is skipped, not fatal.** `list` ignores files it cannot parse rather than failing the whole run.
+- **Path segments are checked.** A network or deployment name containing `..` or a path separator is rejected instead of escaping the deployments folder.

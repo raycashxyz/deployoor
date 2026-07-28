@@ -1,0 +1,152 @@
+# <span className="way way-hardhat" /> Migrate from Hardhat Ignition
+
+Ignition already records what it deployed, so this migration is mostly a file conversion. Its records become deployoor records, and its modules become plain scripts.
+
+The [comparison](/comparison/hardhat-ignition) covers what differs. In short: move if you want deploys that are ordinary functions, callable from tests and ops scripts and typed end to end. Stay if you rely on Ignition's execution journal to resume a partially failed deployment, because deployoor has no equivalent.
+
+## What maps to what
+
+| Ignition                                                  | deployoor                                        |
+| --------------------------------------------------------- | ------------------------------------------------ |
+| `ignition/modules/Counter.ts` returning futures           | `scripts/deploy.ts` calling `getOrDeployCounter` |
+| `m.contract("Counter", [0n])`                             | `await getOrDeployCounter({ ...clients, args })` |
+| `ignition/deployments/<id>/deployed_addresses.json`       | `deployments/<chainId>-<network>/Counter.json`   |
+| `ignition/deployments/<id>/artifacts/Module#Counter.json` | the `abi` inside that same record                |
+| `--network sepolia`                                       | the chain on your wallet client                  |
+| `journal.jsonl` for resuming a failed run                 | no equivalent                                    |
+
+Ignition splits the address and the ABI across two files. deployoor puts both in one record, which is what makes the record enough on its own for the frontend.
+
+## Step 1: Install alongside
+
+```bash
+pnpm add -D deployoor
+npx hardhat compile
+npx deployoor generate
+```
+
+Your Ignition modules keep working. Nothing is removed yet.
+
+## Step 2: Import your live addresses
+
+Ignition splits the address and the ABI across two files, so the import reads both and writes one record.
+
+```ts
+// scripts/import.ts, run with `RPC_URL=https://… tsx scripts/import.ts`
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { createPublicClient, http, type Abi } from "viem";
+import { sepolia } from "viem/chains";
+import { register } from "../deployers";
+
+const dir = "ignition/deployments/chain-11155111"; // the deployment id folder
+const chain = sepolia; // the viem chain it corresponds to
+
+const publicClient = createPublicClient({ chain, transport: http(process.env.RPC_URL) });
+
+// Filing one chain's addresses under another silently corrupts the records, so check
+// the RPC really is the chain named above before writing anything.
+const liveChainId = await publicClient.getChainId();
+if (liveChainId !== chain.id) throw new Error(`RPC is chain ${liveChainId}, expected ${chain.id}`);
+
+// { "CounterModule#Counter": "0x..." }
+const addresses = JSON.parse(readFileSync(join(dir, "deployed_addresses.json"), "utf8")) as Record<
+  string,
+  `0x${string}`
+>;
+
+for (const [futureId, address] of Object.entries(addresses)) {
+  const { abi } = JSON.parse(readFileSync(join(dir, "artifacts", `${futureId}.json`), "utf8")) as {
+    abi: Abi;
+  };
+  // "CounterModule#Counter" is not a filename: take the contract name after the '#'.
+  await register({ publicClient, deploymentName: futureId.split("#").at(-1) as string, address, abi });
+}
+```
+
+Run it once per deployment folder. If one module deploys the same contract twice, the part after `#` collides, so give those distinct names rather than letting the second overwrite the first. Commit the `deployments/` folder it writes.
+
+:::warning
+`register` records a contract deployoor did not deploy, with no transaction and no gas. Imported records have `kind: "external"`, carry no compiler metadata, and run no plugins, so nothing tries to verify them. `register` will not overwrite a record from a real deployoor deploy: on a collision, [`reset`](/concepts/idempotency) first, or import under a different name.
+:::
+
+:::info
+A packaged migrator is planned, which will reduce this step to a single command. Until then, the script above is the path.
+:::
+
+## Step 3: Port a module
+
+An Ignition module describes futures and hands them to the CLI:
+
+```ts
+// ignition/modules/Counter.ts
+import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
+
+export default buildModule("CounterModule", (m) => {
+  const counter = m.contract("Counter", [0n]);
+  m.call(counter, "increment", []);
+  return { counter };
+});
+```
+
+```bash
+npx hardhat ignition deploy ignition/modules/Counter.ts --network sepolia
+```
+
+The same deployment as a script, where the futures are just values:
+
+```ts
+// scripts/deploy.ts, run with `tsx scripts/deploy.ts`
+import { sepolia } from "viem/chains";
+import { clientsFor } from "../clients"; // your viem clients
+import { getOrDeployCounter } from "../deployers";
+
+const { contract, freshDeploy } = await getOrDeployCounter({
+  ...clientsFor(sepolia),
+  args: [0n],
+});
+
+// m.call becomes a normal call, guarded so it only runs on a fresh deploy
+if (freshDeploy) await contract.write.increment();
+```
+
+`accounts.ts` builds the signer once and `clients.ts` turns a chain into the two clients. Both are set up in the [quickstart](/getting-started/quickstart), and every script, test and ops task imports them from there. Moving to a hosted or hardware wallet later is an edit to `accounts.ts` alone, so see the [recipes](/recipes).
+
+`m.contract` returns a future you cannot read from, so ordering is expressed through the module graph. `getOrDeployCounter` returns the contract, so ordering is just the order of your statements, and a value from one deploy can be an argument to the next:
+
+```ts
+const clients = clientsFor(sepolia);
+
+const { contract: token } = await getOrDeployToken({ ...clients, args: [1000n] });
+const { contract: vault } = await getOrDeployVault({ ...clients, args: [token.address] });
+```
+
+Constructor args are typed against the ABI here, so a wrong arity or a `number` where the contract wants a `uint256` is a compile error rather than a runtime one.
+
+## Step 4: Point the frontend at the records
+
+Ignition leaves the app to read `deployed_addresses.json` and find the ABI separately. The deployoor record has both, so `@wagmi/cli` can generate from it:
+
+```ts
+// wagmi.config.ts
+import { defineConfig } from "@wagmi/cli";
+import { actions } from "@wagmi/cli/plugins";
+import { deployments } from "@deployoor/wagmi";
+
+export default defineConfig({
+  out: "src/generated.ts",
+  plugins: [deployments({ path: "./deployments" }), actions()], // or react() for hooks
+});
+```
+
+```bash
+npx wagmi generate
+```
+
+See [consumption](/guides/consumption).
+
+## What will not carry over
+
+- **The execution journal.** Ignition records every operation before it runs, so an interrupted deployment can resume mid-flight. deployoor's idempotency is per contract: a completed deploy is recorded and skipped next run, but a run that dies between two contracts simply redeploys nothing and continues from the records it has. For a long sequence on an expensive chain, that difference is real.
+- **Module composition.** `m.useModule` has no direct equivalent. In a script, importing a function and calling it is the equivalent, which is less structured and also less to learn.
+- **`--reset` and deployment ids.** deployoor keys records by chain id, not by a deployment id you choose, so parallel named deployments of the same contract to one chain need distinct `deploymentName`s.

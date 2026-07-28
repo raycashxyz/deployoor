@@ -261,7 +261,7 @@ New contributors: [CONTRIBUTING.md](CONTRIBUTING.md) covers the build loop, the 
 
 ## How it compares
 
-Full table, checked against each tool's July 2026 release: **[deployoor.dev/comparison](https://deployoor.dev/comparison)** · Coming from hardhat-deploy? **[Migration guide](https://deployoor.dev/guides/migrate-from-hardhat-deploy)**
+Full table, checked against each tool's July 2026 release: **[deployoor.dev/comparison](https://deployoor.dev/comparison)** · Coming from hardhat-deploy? **[Migration guide](https://deployoor.dev/migrate/hardhat-deploy)**
 
 The difference isn't a feature list — it's where three decisions live: **who owns your wallet, who owns your network list, and whether a deploy script needs a framework runtime.** deployoor answers "you do, you do, and no", which leaves Hardhat and Foundry doing what they're best at — compiling, and running a node with dev controls and forking. Named accounts, deterministic addresses, and idempotent deployers all follow from that rather than standing on their own.
 
