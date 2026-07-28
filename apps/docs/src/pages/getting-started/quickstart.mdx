@@ -63,7 +63,12 @@ const rpcUrls: Record<number, string | undefined> = {
 };
 
 export const clientsFor = (chain: Chain) => {
-  const transport = http(rpcUrls[chain.id]);
+  const rpcUrl = rpcUrls[chain.id];
+  // http() with no url silently falls back to the chain's public RPC, which is not
+  // something a deploy should do by accident.
+  if (rpcUrl === undefined) throw new Error(`No RPC URL for chain ${chain.id} (${chain.name})`);
+
+  const transport = http(rpcUrl);
   return {
     walletClient: createWalletClient({ account: deployer, chain, transport }),
     publicClient: createPublicClient({ chain, transport }),

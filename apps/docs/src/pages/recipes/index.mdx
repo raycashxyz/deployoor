@@ -55,7 +55,14 @@ For KMS and hardware the shape is always the same: implement `signTransaction` s
 
 ```ts
 import { toAccount } from "viem/accounts";
-import { keccak256, serializeTransaction, hashMessage, hashTypedData, toHex, type Hex } from "viem";
+import {
+  keccak256,
+  serializeTransaction,
+  hashMessage,
+  hashTypedData,
+  serializeSignature,
+  type Hex,
+} from "viem";
 
 // `sign` is whatever your KMS, HSM, or device exposes: a hash in, a signature out.
 declare function sign(hash: Hex): Promise<{ r: Hex; s: Hex; yParity: number }>;
@@ -66,8 +73,8 @@ const account = toAccount({
     const { r, s, yParity } = await sign(keccak256(serializer(tx)));
     return serializer(tx, { r, s, yParity });
   },
-  signMessage: ({ message }) => sign(hashMessage(message)).then(toHex),
-  signTypedData: (typedData) => sign(hashTypedData(typedData)).then(toHex),
+  signMessage: ({ message }) => sign(hashMessage(message)).then(serializeSignature),
+  signTypedData: (typedData) => sign(hashTypedData(typedData)).then(serializeSignature),
 });
 ```
 

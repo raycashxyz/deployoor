@@ -70,7 +70,7 @@ console.log(`recorded to deployments/${deployment.networkName}/`);
 
 ## Notes
 
-- On the basic flow your process holds an app secret and a wallet id, and no private key. A leak still lets someone ask Privy to sign for that wallet, so scope the secret and rotate it like any other credential.
+- On the basic flow your process holds an app secret and a wallet id, and no private key. The wallet id is not a secret and is not the boundary: `PRIVY_APP_SECRET` authorises action on any wallet and resource your app owns, so a leak reaches more than the one wallet you named. Keep it server-only, scope it, and rotate it like any other credential.
 - On the authorization-context flow it also holds `PRIVY_AUTHORIZATION_KEY`, which is a private key. Protect and rotate it as such.
 - The same `deployer` works in an ops script. Import it, build clients for the chain you want, and call the generated bindings.
 - For tests, keep using [`@deployoor/testing`](/guides/testing). There is no reason to spend Privy calls on an in-memory chain.

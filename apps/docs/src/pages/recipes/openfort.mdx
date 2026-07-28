@@ -79,7 +79,10 @@ const rpcUrls: Record<number, string | undefined> = {
 };
 
 for (const chain of [base, optimism, arbitrum]) {
-  const transport = http(rpcUrls[chain.id]);
+  const rpcUrl = rpcUrls[chain.id];
+  // http() with no url silently falls back to the chain's public RPC.
+  if (rpcUrl === undefined) throw new Error(`No RPC URL for chain ${chain.id}`);
+  const transport = http(rpcUrl);
   await getOrDeployCounter({
     walletClient: createWalletClient({ account: deployer, chain, transport }),
     publicClient: createPublicClient({ chain, transport }),
