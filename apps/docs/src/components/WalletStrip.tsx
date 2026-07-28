@@ -1,44 +1,40 @@
 /**
- * "Works with any viem-compatible wallet" row, used on the landing page and in the docs
+ * "Works with any viem-compatible wallet" logo cloud, used on the landing page and in the docs
  * introduction.
  *
- * An entry renders as its own name unless it has a `brand`, in which case the vendor's official
- * wordmark is shown via the `.brand-<name>` rules in _root.css, which swap the light and dark
- * files the vendor supplies rather than filtering one of them.
+ * Each entry is a vendor wordmark rendered as a CSS mask in `currentColor` (see `.wordmark-*` in
+ * _root.css), so the whole row is one colour and reads as a set rather than as a pile of competing
+ * brand palettes.
  *
- * Only set `brand` where we hold the vendor's real SVG. A redrawn approximation of someone's
- * mark looks worse than their name set in our own type, and several of these brands forbid
- * altering their artwork.
+ * Only add an entry once its real SVG is vendored under public/icons/wordmarks and its measured
+ * aspect ratio has a `.wordmark-*` rule. Wallets we support but hold no logo for are named in
+ * `ALSO`, and the full list lives in the recipes index.
  */
-type Wallet = { name: string; brand?: string };
+type Wordmark = { name: string; slug: string };
 
-const WALLETS: readonly Wallet[] = [
-  { name: "Local key" },
-  { name: "Encrypted keystore" },
-  { name: "AWS KMS" },
-  { name: "Google Cloud KMS" },
-  { name: "Turnkey", brand: "turnkey" },
-  { name: "Privy", brand: "privy" },
-  { name: "Coinbase CDP", brand: "coinbase" },
-  { name: "Fireblocks" },
-  { name: "Ledger" },
+const WORDMARKS: readonly Wordmark[] = [
+  { name: ".env", slug: "dotenv" },
+  { name: "Privy", slug: "privy" },
+  { name: "Turnkey", slug: "turnkey" },
+  { name: "Coinbase", slug: "coinbase" },
+  { name: "Dfns", slug: "dfns" },
+  { name: "Openfort", slug: "openfort" },
 ];
+
+const ALSO = "AWS KMS, Google Cloud KMS, Fireblocks, Ledger, or any EIP-1193 provider";
 
 export function WalletStrip({ heading = "Works with any viem-compatible wallet" }: { heading?: string }) {
   return (
     <section className="wallet-strip" aria-label={heading}>
       <p className="wallet-strip-heading">{heading}</p>
       <ul className="wallet-strip-list">
-        {WALLETS.map((wallet) => (
-          <li key={wallet.name} className="wallet-strip-item">
-            {wallet.brand ? (
-              <span className={`brand brand-${wallet.brand}`} role="img" aria-label={wallet.name} />
-            ) : (
-              wallet.name
-            )}
+        {WORDMARKS.map((wordmark) => (
+          <li key={wordmark.slug} className="wallet-strip-item">
+            <span className={`wordmark wordmark-${wordmark.slug}`} role="img" aria-label={wordmark.name} />
           </li>
         ))}
       </ul>
+      <p className="wallet-strip-also">also {ALSO}</p>
     </section>
   );
 }

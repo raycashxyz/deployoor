@@ -381,11 +381,14 @@
   padding-top: 2rem;
 }
 
-/* Comparison pages: distinguish the framework way from the deployoor way. Masked SVGs
-   follow currentColor so they track the theme, same approach as the landing social links. */
+/* Comparison pages: distinguish the framework way from the deployoor way.
+
+   These are masks rather than <img>, which matters: every icon here is normalised to
+   `fill="currentColor"`, and an <img> resolves currentColor against the SVG's own
+   document, where it falls back to black. That is invisible in dark mode. A mask
+   inherits the surrounding text colour instead. */
 .way {
   display: inline-block;
-  width: 0.95em;
   height: 0.95em;
   margin-right: 0.45em;
   vertical-align: -0.08em;
@@ -398,57 +401,140 @@
   mask-size: contain;
 }
 
-/* Real, full-colour vendor logos render as <img>: masking them would flatten the artwork
-   to a single-colour silhouette. Only our own monochrome D uses the mask above. */
-.tool-logo {
-  display: inline-block;
-  width: auto; /* logos are a mix of square symbols and wide wordmarks */
-  height: 1.15em;
-  margin-right: 0.4em;
-  vertical-align: -0.15em;
+.way-hardhat {
+  width: 1.37em; /* ink 27.95 x 19.32 */
+  -webkit-mask-image: url("/icons/tools/hardhat.svg");
+  mask-image: url("/icons/tools/hardhat.svg");
 }
 
+.way-rocketh {
+  width: 0.95em; /* ink 184.46 x 193.26 */
+  -webkit-mask-image: url("/icons/tools/rocketh.svg");
+  mask-image: url("/icons/tools/rocketh.svg");
+}
+
+/* Our D is a letterform, so it is sized and seated like a capital letter: box height at
+   roughly the font's cap height, bottom of the box on the text baseline. The file's
+   viewBox is cropped to the D's ink, so the glyph fills the box exactly and those two
+   edges really are the cap line and the baseline. */
 .way-deployoor {
-  /* The D letterform carries a lot of internal whitespace, so it optically reads smaller
-     than the solid hard hat at the same box size. */
-  width: 1.1em;
-  height: 1.1em;
+  width: 0.56em; /* ink 307.6 x 396.4, aspect 0.776 */
+  height: 0.72em;
+  vertical-align: baseline;
+  background-color: var(--vocs-color-accent);
   -webkit-mask-image: url("/icons/deployoor.svg");
   mask-image: url("/icons/deployoor.svg");
-  background-color: var(--vocs-color-accent);
 }
 
-/* The three tool pages nested under Comparisons in the sidebar. Vocs styles these anchors
-   as flex with justify-between, which pushes a ::before marker and the label to opposite
-   edges, so pin them left and use gap for the spacing. */
-[data-v-sidebar-section] a[href^="/comparison/"] {
+/* ---------------------------------------------------------------------------
+   Third-party logos.
+
+   Every mark is drawn as a CSS mask filled with `currentColor`, so all of them
+   are one colour and follow the surrounding text in both themes. That is a
+   deliberate choice over honouring each vendor's brand colours: a docs sidebar
+   full of competing brand palettes is noisier than it is informative, and it
+   removes the need for per-vendor light/dark files.
+
+   Every viewBox in /public/icons is cropped to the artwork's own ink bounds
+   (measured with getBBox, see public/icons/README.md), so `contain` fills the
+   slot with no baked-in padding to fight.
+   --------------------------------------------------------------------------- */
+
+/* Sidebar marks. Vocs styles these anchors as flex with justify-between, which
+   would push the ::before marker and the label to opposite edges, so pin left
+   and use gap for the spacing. */
+[data-v-sidebar-section] a[href^="/comparison/"],
+[data-v-sidebar-section] a[href^="/migrate/"],
+[data-v-sidebar-section] a[href^="/recipes/"] {
   justify-content: flex-start;
-  gap: 0.45em;
+  gap: 0.5em;
 }
 
-[data-v-sidebar-section] a[href^="/comparison/"]::before {
+/* One uniform square slot for every sidebar mark, so the labels all start at
+   the same x regardless of how wide or tall a given logo happens to be. Each
+   glyph is centred and scaled to fit inside that square. */
+[data-v-sidebar-section] a[href^="/comparison/"]::before,
+[data-v-sidebar-section] a[href^="/migrate/"]::before,
+[data-v-sidebar-section] a[href^="/recipes/"]::before {
   flex: none;
-  width: 1em;
-  height: 1em;
+  width: 1.1em;
+  height: 1.1em;
   content: "";
-  background-position: center;
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-image: url("/icons/tools/hardhat.svg");
+  background-color: currentColor;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
 }
 
-[data-v-sidebar-section] a[href="/comparison/hardhat-deploy"]::before {
-  background-image: url("/icons/tools/rocketh.svg");
+/* Inline mark in a page heading, same treatment at text size. */
+.brand {
+  display: inline-block;
+  width: 1.05em;
+  height: 1.05em;
+  margin-right: 0.4em;
+  vertical-align: -0.12em;
+  background-color: currentColor;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
 }
 
-/* "Works with any viem-compatible wallet" row. Entries are wordmarks until a real vendor SVG
-   lands in /icons/wallets, at which point the mask below renders it in currentColor. */
+/* Hardhat covers both the Hardhat and Hardhat Ignition pages. */
+[data-v-sidebar-section] a[href^="/comparison/"]::before,
+[data-v-sidebar-section] a[href^="/migrate/"]::before {
+  -webkit-mask-image: url("/icons/tools/hardhat.svg");
+  mask-image: url("/icons/tools/hardhat.svg");
+}
+
+[data-v-sidebar-section] a[href="/comparison/hardhat-deploy"]::before,
+[data-v-sidebar-section] a[href="/migrate/hardhat-deploy"]::before {
+  -webkit-mask-image: url("/icons/tools/rocketh.svg");
+  mask-image: url("/icons/tools/rocketh.svg");
+}
+
+.brand-privy,
+[data-v-sidebar-section] a[href="/recipes/privy"]::before {
+  -webkit-mask-image: url("/icons/wallets/privy.svg");
+  mask-image: url("/icons/wallets/privy.svg");
+}
+
+.brand-coinbase,
+[data-v-sidebar-section] a[href="/recipes/coinbase-cdp"]::before {
+  -webkit-mask-image: url("/icons/wallets/coinbase.svg");
+  mask-image: url("/icons/wallets/coinbase.svg");
+}
+
+.brand-turnkey,
+[data-v-sidebar-section] a[href="/recipes/turnkey"]::before {
+  -webkit-mask-image: url("/icons/wallets/turnkey.svg");
+  mask-image: url("/icons/wallets/turnkey.svg");
+}
+
+.brand-openfort,
+[data-v-sidebar-section] a[href="/recipes/openfort"]::before {
+  -webkit-mask-image: url("/icons/wallets/openfort.svg");
+  mask-image: url("/icons/wallets/openfort.svg");
+}
+
+/* ---------------------------------------------------------------------------
+   Homepage / introduction logo cloud. Full wordmarks rather than icon marks,
+   all at one height, each width derived from that logo's measured aspect ratio
+   so none of them is stretched.
+   --------------------------------------------------------------------------- */
 .wallet-strip {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1rem;
   align-items: center;
-  margin: 2rem 0 0;
+  /* .landing is a flex column with no gap, so the bottom margin is what keeps
+     this off the install commands below it. */
+  margin: 2rem 0 2.5rem;
 }
 
 .wallet-strip-heading {
@@ -463,7 +549,7 @@
 .wallet-strip-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 1.5rem;
+  gap: 1rem 2rem;
   align-items: center;
   justify-content: center;
   padding: 0;
@@ -472,92 +558,103 @@
 }
 
 .wallet-strip-item {
-  font-size: 0.875rem;
-  color: var(--vocs-color-text2);
-  white-space: nowrap;
-  opacity: 0.85;
+  display: flex;
+  align-items: center;
 }
 
-/* Recipe pages carry their vendor's logo in the sidebar, same as the comparison pages. */
-[data-v-sidebar-section] a[href^="/recipes/"]::before {
-  flex: none;
-  width: 1em;
-  height: 1em;
-  content: "";
-  background-position: center;
-  background-size: contain;
-  background-repeat: no-repeat;
+.wallet-strip-also {
+  max-width: 30rem;
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--vocs-color-text3);
+  text-align: center;
+  opacity: 0.8;
 }
 
-[data-v-sidebar-section] a[href^="/recipes/"] {
-  justify-content: flex-start;
-  gap: 0.45em;
+/* Each logo carries its own height, because matching bounding boxes does not
+   match what the eye reads. A wordmark's box includes ascenders, descenders and
+   whatever padding the vendor exported, so the share of the box actually filled
+   by lettering ranges from 0.54 (Openfort) to 0.91 (the .env badge). Sizing on
+   the box alone therefore makes the airy logos look small. These heights instead
+   equalise the band holding the lettering, then move halfway toward equal ink
+   area so that very bold and very light marks meet in the middle. Re-measure
+   with the same method if you add or replace a logo. */
+.wordmark {
+  --wordmark-height: 1.25rem;
+
+  height: var(--wordmark-height);
+  /* The row centres each box, but a logo's baseline is not at its box centre: how far the
+     box runs past the baseline depends on whether the wordmark has descenders, which
+     varies from none (Coinbase) to 0.235 of the box (Openfort). Centring alone therefore
+     leaves the lettering sitting on six different lines. Each nudge is measured, and
+     shifts the box so all six baselines coincide. */
+  transform: translateY(var(--wordmark-nudge, 0));
+  background-color: currentColor;
+  opacity: 0.75;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
 }
 
-[data-v-sidebar-section] a[href="/recipes/coinbase-cdp"]::before {
-  width: 5em;
-  background-image: url("/icons/wallets/coinbase.svg");
+.wordmark-dotenv {
+  --wordmark-nudge: -0.133rem;
+  /* lettering fills 0.91 of the box */
+  --wordmark-height: 1.31rem;
+
+  width: calc(var(--wordmark-height) * 1);
+  -webkit-mask-image: url("/icons/wordmarks/dotenv.svg");
+  mask-image: url("/icons/wordmarks/dotenv.svg");
 }
 
-:root[data-vocs-theme="dark"] [data-v-sidebar-section] a[href="/recipes/coinbase-cdp"]::before {
-  background-image: url("/icons/wallets/coinbase-white.svg");
+.wordmark-privy {
+  --wordmark-nudge: -0.005rem;
+  /* lettering fills 0.84 of the box */
+  --wordmark-height: 1.08rem;
+
+  width: calc(var(--wordmark-height) * 4.471);
+  -webkit-mask-image: url("/icons/wordmarks/privy.svg");
+  mask-image: url("/icons/wordmarks/privy.svg");
 }
 
-/* Vendor wordmarks in recipe headings. Each brand ships its own light and dark file, so the
-   theme swaps the asset rather than filtering it: Privy's brand terms forbid altering their
-   graphics, and recolouring counts. Width is set per brand from the file's own aspect ratio. */
-.brand {
-  display: inline-block;
-  height: 1.05em;
-  margin-right: 0.45em;
-  vertical-align: -0.1em;
-  background-position: left center;
-  background-size: contain;
-  background-repeat: no-repeat;
+.wordmark-turnkey {
+  --wordmark-nudge: 0.126rem;
+  /* lettering fills 0.63 of the box */
+  --wordmark-height: 1.39rem;
+
+  width: calc(var(--wordmark-height) * 4.615);
+  -webkit-mask-image: url("/icons/wordmarks/turnkey.svg");
+  mask-image: url("/icons/wordmarks/turnkey.svg");
 }
 
-.brand-privy {
-  width: 3.47em; /* 258x78 */
-  background-image: url("/icons/wallets/privy.svg");
+.wordmark-coinbase {
+  --wordmark-nudge: -0.071rem;
+  /* lettering fills 0.65 of the box */
+  --wordmark-height: 1.21rem;
+
+  width: calc(var(--wordmark-height) * 5.598);
+  -webkit-mask-image: url("/icons/wordmarks/coinbase.svg");
+  mask-image: url("/icons/wordmarks/coinbase.svg");
 }
 
-:root[data-vocs-theme="dark"] .brand-privy {
-  background-image: url("/icons/wallets/privy-white.svg");
+.wordmark-dfns {
+  --wordmark-nudge: -0.051rem;
+  /* lettering fills 0.77 of the box */
+  --wordmark-height: 1.22rem;
+
+  width: calc(var(--wordmark-height) * 3.887);
+  -webkit-mask-image: url("/icons/wordmarks/dfns.svg");
+  mask-image: url("/icons/wordmarks/dfns.svg");
 }
 
-.brand-coinbase {
-  width: 5.87em; /* wordmark cropped to its ink box, aspect 5.59 */
-  background-image: url("/icons/wallets/coinbase.svg");
-}
+.wordmark-openfort {
+  --wordmark-nudge: 0.133rem;
+  /* lettering fills 0.54 of the box */
+  --wordmark-height: 1.47rem;
 
-:root[data-vocs-theme="dark"] .brand-coinbase {
-  background-image: url("/icons/wallets/coinbase-white.svg");
-}
-
-.brand-turnkey {
-  width: 3.94em; /* 180x48 */
-  background-image: url("/icons/wallets/turnkey.svg");
-}
-
-:root[data-vocs-theme="dark"] .brand-turnkey {
-  background-image: url("/icons/wallets/turnkey-white.svg");
-}
-
-/* Sidebar: same assets, same theme swap. */
-[data-v-sidebar-section] a[href="/recipes/privy"]::before {
-  width: 3.1em;
-  background-image: url("/icons/wallets/privy.svg");
-}
-
-:root[data-vocs-theme="dark"] [data-v-sidebar-section] a[href="/recipes/privy"]::before {
-  background-image: url("/icons/wallets/privy-white.svg");
-}
-
-[data-v-sidebar-section] a[href="/recipes/turnkey"]::before {
-  width: 3.5em;
-  background-image: url("/icons/wallets/turnkey.svg");
-}
-
-:root[data-vocs-theme="dark"] [data-v-sidebar-section] a[href="/recipes/turnkey"]::before {
-  background-image: url("/icons/wallets/turnkey-white.svg");
+  width: calc(var(--wordmark-height) * 5.452);
+  -webkit-mask-image: url("/icons/wordmarks/openfort.svg");
+  mask-image: url("/icons/wordmarks/openfort.svg");
 }
