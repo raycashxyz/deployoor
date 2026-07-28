@@ -6,7 +6,7 @@
 
 ```bash
 pnpm add @coinbase/cdp-sdk viem
-pnpm add -D deployoor
+pnpm add -D deployoor tsx
 ```
 
 ## The account
@@ -50,7 +50,13 @@ if (freshDeploy) await contract.write.inc();
 A CDP account is not bound to a chain, so the same account deploys everywhere. Build a client per chain and loop:
 
 ```ts
-import { base, optimism, arbitrum } from "viem/chains";
+import { arbitrum, base, optimism } from "viem/chains";
+
+const rpcUrls: Record<number, string | undefined> = {
+  [base.id]: process.env.BASE_RPC_URL,
+  [optimism.id]: process.env.OP_RPC_URL,
+  [arbitrum.id]: process.env.ARBITRUM_RPC_URL,
+};
 
 for (const chain of [base, optimism, arbitrum]) {
   const transport = http(rpcUrls[chain.id]);
@@ -67,5 +73,5 @@ Each deploy records under its own `deployments/<chainId>-<network>/`, so one run
 ## Notes
 
 - CDP has its own faucet for testnets, which pairs well with a first deploy to Base Sepolia.
-- Credentials live in `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, and `CDP_WALLET_SECRET`. The wallet secret authorises signing, so treat it as the sensitive one.
-- `getOrCreateAccount` keyed by name means CI reuses the same deployer address across runs instead of creating a new one each time.
+- Credentials live in `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, and `CDP_WALLET_SECRET`. Both secrets are server-only: keep them out of browser bundles and out of the repo. The wallet secret is the one that authorises signing, so a leak of it is the worst case, but the API key secret authenticates every call and deserves the same handling.
+- `getOrCreateAccount` keyed by name means CI reuses the same deployer address across runs instead of creating a new one each time. Names are unique per CDP project, so that only holds for runs using the same project and credentials.

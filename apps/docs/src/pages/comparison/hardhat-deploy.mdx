@@ -236,6 +236,7 @@ await env.execute(Counter, {
 <Tab title="scripts/inc.ts">
 
 ```ts
+import { base } from "viem/chains";
 import { writeCounterInc } from "../src/generated"; // from `wagmi generate`
 import { config } from "../src/wagmi";
 

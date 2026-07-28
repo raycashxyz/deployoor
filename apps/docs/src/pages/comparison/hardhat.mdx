@@ -381,10 +381,11 @@ npx hardhat run scripts/inc.ts --network sepolia
 <Tab title="scripts/inc.ts">
 
 ```ts
+import { sepolia } from "viem/chains";
 import { writeCounterIncrement } from "../src/generated";
 import { config } from "../src/wagmi";
 
-await writeCounterIncrement(config, { chainId: base.id });
+await writeCounterIncrement(config, { chainId: sepolia.id });
 ```
 
 </Tab>

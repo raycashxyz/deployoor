@@ -52,7 +52,7 @@ For KMS and hardware the shape is always the same: implement `signTransaction` s
 
 ```ts
 import { toAccount } from "viem/accounts";
-import { keccak256, serializeTransaction, hashMessage, hashTypedData } from "viem";
+import { keccak256, serializeTransaction, hashMessage, hashTypedData, toHex } from "viem";
 
 const account = toAccount({
   address, // derived from the public key your signer exposes

@@ -38,8 +38,12 @@ That is also why it reads Foundry artifacts. A Foundry-native project already ha
 
 ## How it works
 
-```text
-compile → generate deployers → deploy → record → typed viem object everywhere
+```mermaid
+flowchart LR
+  A[Compile] --> B[Generate deployers]
+  B --> C[Deploy]
+  C --> D[Record]
+  D --> E[Typed viem object everywhere]
 ```
 
 1. **Compile** with Hardhat (v2 or v3) or Foundry. deployoor reads your artifacts (or point it at plain `.sol` and it compiles them with tevm).

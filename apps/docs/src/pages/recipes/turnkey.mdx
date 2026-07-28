@@ -6,7 +6,7 @@
 
 ```bash
 pnpm add @turnkey/viem @turnkey/http @turnkey/api-key-stamper viem
-pnpm add -D deployoor
+pnpm add -D deployoor tsx
 ```
 
 ## The account
@@ -34,7 +34,7 @@ export const deployer = await createAccount({
 
 `signWith` names what signs. Passing an address that Turnkey already knows means you can skip `ethereumAddress`; supply it explicitly only when signing with a private key id whose address you want to pin.
 
-For a browser flow, swap `ApiKeyStamper` for `WebauthnStamper` and the account is passkey-backed instead. Nothing downstream changes.
+For a browser flow, install `@turnkey/webauthn-stamper` and swap `ApiKeyStamper` for its `WebauthnStamper`, and the account is passkey-backed instead. Nothing downstream changes.
 
 ## The deploy
 

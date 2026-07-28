@@ -16,10 +16,11 @@
   "devDependencies": {
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
+    "deployoor": "workspace:*",
+    "mermaid": "^11.16.0",
     "typescript": "^5.9.3",
-    "vite": "^8.0.0",
-    "waku": "^1.0.0-beta.6",
     "viem": "catalog:",
-    "deployoor": "workspace:*"
+    "vite": "^8.0.0",
+    "waku": "^1.0.0-beta.6"
   }
 }
