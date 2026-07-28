@@ -1,6 +1,6 @@
 # <span className="brand brand-privy" /> Privy
 
-[Privy](https://privy.io) server wallets hold the key on their side and expose it as a viem account, so nothing key-shaped enters your deploy process.
+[Privy](https://privy.io) server wallets keep the wallet's own signing key on their side and expose it as a viem account, so your process never holds the key that controls the funds. Depending on how the wallet is configured, it may still hold an authorization key, which is covered below.
 
 ## Install
 
@@ -29,7 +29,7 @@ export const deployer = await createViemAccount(privy, {
 });
 ```
 
-Wallets that require an authorization context take one more field:
+Wallets that require an authorization context take one more field. Note what this changes: an authorization key **is** a private key, and this variant puts one in your process.
 
 ```ts
 export const deployer = await createViemAccount(privy, {
@@ -40,6 +40,10 @@ export const deployer = await createViemAccount(privy, {
   },
 });
 ```
+
+:::warning
+`PRIVY_AUTHORIZATION_KEY` is a private key, not an API token. It does not control the wallet on its own, but it authorises wallet actions, so store it wherever you keep signing material rather than beside ordinary config, keep it out of source control, and rotate it on the same schedule as your other secrets.
+:::
 
 ## The deploy
 
@@ -66,6 +70,7 @@ console.log(`recorded to deployments/${deployment.networkName}/`);
 
 ## Notes
 
-- Your process holds an app secret and a wallet id, not a private key. A leak lets someone ask Privy to sign for that wallet, so scope the secret and rotate it like any other credential.
+- On the basic flow your process holds an app secret and a wallet id, and no private key. A leak still lets someone ask Privy to sign for that wallet, so scope the secret and rotate it like any other credential.
+- On the authorization-context flow it also holds `PRIVY_AUTHORIZATION_KEY`, which is a private key. Protect and rotate it as such.
 - The same `deployer` works in an ops script. Import it, build clients for the chain you want, and call the generated bindings.
 - For tests, keep using [`@deployoor/testing`](/guides/testing). There is no reason to spend Privy calls on an in-memory chain.

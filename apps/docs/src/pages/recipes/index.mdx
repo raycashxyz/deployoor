@@ -11,11 +11,14 @@ const { contract } = await getOrDeployCounter({ walletClient, publicClient, args
 viem accepts an account as long as it can sign. The full contract is an address plus three methods:
 
 ```ts
+// viem's own CustomSource, abridged to the parts that matter here
+import type { Address, Hex } from "viem";
+
 type CustomSource = {
   address: Address;
-  signMessage: ({ message }) => Promise<Hex>;
-  signTransaction: (tx, { serializer }?) => Promise<Hex>;
-  signTypedData: (typedData) => Promise<Hex>;
+  signMessage: (args: { message: unknown }) => Promise<Hex>;
+  signTransaction: (transaction: unknown, options?: { serializer?: unknown }) => Promise<Hex>;
+  signTypedData: (typedData: unknown) => Promise<Hex>;
 };
 ```
 
@@ -52,7 +55,10 @@ For KMS and hardware the shape is always the same: implement `signTransaction` s
 
 ```ts
 import { toAccount } from "viem/accounts";
-import { keccak256, serializeTransaction, hashMessage, hashTypedData, toHex } from "viem";
+import { keccak256, serializeTransaction, hashMessage, hashTypedData, toHex, type Hex } from "viem";
+
+// `sign` is whatever your KMS, HSM, or device exposes: a hash in, a signature out.
+declare function sign(hash: Hex): Promise<{ r: Hex; s: Hex; yParity: number }>;
 
 const account = toAccount({
   address, // derived from the public key your signer exposes
