@@ -22,6 +22,7 @@ export const ${artifactConstName(artifact.name)} = {
   name: ${JSON.stringify(artifact.name)},
   abi,
   bytecode: ${JSON.stringify(artifact.bytecode)},
+  deployedBytecode: ${JSON.stringify(artifact.deployedBytecode)},
   metadata: ${JSON.stringify(artifact.metadata)},
 } satisfies TypedArtifact<typeof abi>;
 `;

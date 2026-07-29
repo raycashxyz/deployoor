@@ -132,6 +132,7 @@ export const readTevmArtifacts = async (root: string, opts: ReadTevmOptions = {}
                 sourceName: toRel(file),
                 abi: contract.abi as Abi,
                 bytecode,
+                deployedBytecode: hexBytecode(contract.evm?.deployedBytecode?.object ?? ""),
                 linkReferences: contract.evm?.bytecode?.linkReferences as LinkReferences | undefined,
                 compilerVersion,
                 sources,

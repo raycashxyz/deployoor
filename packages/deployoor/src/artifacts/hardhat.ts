@@ -21,6 +21,7 @@ const ArtifactFile = z.object({
   sourceName: z.string(),
   abi: AbiSchema,
   bytecode: Bytecode,
+  deployedBytecode: Bytecode.optional(),
   linkReferences: LinkRefs.optional(),
   // Hardhat 3 additions (optional, so HH2 artifacts still parse):
   buildInfoId: z.string().optional(),
@@ -92,6 +93,7 @@ export const readHardhatArtifacts = (artifactsDir: string): Artifact[] => {
         sourceName: parsed.data.inputSourceName ?? parsed.data.sourceName,
         abi: parsed.data.abi,
         bytecode: parsed.data.bytecode,
+        deployedBytecode: parsed.data.deployedBytecode ?? "0x",
         linkReferences: parsed.data.linkReferences as LinkReferences | undefined,
         compilerVersion: info?.solcLongVersion ?? "",
         sources: info?.input.sources ?? {},

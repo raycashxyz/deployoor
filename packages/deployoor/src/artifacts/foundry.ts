@@ -16,6 +16,7 @@ const LinkRefs = z.record(
 const ArtifactFile = z.object({
   abi: AbiSchema,
   bytecode: z.object({ object: Bytecode, linkReferences: LinkRefs.optional() }),
+  deployedBytecode: z.object({ object: Bytecode }).optional(),
   metadata: z.object({
     compiler: z.object({ version: z.string() }),
     settings: z.object({ compilationTarget: z.record(z.string(), z.string()) }),
@@ -68,6 +69,7 @@ export const readFoundryArtifacts = (outDir: string): Artifact[] => {
         sourceName,
         abi: parsed.data.abi,
         bytecode: parsed.data.bytecode.object,
+        deployedBytecode: parsed.data.deployedBytecode?.object ?? "0x",
         linkReferences: parsed.data.bytecode.linkReferences as LinkReferences | undefined,
         compilerVersion: parsed.data.metadata.compiler.version,
         sources: input?.sources ?? {},

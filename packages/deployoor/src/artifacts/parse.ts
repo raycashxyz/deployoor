@@ -23,6 +23,7 @@ export interface RawCompiled {
   readonly sourceName: string;
   readonly abi: Abi;
   readonly bytecode: `0x${string}`;
+  readonly deployedBytecode: `0x${string}`;
   readonly linkReferences?: LinkReferences;
   readonly compilerVersion: string;
   readonly sources: Record<string, { content: string }>;
@@ -34,6 +35,7 @@ export const toArtifact = (raw: RawCompiled): Artifact => ({
   name: raw.name,
   abi: raw.abi,
   bytecode: raw.bytecode,
+  deployedBytecode: raw.deployedBytecode,
   metadata: {
     fullyQualifiedName: `${raw.sourceName}:${raw.name}`,
     compilerVersion: raw.compilerVersion,

@@ -39,6 +39,9 @@ export {
   Artifact,
   ContractMetadata,
   DeploymentRecord,
+  DeploymentHistoryEntry,
+  RedeployReason,
+  IdentityChange,
   Libraries,
 } from "./schemas";
 

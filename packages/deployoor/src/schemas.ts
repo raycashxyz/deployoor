@@ -59,6 +59,7 @@ export const Artifact = z.object({
   name: z.string(),
   abi: AbiSchema,
   bytecode: Bytecode,
+  deployedBytecode: Bytecode,
   metadata: ContractMetadata,
 });
 export type Artifact = z.infer<typeof Artifact>;
@@ -73,14 +74,79 @@ export interface TypedArtifact<A extends Abi = Abi> {
   readonly name: string;
   readonly abi: A;
   readonly bytecode: `0x${string}`;
+  /** Runtime (deployed) bytecode — used for the metadata-stripped identity, not for deploying. */
+  readonly deployedBytecode: `0x${string}`;
   readonly metadata: ContractMetadata;
 }
 
 export const Libraries = z.record(z.string(), Address);
 export type Libraries = Record<string, `0x${string}`>;
 
+/**
+ * Why a (re)deploy happened — recorded on each history entry so a PR diff shows the cause.
+ * `changed` carries the component diffs; `fresh`/`forced`/`registered` are self-explanatory.
+ */
+export const IdentityChange = z.union([
+  z.object({ field: z.literal("code") }),
+  z.object({ field: z.literal("library"), name: z.string(), from: Address, to: Address }),
+  z.object({
+    field: z.literal("args"),
+    from: z.array(z.unknown()),
+    to: z.array(z.unknown()),
+    changedIndices: z.array(z.number().int()),
+  }),
+]);
+export type IdentityChange =
+  | { readonly field: "code" }
+  | {
+      readonly field: "library";
+      readonly name: string;
+      readonly from: `0x${string}`;
+      readonly to: `0x${string}`;
+    }
+  | {
+      readonly field: "args";
+      readonly from: readonly unknown[];
+      readonly to: readonly unknown[];
+      readonly changedIndices: readonly number[];
+    };
+
+export const RedeployReason = z.union([
+  z.object({ kind: z.literal("fresh") }),
+  z.object({ kind: z.literal("forced") }),
+  z.object({ kind: z.literal("registered") }),
+  z.object({ kind: z.literal("changed"), changes: z.array(IdentityChange) }),
+]);
+export type RedeployReason =
+  | { readonly kind: "fresh" }
+  | { readonly kind: "forced" }
+  | { readonly kind: "registered" }
+  | { readonly kind: "changed"; readonly changes: readonly IdentityChange[] };
+
+/** One (re)deploy in a record's append-only history — newest last. */
+export const DeploymentHistoryEntry = z.object({
+  at: z.number().int(),
+  address: Address,
+  transactionHash: Hex,
+  deployer: Address,
+  identityHash: Hex.optional(),
+  reason: RedeployReason,
+  summary: z.string(),
+  supersededAddress: Address.optional(),
+});
+export interface DeploymentHistoryEntry {
+  readonly at: number;
+  readonly address: `0x${string}`;
+  readonly transactionHash: `0x${string}`;
+  readonly deployer: `0x${string}`;
+  readonly identityHash?: `0x${string}`;
+  readonly reason: RedeployReason;
+  readonly summary: string;
+  readonly supersededAddress?: `0x${string}`;
+}
+
 export const DeploymentRecord = z.object({
-  schemaVersion: z.literal(1).default(1),
+  schemaVersion: z.union([z.literal(1), z.literal(2)]).default(1),
   contractName: z.string(),
   deploymentName: z.string(),
   address: Address,
@@ -88,12 +154,15 @@ export const DeploymentRecord = z.object({
   networkName: z.string(),
   abi: AbiSchema,
   bytecode: Bytecode,
+  deployedBytecode: Bytecode.optional(),
   constructorArgs: z.array(z.unknown()),
   transactionHash: Hex,
   deployer: Address,
   deployedAt: z.number().int(),
   compiler: z.object({ version: z.string(), settings: z.unknown().optional() }),
+  identityHash: Hex.optional(),
   libraries: Libraries.optional(),
+  history: z.array(DeploymentHistoryEntry).default([]),
   kind: z.enum(["standard", "proxy", "external"]).default("standard"),
   implementation: Address.optional(),
 });
@@ -101,7 +170,7 @@ export const DeploymentRecord = z.object({
 // documented, stable, bundle-safe public boundary. The Zod schema above validates
 // at runtime and its output is assignable to this.
 export interface DeploymentRecord {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 1 | 2;
   readonly contractName: string;
   readonly deploymentName: string;
   readonly address: `0x${string}`;
@@ -109,12 +178,37 @@ export interface DeploymentRecord {
   readonly networkName: string;
   readonly abi: Abi;
   readonly bytecode: `0x${string}`;
+  /** Runtime (deployed) bytecode (v2+); absent on legacy v1 records. */
+  readonly deployedBytecode?: `0x${string}`;
   readonly constructorArgs: readonly unknown[];
   readonly transactionHash: `0x${string}`;
   readonly deployer: `0x${string}`;
   readonly deployedAt: number;
   readonly compiler: { readonly version: string; readonly settings?: unknown };
+  /** keccak(stripped runtime ++ args ++ libraries) — the redeploy key (v2+). Absent on v1. */
+  readonly identityHash?: `0x${string}`;
   readonly libraries?: Record<string, `0x${string}`>;
+  /** Append-only (re)deploy log, newest last (v2+). Absent/empty on v1. */
+  readonly history?: readonly DeploymentHistoryEntry[];
   readonly kind: "standard" | "proxy" | "external";
   readonly implementation?: `0x${string}`;
+}
+
+/**
+ * Verification input pinned beside a deployment record (`<Name>.sources.json`) at deploy time,
+ * so the contract stays verifiable on a block explorer forever — independent of the current
+ * source tree. Holds everything a standard-json verify needs except the record's address / args
+ * / tx hash (those live in the sibling record). Committed alongside `deployments/`.
+ */
+export const SourcesSidecar = z.object({
+  schemaVersion: z.literal(1).default(1),
+  fullyQualifiedName: z.string(),
+  compilerVersion: z.string(),
+  standardJsonInput: ContractMetadata.shape.standardJsonInput,
+});
+export interface SourcesSidecar {
+  readonly schemaVersion: 1;
+  readonly fullyQualifiedName: string;
+  readonly compilerVersion: string;
+  readonly standardJsonInput: ContractMetadata["standardJsonInput"];
 }
