@@ -161,6 +161,7 @@ const compileFheCounterArtifact = (): TypedArtifact<typeof fheCounterAbi> => {
     name: "FheCounter",
     abi: fheCounterAbi,
     bytecode: `0x${bytecode}`,
+    deployedBytecode: `0x${bytecode}`,
     metadata: {
       fullyQualifiedName: `${sourceName}:FheCounter`,
       compilerVersion: "0.8.24",

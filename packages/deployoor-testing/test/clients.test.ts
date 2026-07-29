@@ -103,6 +103,7 @@ describe("createTestClients", () => {
       name: "Token",
       abi: [],
       bytecode: "0x60",
+      deployedBytecode: "0x60",
       metadata: {
         fullyQualifiedName: "Token.sol:Token",
         compilerVersion: "0.8.24",
