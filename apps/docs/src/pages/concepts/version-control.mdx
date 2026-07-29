@@ -1,0 +1,25 @@
+# Version control
+
+`deployoor generate` produces two things with opposite answers: the `deployments/` record is the product — **commit it** — and the `deployers/` are build output — **gitignore them**.
+
+## Commit `deployments/`
+
+```text
+deployments/**   ← commit: the records and their *.sources.json sidecars
+```
+
+Each `<Name>.json` is the source of truth — address, ABI, both bytecodes, compiler, and the [history](/concepts/deployment-records#history) of every (re)deploy. It is small, vanilla JSON, read by your app, [`@wagmi/cli`](/guides/consumption), humans, and any other tool. Beside it, `<Name>.sources.json` pins the exact solc standard-json input at deploy time — see [verifying later](#verifying-later).
+
+## Gitignore `deployers/`
+
+```text
+deployers/
+```
+
+The generated deployers and typed artifact modules are regenerated on every compile — the [Hardhat plugin](/guides/hardhat) does it automatically, and a Foundry prebuild step runs `deployoor generate`. They embed the full `standardJsonInput`, so they are large, and nothing reads them but your deploy script at deploy time — your app reads the [record](/concepts/deployment-records), not the deployers. Committing them adds machine output that churns on every solc bump.
+
+## Verifying later
+
+The `<Name>.sources.json` sidecar holds everything a standard-json block-explorer verify needs — the exact sources, settings, compiler version, and fully-qualified name used for that deploy. Because it is committed beside the record, a deployment stays verifiable **after** the fact, driven by the committed record and independent of what the source tree looks like now. You never have to reconstruct the exact old source or the commit it came from.
+
+This is also why gitignoring `deployers/` is unconditionally safe: the one thing you might otherwise keep them for — re-verification from a clean checkout — is covered by the committed sidecar.

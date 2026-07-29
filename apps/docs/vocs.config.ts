@@ -84,7 +84,8 @@ export default defineConfig({
       items: [
         { text: "Deployment records", link: "/concepts/deployment-records" },
         { text: "Deployment stores", link: "/concepts/deployment-stores" },
-        { text: "Idempotent deploys", link: "/concepts/idempotency" },
+        { text: "Idempotency & redeployment", link: "/concepts/idempotency" },
+        { text: "Version control", link: "/concepts/version-control" },
       ],
     },
     {

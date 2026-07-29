@@ -19,7 +19,7 @@ The folder key is `chainId` plus a slugged chain name (e.g. viem's "Arbitrum One
 
 ```jsonc
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "contractName": "Token",
   "deploymentName": "Token",
   "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
@@ -27,6 +27,7 @@ The folder key is `chainId` plus a slugged chain name (e.g. viem's "Arbitrum One
   "networkName": "11155111-sepolia",
   "abi": [/* full ABI */],
   "bytecode": "0x60806040...",
+  "deployedBytecode": "0x60806040...", // runtime bytecode, for the redeploy identity
   "constructorArgs": ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"],
   "transactionHash": "0x2c9a...d4e1",
   "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
@@ -35,13 +36,47 @@ The folder key is `chainId` plus a slugged chain name (e.g. viem's "Arbitrum One
     "version": "0.8.24+commit.e11b9ed9",
     "settings": { "optimizer": { "enabled": true, "runs": 200 } },
   },
+  "identityHash": "0x…", // keccak(stripped runtime ++ args ++ libraries)
+  "history": [/* see below */],
   "kind": "standard",
 }
 ```
 
 - `bigint` constructor args are stored as **strings** — plain, greppable JSON
 - `kind: "external"` for contracts recorded via `register` (not deployed by you)
-- `schemaVersion: 1` — format changes will be versioned and documented
+- `schemaVersion: 2` — v1 records still read; they upgrade in place on the next deploy
+
+## History
+
+Every real (re)deploy appends to `history` (newest last), so the record — and its git diff — shows _why_ each deployment happened. `identityHash` is the [deploy identity](/concepts/idempotency); `supersededAddress` links a redeploy to the address it replaced.
+
+```jsonc
+"history": [
+  {
+    "at": 1719849600000,
+    "address": "0x5FbD…0aa3",
+    "transactionHash": "0x2c9a…d4e1",
+    "deployer": "0xf39F…2266",
+    "identityHash": "0x…",
+    "reason": { "kind": "fresh" },
+    "summary": "first deployment",
+  },
+  {
+    "at": 1719936000000,
+    "address": "0xA1b2…C3d4",
+    "transactionHash": "0x77aa…12ff",
+    "deployer": "0xf39F…2266",
+    "identityHash": "0x…",
+    "reason": { "kind": "changed", "changes": [{ "field": "args", "from": ["0x…AAAA"], "to": ["0x…BBBB"], "changedIndices": [0] }] },
+    "summary": "constructor args changed from [0x…AAAA] to [0x…BBBB] (arg 1 `owner`)",
+    "supersededAddress": "0x5FbD…0aa3",
+  },
+]
+```
+
+## Verification sidecar
+
+Beside each record, `<Name>.sources.json` pins the exact solc standard-json input (sources, settings, compiler version, fully-qualified name) used for that deploy — everything a block explorer needs, so the contract stays verifiable later independent of the current source tree. Commit it with the record; see [version control](/concepts/version-control).
 
 ## Portability
 

@@ -45,7 +45,7 @@ deployments/
    └─ Counter.json     ← address, ABI, chainId, args, tx, compiler
 ```
 
-(A local `anvil` is a throwaway chain, so its committed record is illustrative — re-running against a fresh anvil finds the old address; `reset({ publicClient })` or `force: true` redeploys. On a testnet the address persists, so the record stays valid across runs.)
+(A local `anvil` is a throwaway chain, so its committed record is illustrative — re-running against a fresh anvil finds the old address; `reset({ publicClient })` or `redeploymentStrategy: 'always'` redeploys. On a testnet the address persists, so the record stays valid across runs.)
 
 ## 3. Record → typed app access
 

@@ -1,24 +1,49 @@
-# Idempotent deploys
+# Idempotency & redeployment
 
-`getOrDeploy` declares desired state: _this contract should exist on this network._
+`getOrDeploy` declares desired state: _this contract should exist on this network._ A recorded deployment is reused with no transaction; whether a **change** triggers a redeploy is set by `redeploymentStrategy`.
 
-## Behavior
+## Strategies
 
-| Call            | Result                                                              |
-| --------------- | ------------------------------------------------------------------- |
-| First call      | Deploys, records to `deployments/`, returns `freshDeploy: true`     |
-| Later calls     | Returns existing contract, **no transaction**, `freshDeploy: false` |
-| `force: true`   | Redeploys intentionally, new address and tx                         |
-| After `reset()` | Next call deploys again                                             |
+| Strategy    | Behavior                                                                             |
+| ----------- | ------------------------------------------------------------------------------------ |
+| `on-change` | **Default.** Reuse the record unless the deploy identity changed, then redeploy.     |
+| `never`     | Always reuse an existing record; warn on drift. Deploy only when there is no record. |
+| `always`    | Redeploy on every call — new address and tx.                                         |
 
-You never branch on "did it already exist?" to get your contract — destructure `contract` from the result. Use `freshDeploy` only for one-time setup.
+Set it per call, or as a config default (globally or [per chain](/guides/configuration#options)):
 
-## Stale bytecode warning
+```ts
+await getOrDeployToken({ ...clients, args: [owner], redeploymentStrategy: "always" });
+```
 
-If compiled bytecode or constructor args change but a record exists, deployoor **warns** and reuses the recorded deployment (no surprise address churn). Use `force: true` to redeploy, or `reset()` to forget the record first.
+`force: true` / `force: false` still work as deprecated aliases for `"always"` / `"never"`.
 
-An opt-in bytecode-diff redeploy policy is planned.
+## Deploy identity
+
+`on-change` compares the **deploy identity**, not the source:
+
+> identity = metadata-stripped **runtime bytecode** + **constructor args** + **linked library addresses**
+
+- A comment-only recompile changes solc's trailing metadata hash but not the identity — **no redeploy** (the CBOR metadata is stripped before comparing).
+- Changing a constructor arg **does** redeploy — including when that arg is a dependency's address. Redeploy a token and the vault that took its address redeploys too: **changes cascade through the stack**.
+- A changed linked-library address redeploys as well.
+
+The identity is recomputed from live values on every call, so a record's JSON (where bigints are stored as strings) never causes a spurious redeploy.
+
+## Why the default is safe
+
+A redeploy is not destructive: the previous contract still lives on-chain at its old address, and the record change is a git diff you can revert. Every redeploy is logged loudly and recorded — the record's [history](/concepts/deployment-records#history) names _why_ it happened (`contract bytecode changed`, `constructor args changed from […] to […]`, …). For a chain where a redeploy's gas or address churn is unacceptable (e.g. mainnet), pin `never`:
+
+```ts
+export default defineConfig({
+  redeploymentStrategyByChainId: { [mainnet.id]: "never" },
+});
+```
+
+## Stale-record warning (`never`)
+
+Under `never`, if the compiled bytecode or constructor args differ from the record, deployoor **warns** and reuses it — so drift never passes silently. Switch to `on-change` (the default) or `always` to act on it, or `reset()` to forget the record first.
 
 ## External vs deployed
 
-`register` records an address you did not deploy. It will not overwrite a real deployment at the same `(chain, deploymentName)` — reset first or pick a different name.
+`register` records an address you did not deploy. It will not overwrite a real deployment at the same `(chain, deploymentName)` — reset first or pick a different name. External records are never redeployed.

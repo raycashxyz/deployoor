@@ -13,18 +13,22 @@ export default defineConfig({
   deploymentsPath: "./deployments", // deployment records
   plugins: [etherscan({ apiKey: process.env.ETHERSCAN_KEY! }), slack({ webhook: process.env.SLACK_HOOK! })],
   onPluginError: "warn", // "warn" (default) or "throw"
+  redeploymentStrategy: "on-change", // "on-change" (default) | "never" | "always"
+  redeploymentStrategyByChainId: { 1: "never" }, // pin mainnet to reuse-only
 });
 ```
 
 ## Options
 
-| Option            | Default                  | Description                             |
-| ----------------- | ------------------------ | --------------------------------------- |
-| `include`         | all deployable contracts | Filter by contract name                 |
-| `out`             | `./deployers`            | Where typed deployers are written       |
-| `deploymentsPath` | `./deployments`          | Where JSON records are read/written     |
-| `plugins`         | `[]`                     | Deploy-lifecycle hooks                  |
-| `onPluginError`   | `"warn"`                 | `"throw"` fails the run on plugin error |
+| Option                          | Default                  | Description                                                               |
+| ------------------------------- | ------------------------ | ------------------------------------------------------------------------- |
+| `include`                       | all deployable contracts | Filter by contract name                                                   |
+| `out`                           | `./deployers`            | Where typed deployers are written                                         |
+| `deploymentsPath`               | `./deployments`          | Where JSON records are read/written                                       |
+| `plugins`                       | `[]`                     | Deploy-lifecycle hooks                                                    |
+| `onPluginError`                 | `"warn"`                 | `"throw"` fails the run on plugin error                                   |
+| `redeploymentStrategy`          | `"on-change"`            | Reuse vs redeploy when a record exists ([details](/concepts/idempotency)) |
+| `redeploymentStrategyByChainId` | `{}`                     | Per-chain override, keyed by chain id                                     |
 
 `defineConfig` is typed via `import { defineConfig } from "deployoor"`. If a name in `include` matches nothing after compile, `deployoor generate` warns (typo or missing artifact).
 
