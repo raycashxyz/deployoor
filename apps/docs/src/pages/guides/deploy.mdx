@@ -35,11 +35,15 @@ Gate one-time setup on `freshDeploy`:
 if (freshDeploy) await token.write.initialize([owner]);
 ```
 
-## Force redeploy
+## Redeployment
+
+By default (`on-change`), re-running redeploys only when the [deploy identity](/concepts/idempotency) changed — runtime bytecode, constructor args, or linked libraries. Override per call:
 
 ```ts
-await getOrDeployToken({ ...clients, args: [owner], force: true });
+await getOrDeployToken({ ...clients, args: [owner], redeploymentStrategy: "always" }); // or "never"
 ```
+
+Set a project default — globally or [per chain](/guides/configuration#options) — in `deployoor.config`. `force: true` / `force: false` remain as deprecated aliases for `"always"` / `"never"`.
 
 ## Multiple instances
 

@@ -7,6 +7,9 @@ import type { Framework } from "./artifacts";
  * `deployoor generate` CLI (filter/out) and the generated deployers (deploymentsPath,
  * plugins, onPluginError).
  */
+/** When a recorded deployment exists, whether the next `getOrDeploy` reuses it or redeploys. */
+export type RedeploymentStrategy = "never" | "on-change" | "always";
+
 export interface Config<P extends readonly AnyDeployPlugin[] = readonly AnyDeployPlugin[]> {
   /** Where deployment records are written/read. Default "./deployments". */
   readonly deploymentsPath?: string;
@@ -31,6 +34,15 @@ export interface Config<P extends readonly AnyDeployPlugin[] = readonly AnyDeplo
   readonly plugins?: P;
   /** Default plugin-failure policy. "warn" (default) logs and continues; "throw" surfaces it. */
   readonly onPluginError?: OnPluginError;
+  /**
+   * When a recorded deployment already exists, decide whether to redeploy. Default `'on-change'`:
+   * redeploy iff the deploy identity (metadata-stripped runtime bytecode + constructor args +
+   * linked libraries) moved. `'never'` reuses the record and warns on drift; `'always'` redeploys
+   * every call. Overridable per call (`redeploymentStrategy` on a deployer) and per chain (below).
+   */
+  readonly redeploymentStrategy?: RedeploymentStrategy;
+  /** Per-chain override of `redeploymentStrategy`, keyed by chain id (e.g. `{ [mainnet.id]: 'never' }`). */
+  readonly redeploymentStrategyByChainId?: Record<number, RedeploymentStrategy>;
 }
 
 export const defineConfig = <const P extends readonly AnyDeployPlugin[]>(config: Config<P>): Config<P> =>

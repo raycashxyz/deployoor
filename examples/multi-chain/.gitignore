@@ -2,5 +2,5 @@ node_modules
 out
 cache
 deployers
-deployments
+# NOTE: deployments/ (records + *.sources.json sidecars) is intentionally committed — it is the source of truth.
 .env

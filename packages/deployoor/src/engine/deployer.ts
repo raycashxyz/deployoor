@@ -10,11 +10,14 @@ import type { Libraries, TypedArtifact } from "../schemas";
 import type { AnyDeployPlugin, PluginDeps, PluginOverrides } from "../plugin";
 import type { OnPluginError } from "./plugins";
 import { fsStore, networkKeyForChain, type StoreAdapter } from "../store";
-import type { Config } from "../config";
+import { resolveStrategy } from "./strategy";
+import type { Config, RedeploymentStrategy } from "../config";
 
 export interface GetOrDeployArgs<A extends Abi, P extends readonly AnyDeployPlugin[]> {
   readonly args: ContractConstructorArgs<A>;
   readonly deploymentName?: string;
+  readonly redeploymentStrategy?: RedeploymentStrategy;
+  /** @deprecated use `redeploymentStrategy`. `true` → 'always', `false` → 'never'. */
   readonly force?: boolean;
   readonly libraries?: Libraries;
   readonly plugins?: PluginOverrides<P>;
@@ -33,6 +36,8 @@ export interface CreateDeployerConfig<P extends readonly AnyDeployPlugin[]> {
   readonly walletClient: WalletClient;
   readonly publicClient: PublicClient;
   readonly store: StoreAdapter;
+  readonly redeploymentStrategy?: RedeploymentStrategy;
+  readonly redeploymentStrategyByChainId?: Record<number, RedeploymentStrategy>;
   readonly plugins?: P;
   /** Default plugin-failure policy. "warn" (default) logs and continues; "throw" surfaces the failure. */
   readonly onPluginError?: OnPluginError;
@@ -92,6 +97,15 @@ export const createDeployer = <const P extends readonly AnyDeployPlugin[]>(
           },
           plugins,
           deps,
+          (chainId) =>
+            resolveStrategy(
+              { redeploymentStrategy: opts.redeploymentStrategy, force: opts.force },
+              {
+                redeploymentStrategy: config.redeploymentStrategy,
+                redeploymentStrategyByChainId: config.redeploymentStrategyByChainId,
+              },
+              chainId,
+            ),
         ),
         layer,
       ),
@@ -108,6 +122,8 @@ export interface DeployerCallOptions<A extends Abi, P extends readonly AnyDeploy
   readonly publicClient: PublicClient;
   readonly args: ContractConstructorArgs<A>;
   readonly deploymentName?: string;
+  readonly redeploymentStrategy?: RedeploymentStrategy;
+  /** @deprecated use `redeploymentStrategy`. `true` → 'always', `false` → 'never'. */
   readonly force?: boolean;
   readonly libraries?: Libraries;
   readonly plugins?: PluginOverrides<P>;
@@ -138,9 +154,12 @@ export const defineDeployer = <A extends Abi, const P extends readonly AnyDeploy
       store: opts.store ?? store,
       plugins: config.plugins,
       onPluginError: config.onPluginError,
+      redeploymentStrategy: config.redeploymentStrategy,
+      redeploymentStrategyByChainId: config.redeploymentStrategyByChainId,
     }).getOrDeploy(artifact, {
       args: opts.args,
       deploymentName: opts.deploymentName,
+      redeploymentStrategy: opts.redeploymentStrategy,
       force: opts.force,
       libraries: opts.libraries,
       plugins: opts.plugins,
@@ -219,9 +238,15 @@ export const defineReset = <const P extends readonly AnyDeployPlugin[]>(config: 
     const deploymentName = opts.deploymentName ?? opts.name;
     if (deploymentName === undefined) {
       const all = await active.list(network);
-      await Promise.all(all.map((r) => active.remove(network, r.deploymentName)));
+      await Promise.all(
+        all.flatMap((r) => [
+          active.remove(network, r.deploymentName),
+          active.removeSources?.(network, r.deploymentName),
+        ]),
+      );
     } else {
       await active.remove(network, deploymentName);
+      await active.removeSources?.(network, deploymentName);
     }
   };
 };

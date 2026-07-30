@@ -12,7 +12,7 @@ import {
 } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
-import { DeploymentRecord } from "./schemas";
+import { DeploymentRecord, SourcesSidecar } from "./schemas";
 
 // Deployment files are vanilla JSON (portable + greppable, committed to the user's
 // repo). The only non-JSON value is bigint in `constructorArgs`; we stringify it on
@@ -35,6 +35,14 @@ export interface StoreAdapter {
    * Implementations should return a release function. Stores that omit it remain valid.
    */
   lock?: (network: string, name: string) => Awaitable<() => Awaitable<void>>;
+  /**
+   * Optional verification-sources sidecar, persisted beside the record so a deployment stays
+   * verifiable forever. `fsStore`/`memoryStore` implement these; a store that omits them simply
+   * pins no sources (verification then falls back to recompiling the current sources).
+   */
+  writeSources?: (network: string, name: string, sources: SourcesSidecar) => Awaitable<void>;
+  readSources?: (network: string, name: string) => Awaitable<SourcesSidecar | null>;
+  removeSources?: (network: string, name: string) => Awaitable<void>;
 }
 
 type Awaitable<T> = T | Promise<T>;
@@ -74,6 +82,7 @@ const assertSafeSegment = (value: string, label: string): void => {
 /** In-memory store. Hermetic — used by tests and ephemeral runs. */
 export const memoryStore = (seed: ReadonlyArray<DeploymentRecord> = []): StoreAdapter => {
   const map = new Map<string, DeploymentRecord>(seed.map((r) => [key(r.networkName, r.deploymentName), r]));
+  const sources = new Map<string, SourcesSidecar>();
   return {
     read: (network, name) => map.get(key(network, name)) ?? null,
     write: (record) => {
@@ -83,6 +92,13 @@ export const memoryStore = (seed: ReadonlyArray<DeploymentRecord> = []): StoreAd
       Array.from(map.values()).filter((r) => r.networkName.toLowerCase() === network.toLowerCase()),
     remove: (network, name) => {
       map.delete(key(network, name));
+    },
+    writeSources: (network, name, srcs) => {
+      sources.set(key(network, name), srcs);
+    },
+    readSources: (network, name) => sources.get(key(network, name)) ?? null,
+    removeSources: (network, name) => {
+      sources.delete(key(network, name));
     },
   };
 };
@@ -96,6 +112,10 @@ export const fsStore = (root: string): StoreAdapter => {
   const fileFor = (network: string, name: string): string => {
     assertSafeSegment(name, "deploymentName");
     return join(dirFor(network), `${name}.json`);
+  };
+  const sourcesFileFor = (network: string, name: string): string => {
+    assertSafeSegment(name, "deploymentName");
+    return join(dirFor(network), `${name}.sources.json`);
   };
   const readFile = (file: string): DeploymentRecord =>
     DeploymentRecord.parse(JSON.parse(readFileSync(file, "utf8")));
@@ -152,7 +172,7 @@ export const fsStore = (root: string): StoreAdapter => {
       const dir = dirFor(network);
       if (!existsSync(dir)) return [];
       return readdirSync(dir)
-        .filter((f) => f.endsWith(".json"))
+        .filter((f) => f.endsWith(".json") && !f.endsWith(".sources.json"))
         .flatMap((f) => {
           const record = readFileSafe(join(dir, f));
           return record === null ? [] : [record];
@@ -160,6 +180,23 @@ export const fsStore = (root: string): StoreAdapter => {
     },
     remove: (network, name) => {
       const file = fileFor(network, name);
+      if (existsSync(file)) rmSync(file);
+    },
+    writeSources: (network, name, srcs) => {
+      const dir = dirFor(network);
+      mkdirSync(dir, { recursive: true });
+      assertSafeSegment(name, "deploymentName");
+      const file = join(dir, `${name}.sources.json`);
+      const tmp = join(dir, `.${name}.sources.${randomUUID()}.tmp`);
+      writeFileSync(tmp, JSON.stringify(srcs, null, 2));
+      renameSync(tmp, file);
+    },
+    readSources: (network, name) => {
+      const file = sourcesFileFor(network, name);
+      return existsSync(file) ? SourcesSidecar.parse(JSON.parse(readFileSync(file, "utf8"))) : null;
+    },
+    removeSources: (network, name) => {
+      const file = sourcesFileFor(network, name);
       if (existsSync(file)) rmSync(file);
     },
     lock: acquireLock,

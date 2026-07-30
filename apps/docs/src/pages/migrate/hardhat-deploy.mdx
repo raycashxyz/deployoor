@@ -136,7 +136,7 @@ console.log(token.address, vault.address);
 The differences worth knowing:
 
 - **No tags or dependencies.** Ordering is the order of your statements; a dependency is a variable. `getOrDeployVault` takes `token.address` because you have `token` in scope.
-- **`getOrDeploy` is `skipIfAlreadyDeployed` by default.** Re-running sends no transaction. Pass `force: true` to redeploy. Note this differs from hardhat-deploy's default, which redeploys when the bytecode changed, see [idempotency](/concepts/idempotency).
+- **`getOrDeploy` redeploys `on-change` by default** — like hardhat-deploy. Re-running sends no transaction unless the runtime bytecode, constructor args, or linked libraries changed; then it redeploys. Set `redeploymentStrategy: 'never'` to only ever reuse, or `'always'` to force. See [idempotency](/concepts/idempotency).
 - **Named accounts become viem accounts.** `getNamedAccounts()` has no equivalent; build the clients you need, one per signer.
 - **You get a contract object, not a receipt-ish struct.** `result.contract` is a typed viem contract, `contract.read.*` / `contract.write.*`, so there's no second `getContractAt` step.
 - **Multiple instances of one artifact** use `deploymentName` instead of a distinct contract name:
@@ -185,8 +185,8 @@ require("@deployoor/hardhat"); // Hardhat 2, use "@deployoor/hardhat/v3" on Hard
 ## Things that won't carry over
 
 - **Proxy and diamond deployments.** deployoor has no proxy support yet. `register` the proxy address so your app can reach it, but keep hardhat-deploy for upgrades until [proxies land](https://github.com/raycashxyz/deployoor/blob/main/TODO.md).
-- **`numDeployments` and `history`.** deployoor keeps one current record per (chain, deployment name); git history is the audit trail.
-- **`fetchIfDifferent` / bytecode-diff behaviour.** Not available yet; a reused record is reused until `force: true`.
+- **`numDeployments`.** deployoor keeps one current record per (chain, deployment name), now with an append-only [`history`](/concepts/deployment-records#history) of every (re)deploy and why — plus git history.
+- **`fetchIfDifferent` / bytecode-diff behaviour.** This is now the default (`on-change`): a changed contract redeploys automatically. See [idempotency](/concepts/idempotency).
 - **Verification of imported records.** As noted above, imported contracts have no compiler metadata attached.
 
 Hit something this guide doesn't cover? [Open an issue](https://github.com/raycashxyz/deployoor/issues), migration gaps are the fastest way to get something prioritised.

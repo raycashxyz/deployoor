@@ -23,6 +23,7 @@ export interface RawCompiled {
   readonly sourceName: string;
   readonly abi: Abi;
   readonly bytecode: `0x${string}`;
+  readonly deployedBytecode: `0x${string}`;
   readonly linkReferences?: LinkReferences;
   readonly compilerVersion: string;
   readonly sources: Record<string, { content: string }>;
@@ -34,6 +35,7 @@ export const toArtifact = (raw: RawCompiled): Artifact => ({
   name: raw.name,
   abi: raw.abi,
   bytecode: raw.bytecode,
+  deployedBytecode: raw.deployedBytecode,
   metadata: {
     fullyQualifiedName: `${raw.sourceName}:${raw.name}`,
     compilerVersion: raw.compilerVersion,
@@ -44,3 +46,15 @@ export const toArtifact = (raw: RawCompiled): Artifact => ({
 
 /** Interfaces/abstract contracts compile to empty bytecode — they get no deployer. */
 export const isDeployable = (bytecode: string): boolean => bytecode !== "0x" && bytecode.length > 2;
+
+/**
+ * Runtime bytecode for the deploy identity, falling back to the (always-present) creation
+ * bytecode when a compiler omits it. Never let it be a bare `"0x"`: that would be identical
+ * across contracts, collapsing the identity hash and silently defeating `'on-change'`. Also
+ * 0x-prefixes raw solc output.
+ */
+export const runtimeOrCreation = (runtime: string | undefined, creation: `0x${string}`): `0x${string}` => {
+  const raw = runtime ?? "";
+  const hex = (raw.startsWith("0x") ? raw : `0x${raw}`) as `0x${string}`;
+  return hex === "0x" ? creation : hex;
+};

@@ -13,7 +13,13 @@ export type {
   AnyDeployPlugin,
   PluginOverrides,
 } from "./plugin";
-export type { DeploymentRecord, ContractMetadata } from "./schemas";
+export type {
+  DeploymentRecord,
+  ContractMetadata,
+  DeploymentHistoryEntry,
+  RedeployReason,
+  IdentityChange,
+} from "./schemas";
 export {
   DeploymentChainMismatch,
   DeploymentExists,

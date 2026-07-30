@@ -14,7 +14,7 @@ declare module "@tevm/compiler" {
   }
   export interface TevmSolcContract {
     readonly abi: unknown;
-    readonly evm?: { readonly bytecode?: TevmSolcBytecode };
+    readonly evm?: { readonly bytecode?: TevmSolcBytecode; readonly deployedBytecode?: TevmSolcBytecode };
   }
   export interface TevmSolcInput {
     readonly language: string;

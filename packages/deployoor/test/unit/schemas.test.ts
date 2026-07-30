@@ -48,6 +48,60 @@ describe("DeploymentRecord schema", () => {
     expect(parsed.bytecode).toContain("__$"); // placeholder survives the round-trip through fsStore.read
     expect(parsed.libraries?.MathLib).toBe("0x" + "cd".repeat(20));
   });
+
+  it("defaults history to an empty array for a legacy (v1) record", () => {
+    const parsed = DeploymentRecord.parse(valid);
+    expect(parsed.history).toEqual([]);
+  });
+
+  it("accepts a v2 record with deployedBytecode, identityHash and a descriptive history entry", () => {
+    const idHash = ("0x" + "ab".repeat(32)) as `0x${string}`;
+    const parsed = DeploymentRecord.parse({
+      ...valid,
+      schemaVersion: 2,
+      deployedBytecode: "0x6080",
+      identityHash: idHash,
+      history: [
+        {
+          at: 1_719_000_000,
+          address: valid.address,
+          transactionHash: "0xdeadbeef",
+          deployer: valid.deployer,
+          identityHash: idHash,
+          reason: {
+            kind: "changed",
+            changes: [{ field: "code" }, { field: "args", from: [1], to: [2], changedIndices: [0] }],
+          },
+          summary: "contract bytecode changed",
+        },
+      ],
+    });
+
+    expect(parsed.schemaVersion).toBe(2);
+    expect(parsed.identityHash).toBe(idHash);
+    expect(parsed.history[0]?.reason.kind).toBe("changed");
+  });
+
+  it("re-parses a persisted library add/remove history entry (absent from/to, not '0x')", () => {
+    const parsed = DeploymentRecord.parse({
+      ...valid,
+      schemaVersion: 2,
+      history: [
+        {
+          at: 1,
+          address: valid.address,
+          transactionHash: "0x",
+          deployer: valid.deployer,
+          reason: {
+            kind: "changed",
+            changes: [{ field: "library", name: "MathLib", to: "0x" + "cd".repeat(20) }],
+          },
+          summary: "library `MathLib` added at 0x…",
+        },
+      ],
+    });
+    expect(parsed.history[0]?.reason.kind).toBe("changed");
+  });
 });
 
 describe("Address schema", () => {

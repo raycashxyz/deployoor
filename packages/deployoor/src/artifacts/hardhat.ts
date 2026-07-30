@@ -4,7 +4,7 @@ import { z } from "zod";
 import { ArtifactsNotFound } from "../errors";
 import { AbiSchema, Bytecode } from "../schemas";
 import type { Artifact } from "../schemas";
-import { toArtifact, isDeployable, type LinkReferences } from "./parse";
+import { toArtifact, isDeployable, runtimeOrCreation, type LinkReferences } from "./parse";
 
 // Zod-validated boundary shapes for Hardhat's on-disk artifacts. This one reader covers
 // BOTH Hardhat majors: the per-contract fields (contractName/sourceName/abi/bytecode/
@@ -21,6 +21,7 @@ const ArtifactFile = z.object({
   sourceName: z.string(),
   abi: AbiSchema,
   bytecode: Bytecode,
+  deployedBytecode: Bytecode.optional(),
   linkReferences: LinkRefs.optional(),
   // Hardhat 3 additions (optional, so HH2 artifacts still parse):
   buildInfoId: z.string().optional(),
@@ -92,6 +93,7 @@ export const readHardhatArtifacts = (artifactsDir: string): Artifact[] => {
         sourceName: parsed.data.inputSourceName ?? parsed.data.sourceName,
         abi: parsed.data.abi,
         bytecode: parsed.data.bytecode,
+        deployedBytecode: runtimeOrCreation(parsed.data.deployedBytecode, parsed.data.bytecode),
         linkReferences: parsed.data.linkReferences as LinkReferences | undefined,
         compilerVersion: info?.solcLongVersion ?? "",
         sources: info?.input.sources ?? {},

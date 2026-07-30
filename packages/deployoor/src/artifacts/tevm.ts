@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 import type { Abi } from "viem";
 import { ArtifactsNotFound } from "../errors";
 import type { Artifact } from "../schemas";
-import { toArtifact, isDeployable, type LinkReferences } from "./parse";
+import { toArtifact, isDeployable, runtimeOrCreation, type LinkReferences } from "./parse";
 
 export interface ReadTevmOptions {
   /** Directory (relative to root) holding the `.sol` sources to compile. Default "src". */
@@ -132,6 +132,7 @@ export const readTevmArtifacts = async (root: string, opts: ReadTevmOptions = {}
                 sourceName: toRel(file),
                 abi: contract.abi as Abi,
                 bytecode,
+                deployedBytecode: runtimeOrCreation(contract.evm?.deployedBytecode?.object, bytecode),
                 linkReferences: contract.evm?.bytecode?.linkReferences as LinkReferences | undefined,
                 compilerVersion,
                 sources,

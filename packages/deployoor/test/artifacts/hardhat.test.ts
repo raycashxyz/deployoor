@@ -50,6 +50,8 @@ describe("readHardhatArtifacts", () => {
     expect(artifact?.name).toBe("UsesLib");
     expect(artifact?.bytecode).toContain("__$"); // placeholder retained for deploy-time linking
     expect(Object.keys(artifact?.metadata.libraryPlaceholders ?? {})).toContain("MathLib");
+    // No deployedBytecode in this artifact → falls back to creation bytecode, never a bare "0x".
+    expect(artifact?.deployedBytecode).toBe(artifact?.bytecode);
   });
 });
 

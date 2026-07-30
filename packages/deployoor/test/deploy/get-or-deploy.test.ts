@@ -39,7 +39,8 @@ describe("getOrDeploy", () => {
     expect(await contract.read.count()).toBe(5n);
     const record = await store.read(network(), "Counter_a");
     expect(record?.address).toBe(contract.address);
-    expect(record?.schemaVersion).toBe(1);
+    expect(record?.schemaVersion).toBe(2);
+    expect(record?.history?.[0]?.reason.kind).toBe("fresh");
   });
 
   it("returns the existing contract with no transaction on the second call", async () => {
@@ -203,13 +204,14 @@ describe("getOrDeploy", () => {
     ).rejects.toMatchObject({ _tag: "DeploymentChainMismatch" });
   });
 
-  it("warns when reusing a record with different bytecode or constructor args", async () => {
+  it("under 'never', reuses and warns when bytecode or constructor args changed", async () => {
     const warn = vi.fn();
     const store = memoryStore();
     const deployer = createDeployer({
       walletClient,
       publicClient,
       store,
+      redeploymentStrategy: "never",
       deps: { log: { info: () => {}, warn } },
     });
 
@@ -217,11 +219,12 @@ describe("getOrDeploy", () => {
       args: [5n, account],
       deploymentName: "Counter_stale",
     });
-    await deployer.getOrDeploy(
+    const reused = await deployer.getOrDeploy(
       { ...counterArtifact, bytecode: "0x60" },
       { args: [6n, account], deploymentName: "Counter_stale" },
     );
 
+    expect(reused.freshDeploy).toBe(false); // 'never' reused despite the drift
     expect(warn).toHaveBeenCalledTimes(2);
     expect(warn.mock.calls.map((call) => String(call[0])).join("\n")).toContain("bytecode differs");
     expect(warn.mock.calls.map((call) => String(call[0])).join("\n")).toContain("constructor args differ");
