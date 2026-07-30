@@ -261,13 +261,20 @@ describe("verification sources", () => {
       deps: { log: { info: () => {}, warn } },
     });
 
+    expect(await failing.read(network(), "PinFail")).toBeNull();
+
     const { freshDeploy, deployment } = await deployer.getOrDeploy(counterArtifact, {
       args: [5n, account],
       deploymentName: "PinFail",
     });
 
     expect(freshDeploy).toBe(true);
+    // Assert the persisted record, not just the returned one: the value the pipeline resolves with
+    // is the record it built in memory, so it looks identical whether or not the write happened.
+    const persisted = await failing.read(network(), "PinFail");
+    expect(persisted?.address).toBe(deployment.address);
     // No sourcesHash, rather than a hash pointing at a blob that was never written.
+    expect(persisted?.sourcesHash).toBeUndefined();
     expect(deployment.sourcesHash).toBeUndefined();
     expect(warn.mock.calls.map((c) => String(c[0])).join("\n")).toContain("could not pin");
   });
