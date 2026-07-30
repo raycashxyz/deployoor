@@ -83,6 +83,26 @@ describe("diffIdentity", () => {
     expect(changes).toContainEqual(expect.objectContaining({ field: "library", name: "MathLib" }));
   });
 
+  it("omits the absent side for an added (no `from`) or removed (no `to`) library", () => {
+    const added = diffIdentity({
+      existing: existing(),
+      bytecode: "0x6080aa",
+      deployedBytecode: depA,
+      args: [5n, addrA],
+      libraries: { MathLib: addrB },
+    });
+    expect(added).toContainEqual({ field: "library", name: "MathLib", to: addrB });
+
+    const removed = diffIdentity({
+      existing: existing({ libraries: { MathLib: addrA } }),
+      bytecode: "0x6080aa",
+      deployedBytecode: depA,
+      args: [5n, addrA],
+      libraries: {},
+    });
+    expect(removed).toContainEqual({ field: "library", name: "MathLib", from: addrA });
+  });
+
   it("falls back to strict creation-bytecode comparison for a v1 record (no deployedBytecode)", () => {
     const v1 = existing({ deployedBytecode: undefined, identityHash: undefined });
     const unchanged = diffIdentity({
@@ -126,5 +146,15 @@ describe("renderSummary", () => {
     expect(renderSummary({ kind: "changed", changes: [{ field: "code" }] }, COUNTER_ABI)).toBe(
       "contract bytecode changed",
     );
+  });
+
+  it("describes an added and a removed library", () => {
+    const added: RedeployReason = { kind: "changed", changes: [{ field: "library", name: "L", to: addrB }] };
+    const removed: RedeployReason = {
+      kind: "changed",
+      changes: [{ field: "library", name: "L", from: addrA }],
+    };
+    expect(renderSummary(added, COUNTER_ABI)).toContain("added");
+    expect(renderSummary(removed, COUNTER_ABI)).toContain("removed");
   });
 });

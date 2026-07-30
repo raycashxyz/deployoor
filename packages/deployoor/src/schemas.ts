@@ -88,7 +88,12 @@ export type Libraries = Record<string, `0x${string}`>;
  */
 export const IdentityChange = z.union([
   z.object({ field: z.literal("code") }),
-  z.object({ field: z.literal("library"), name: z.string(), from: Address, to: Address }),
+  z.object({
+    field: z.literal("library"),
+    name: z.string(),
+    from: Address.optional(),
+    to: Address.optional(),
+  }),
   z.object({
     field: z.literal("args"),
     from: z.array(z.unknown()),
@@ -101,8 +106,8 @@ export type IdentityChange =
   | {
       readonly field: "library";
       readonly name: string;
-      readonly from: `0x${string}`;
-      readonly to: `0x${string}`;
+      readonly from?: `0x${string}`; // absent when the library was added
+      readonly to?: `0x${string}`; // absent when the library was removed
     }
   | {
       readonly field: "args";

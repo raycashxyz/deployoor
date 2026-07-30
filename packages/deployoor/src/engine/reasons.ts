@@ -45,7 +45,9 @@ export const diffIdentity = (input: {
     const from = existingLibraries[name];
     const to = input.libraries[name];
     const changed = from === undefined || to === undefined || !isAddressEqual(from, to);
-    return changed ? [{ field: "library", name, from: from ?? "0x", to: to ?? "0x" }] : [];
+    // Omit the absent side (added → no `from`, removed → no `to`) so the persisted history
+    // stays a valid Address and re-parses; "0x" would fail Address validation on the next read.
+    return changed ? [{ field: "library", name, from, to }] : [];
   });
 
   const from = input.existing.constructorArgs;
@@ -73,6 +75,8 @@ const renderValue = (value: unknown): string => {
 const renderChange = (change: IdentityChange, abi: Abi): string => {
   if (change.field === "code") return "contract bytecode changed";
   if (change.field === "library") {
+    if (change.from === undefined) return `library \`${change.name}\` added at ${change.to}`;
+    if (change.to === undefined) return `library \`${change.name}\` removed (was ${change.from})`;
     return `library \`${change.name}\` changed from ${change.from} to ${change.to}`;
   }
   const inputs = constructorInputs(abi);

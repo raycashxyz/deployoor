@@ -94,5 +94,10 @@ describe("fsStore", () => {
     expect(read?.deployedBytecode).toBe("0x6080");
     expect(read?.identityHash).toBe(idHash);
     expect(read?.history?.[0]?.summary).toBe("constructor args changed");
+    // the nested bigint-replacer path survives the fs round-trip (bigints as portable strings)
+    expect(read?.history?.[0]?.reason).toMatchObject({
+      kind: "changed",
+      changes: [{ field: "args", from: ["1"], to: ["2"], changedIndices: [0] }],
+    });
   });
 });

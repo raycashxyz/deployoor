@@ -81,6 +81,27 @@ describe("DeploymentRecord schema", () => {
     expect(parsed.identityHash).toBe(idHash);
     expect(parsed.history[0]?.reason.kind).toBe("changed");
   });
+
+  it("re-parses a persisted library add/remove history entry (absent from/to, not '0x')", () => {
+    const parsed = DeploymentRecord.parse({
+      ...valid,
+      schemaVersion: 2,
+      history: [
+        {
+          at: 1,
+          address: valid.address,
+          transactionHash: "0x",
+          deployer: valid.deployer,
+          reason: {
+            kind: "changed",
+            changes: [{ field: "library", name: "MathLib", to: "0x" + "cd".repeat(20) }],
+          },
+          summary: "library `MathLib` added at 0x…",
+        },
+      ],
+    });
+    expect(parsed.history[0]?.reason.kind).toBe("changed");
+  });
 });
 
 describe("Address schema", () => {

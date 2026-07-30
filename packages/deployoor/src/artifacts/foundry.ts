@@ -4,7 +4,7 @@ import { z } from "zod";
 import { ArtifactsNotFound } from "../errors";
 import { AbiSchema, Bytecode } from "../schemas";
 import type { Artifact } from "../schemas";
-import { toArtifact, isDeployable, type LinkReferences } from "./parse";
+import { toArtifact, isDeployable, runtimeOrCreation, type LinkReferences } from "./parse";
 
 // Zod-validated boundary shapes for Foundry's `out/` artifacts. Note bytecode is
 // nested under `.object` (unlike Hardhat's flat string), and the fully-qualified
@@ -69,7 +69,10 @@ export const readFoundryArtifacts = (outDir: string): Artifact[] => {
         sourceName,
         abi: parsed.data.abi,
         bytecode: parsed.data.bytecode.object,
-        deployedBytecode: parsed.data.deployedBytecode?.object ?? "0x",
+        deployedBytecode: runtimeOrCreation(
+          parsed.data.deployedBytecode?.object,
+          parsed.data.bytecode.object,
+        ),
         linkReferences: parsed.data.bytecode.linkReferences as LinkReferences | undefined,
         compilerVersion: parsed.data.metadata.compiler.version,
         sources: input?.sources ?? {},
