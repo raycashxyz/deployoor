@@ -1,10 +1,10 @@
 {
   "name": "@deployoor/wagmi",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": false,
   "type": "module",
   "sideEffects": false,
-  "description": "Source deployoor deployments into @wagmi/cli \u2014 typed contract objects for your app.",
+  "description": "Source deployoor deployments into @wagmi/cli — typed contract objects for your app.",
   "keywords": [
     "ethereum",
     "evm",
