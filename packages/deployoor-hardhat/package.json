@@ -60,7 +60,7 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "deployoor": "*",
+    "deployoor": ">=0.5.0 <1.0.0",
     "hardhat": "^2 || ^3"
   },
   "devDependencies": {

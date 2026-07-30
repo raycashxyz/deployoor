@@ -4,7 +4,7 @@
   "private": false,
   "type": "module",
   "sideEffects": false,
-  "description": "Test your deployoor deploys against a real in-memory EVM (tevm) exposed as viem clients — no local node, no RPC.",
+  "description": "Test your deployoor deploys against a real in-memory EVM (tevm) exposed as viem clients \u2014 no local node, no RPC.",
   "keywords": [
     "ethereum",
     "evm",
@@ -43,8 +43,8 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "deployoor": "*",
-    "viem": ">=2.49"
+    "deployoor": ">=0.5.0 <1.0.0",
+    "viem": "^2"
   },
   "dependencies": {
     "tevm": "1.0.0-next.149",
