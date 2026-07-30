@@ -20,21 +20,29 @@ const jsonKey = (value: unknown): string =>
     return inner;
   }) ?? "undefined";
 
-/**
- * Canonical key for one constructor arg: its ABI encoding against the declared input type, so
- * values the EVM cannot tell apart — `1`, `1n`, `"1"`, an address in either casing — share a key.
- * This is the canonicalisation `identityHash` applies to the whole tuple, so the diff and the hash
- * agree by construction. Anything unencodable (arity drift, a junk value, no constructor in the
- * abi) falls back to the JSON key rather than throwing.
- */
-const argKey = (value: unknown, input: AbiParameter | undefined): string => {
-  if (input === undefined) return jsonKey(value);
+// ABI-encode both sides against the declared input type, or `undefined` if EITHER side cannot be
+// encoded. Both-or-neither matters: viem's address encoder accepts an all-lowercase address but
+// rejects a non-checksummed mixed-case one, so encoding per value would compare an ABI-encoded key
+// against a JSON key — two key spaces that can never be equal, reporting a change that isn't one.
+const encodedMatch = (from: unknown, to: unknown, input: AbiParameter | undefined): boolean | undefined => {
+  if (input === undefined) return undefined;
   try {
-    return encodeAbiParameters([input], [value]);
+    return encodeAbiParameters([input], [from]) === encodeAbiParameters([input], [to]);
   } catch {
-    return jsonKey(value);
+    return undefined;
   }
 };
+
+/**
+ * Compare one constructor arg canonically: by its ABI encoding against the declared input type, so
+ * values the EVM cannot tell apart — `1`, `1n`, `"1"` — are equal. That is the canonicalisation
+ * `identityHash` applies to the whole tuple, so the diff and the hash agree by construction. When
+ * the abi cannot encode the pair (arity drift, a junk value, an address that fails viem's checksum
+ * check, no constructor at all) both sides fall back to the normalized JSON key, which is where
+ * address casing is folded away.
+ */
+const argsMatch = (from: unknown, to: unknown, input: AbiParameter | undefined): boolean =>
+  encodedMatch(from, to, input) ?? jsonKey(from) === jsonKey(to);
 
 const constructorInputs = (abi: Abi): readonly AbiParameter[] => {
   const ctor = abi.find(
@@ -76,7 +84,7 @@ export const diffIdentity = (input: {
   const from = input.existing.constructorArgs;
   const to = input.args;
   const changedIndices = Array.from({ length: Math.max(from.length, to.length) }, (_v, i) => i).filter(
-    (i) => argKey(from[i], inputs[i]) !== argKey(to[i], inputs[i]),
+    (i) => !argsMatch(from[i], to[i], inputs[i]),
   );
 
   return [

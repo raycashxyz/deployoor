@@ -646,7 +646,7 @@ Ledger is the one non-key signer Nomic ships. It does not support EIP-7702.
 // run with `tsx scripts/deploy.ts`
 import { PrivyClient } from "@privy-io/node";
 import { createViemAccount } from "@privy-io/node/viem";
-import { createPublicClient, createWalletClient, http } from "viem";
+import { createPublicClient, createWalletClient, http, type Address } from "viem";
 import { sepolia } from "viem/chains";
 import { getOrDeployCounter } from "../deployers";
 

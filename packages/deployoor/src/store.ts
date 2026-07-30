@@ -12,6 +12,7 @@ import {
 } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
+import type { Hex } from "viem";
 import { DeploymentRecord, SourcesSidecar } from "./schemas";
 
 // Deployment files are vanilla JSON (portable + greppable, committed to the user's
@@ -44,8 +45,8 @@ export interface StoreAdapter {
    * Because blobs are shared, they are collected rather than deleted per record: `pruneSources`
    * drops every blob no surviving record references.
    */
-  writeSources?: (hash: string, sources: SourcesSidecar) => Awaitable<void>;
-  readSources?: (hash: string) => Awaitable<SourcesSidecar | null>;
+  writeSources?: (hash: Hex, sources: SourcesSidecar) => Awaitable<void>;
+  readSources?: (hash: Hex) => Awaitable<SourcesSidecar | null>;
   pruneSources?: () => Awaitable<void>;
 }
 
@@ -86,7 +87,7 @@ const assertSafeSegment = (value: string, label: string): void => {
 /** In-memory store. Hermetic — used by tests and ephemeral runs. */
 export const memoryStore = (seed: ReadonlyArray<DeploymentRecord> = []): StoreAdapter => {
   const map = new Map<string, DeploymentRecord>(seed.map((r) => [key(r.networkName, r.deploymentName), r]));
-  const sources = new Map<string, SourcesSidecar>();
+  const sources = new Map<Hex, SourcesSidecar>();
   return {
     read: (network, name) => map.get(key(network, name)) ?? null,
     write: (record) => {
@@ -101,7 +102,7 @@ export const memoryStore = (seed: ReadonlyArray<DeploymentRecord> = []): StoreAd
     },
     readSources: (hash) => sources.get(hash) ?? null,
     pruneSources: () => {
-      const referenced = new Set<string>(
+      const referenced = new Set<Hex>(
         [...map.values()].flatMap((r) => (r.sourcesHash === undefined ? [] : [r.sourcesHash])),
       );
       [...sources.keys()].filter((hash) => !referenced.has(hash)).forEach((hash) => sources.delete(hash));
@@ -123,7 +124,7 @@ export const fsStore = (root: string): StoreAdapter => {
   // contract is deployed to share one blob. A network key is always `<chainId>-<slug>`, so the
   // reserved name can never collide with one.
   const sourcesDir = join(root, "sources");
-  const sourcesFileFor = (hash: string): string => {
+  const sourcesFileFor = (hash: Hex): string => {
     assertSafeSegment(hash, "sourcesHash");
     return join(sourcesDir, `${hash}.json`);
   };

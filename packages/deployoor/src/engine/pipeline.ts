@@ -83,7 +83,7 @@ const identityChanged = (
  * The deploy pipeline, read top-to-bottom. A recorded deployment is reused (no transaction)
  * unless the resolved `redeploymentStrategy` says otherwise: `always` redeploys, `on-change`
  * redeploys iff the deploy identity moved, `never` reuses and warns on drift. Every real
- * (re)deploy appends a reasoned history entry and pins the verification sources sidecar.
+ * (re)deploy appends a reasoned history entry and pins its verification sources.
  */
 export const getOrDeploy = <A extends Abi>(
   artifact: TypedArtifact<A>,
@@ -203,7 +203,23 @@ export const getOrDeploy = <A extends Abi>(
       const identity = Option.getOrUndefined(currentIdentity);
       const identityHash = identity?.identityHash;
       const contractCodeHash = identity?.codeHash;
+      // Pin the verification input BEFORE writing the record, so a record's `sourcesHash` never
+      // points at a blob that does not exist. Best-effort by design: the deploy is already
+      // broadcast and confirmed, so a store that cannot pin sources must not turn a successful
+      // deployment into a rejected promise (which would also skip the plugins below). Pinning is
+      // optional in the `StoreAdapter` contract — a store may implement no source methods at all.
       const sources = pinSources(artifact.metadata);
+      const pinned = yield* store.writeSources(sources.hash, sources.sidecar).pipe(
+        Effect.as(true),
+        Effect.catchAll((cause) =>
+          Effect.sync(() => {
+            deps.log.warn(
+              `[deployoor] Deployed ${name}, but could not pin its verification sources (${cause}). The record is written without a sourcesHash.`,
+            );
+            return false;
+          }),
+        ),
+      );
       const summary = renderSummary(reason, artifact.abi);
       const entry: DeploymentHistoryEntry = {
         at: now,
@@ -236,7 +252,7 @@ export const getOrDeploy = <A extends Abi>(
         },
         ...(contractCodeHash === undefined ? {} : { codeHash: contractCodeHash }),
         ...(identityHash === undefined ? {} : { identityHash }),
-        sourcesHash: sources.hash,
+        ...(pinned ? { sourcesHash: sources.hash } : {}),
         // Record the linked libraries so a library-dependent deployment round-trips
         // (the stored bytecode keeps solc's placeholders; the addresses live here).
         ...(opts.libraries === undefined ? {} : { libraries: opts.libraries }),
@@ -244,9 +260,6 @@ export const getOrDeploy = <A extends Abi>(
         kind: "standard",
       };
       yield* store.write(record);
-      // Pin the exact verification input the record points at, so the contract stays verifiable on
-      // a block explorer later — independent of the current source tree.
-      yield* store.writeSources(sources.hash, sources.sidecar);
       deps.log.info(
         `[deployoor] Deployed ${name} on ${network} at ${address} — ${summary}${existing === undefined ? "" : ` (superseded ${existing.address})`}`,
       );

@@ -1,5 +1,6 @@
 import { Context, Effect, Layer, Option } from "effect";
 import { InvalidDeploymentRecord } from "../errors";
+import type { Hex } from "viem";
 import type { DeploymentRecord, SourcesSidecar } from "../schemas";
 import type { StoreAdapter } from "../store";
 
@@ -14,10 +15,7 @@ export interface StoreService {
     name: string,
   ) => Effect.Effect<Option.Option<DeploymentRecord>, InvalidDeploymentRecord>;
   readonly write: (record: DeploymentRecord) => Effect.Effect<void, InvalidDeploymentRecord>;
-  readonly writeSources: (
-    hash: string,
-    sources: SourcesSidecar,
-  ) => Effect.Effect<void, InvalidDeploymentRecord>;
+  readonly writeSources: (hash: Hex, sources: SourcesSidecar) => Effect.Effect<void, InvalidDeploymentRecord>;
   readonly list: (network: string) => Effect.Effect<ReadonlyArray<DeploymentRecord>, InvalidDeploymentRecord>;
   readonly remove: (network: string, name: string) => Effect.Effect<void, InvalidDeploymentRecord>;
 }

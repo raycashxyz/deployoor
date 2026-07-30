@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -242,6 +242,34 @@ describe("verification sources", () => {
 
     expect(existsSync(join(dir, network(), "Side3.json"))).toBe(false);
     expect(existsSync(sourcesFile(dir, deployment))).toBe(false);
+  });
+
+  it("still records the deployment when pinning the sources fails", async () => {
+    // The deploy is already broadcast and confirmed by this point, so a store that cannot pin
+    // sources must not turn a successful deployment into a rejected promise.
+    const warn = vi.fn();
+    const failing = {
+      ...memoryStore(),
+      writeSources: () => {
+        throw new Error("disk full");
+      },
+    };
+    const deployer = createDeployer({
+      walletClient,
+      publicClient,
+      store: failing,
+      deps: { log: { info: () => {}, warn } },
+    });
+
+    const { freshDeploy, deployment } = await deployer.getOrDeploy(counterArtifact, {
+      args: [5n, account],
+      deploymentName: "PinFail",
+    });
+
+    expect(freshDeploy).toBe(true);
+    // No sourcesHash, rather than a hash pointing at a blob that was never written.
+    expect(deployment.sourcesHash).toBeUndefined();
+    expect(warn.mock.calls.map((c) => String(c[0])).join("\n")).toContain("could not pin");
   });
 
   it("reset keeps a sources blob another deployment still references", async () => {

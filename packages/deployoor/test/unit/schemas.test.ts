@@ -54,12 +54,12 @@ describe("DeploymentRecord schema", () => {
     expect(parsed.history).toEqual([]);
   });
 
-  it("accepts a v2 record with deployedBytecode, identityHash and a descriptive history entry", () => {
+  it("accepts a v2 record with codeHash, identityHash and a descriptive history entry", () => {
     const idHash = `0x${"ab".repeat(32)}` as const;
     const parsed = DeploymentRecord.parse({
       ...valid,
       schemaVersion: 2,
-      deployedBytecode: "0x6080",
+      codeHash: idHash,
       identityHash: idHash,
       history: [
         {
@@ -104,7 +104,7 @@ describe("DeploymentRecord schema", () => {
   });
 });
 
-describe("AddressSchema schema", () => {
+describe("AddressSchema", () => {
   it("accepts a 20-byte hex address", () => {
     expect(AddressSchema.safeParse("0x" + "ab".repeat(20)).success).toBe(true);
   });
@@ -114,7 +114,7 @@ describe("AddressSchema schema", () => {
   });
 });
 
-describe("BytecodeSchema schema", () => {
+describe("BytecodeSchema", () => {
   const withPlaceholder = "0x6080__$f2b8c1a0d3e4f5061728394a5b6c7d8e9f$__";
 
   it("accepts plain hex bytecode", () => {

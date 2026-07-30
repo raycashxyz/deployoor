@@ -126,12 +126,17 @@ describe("diffIdentity", () => {
   });
 
   it("ignores address checksum casing", () => {
+    // Needs hex letters: uppercasing a digits-only address is a no-op and would assert nothing.
+    const lower = `0x${"ab".repeat(20)}` as const;
+    const upper = `0x${"AB".repeat(20)}` as const;
+    expect(upper).not.toBe(lower);
+
     const changes = diffIdentity({
-      existing: existing({ constructorArgs: [5n, addrA.toUpperCase().replace("0X", "0x")] }),
+      existing: existing({ constructorArgs: [5n, upper] }),
       abi: COUNTER_ABI,
       bytecode: "0x6080aa",
       deployedBytecode: depA,
-      args: [5n, addrA],
+      args: [5n, lower],
       libraries: {},
     });
     expect(changes).toEqual([]);
