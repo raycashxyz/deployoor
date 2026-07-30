@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { DeploymentRecord, Address, Bytecode, Hex } from "../../src/schemas";
+import { DeploymentRecord, AddressSchema, BytecodeSchema, HexSchema } from "../../src/schemas";
 
 const valid = {
   contractName: "Token",
@@ -55,7 +55,7 @@ describe("DeploymentRecord schema", () => {
   });
 
   it("accepts a v2 record with deployedBytecode, identityHash and a descriptive history entry", () => {
-    const idHash = ("0x" + "ab".repeat(32)) as `0x${string}`;
+    const idHash = `0x${"ab".repeat(32)}` as const;
     const parsed = DeploymentRecord.parse({
       ...valid,
       schemaVersion: 2,
@@ -104,28 +104,28 @@ describe("DeploymentRecord schema", () => {
   });
 });
 
-describe("Address schema", () => {
+describe("AddressSchema schema", () => {
   it("accepts a 20-byte hex address", () => {
-    expect(Address.safeParse("0x" + "ab".repeat(20)).success).toBe(true);
+    expect(AddressSchema.safeParse("0x" + "ab".repeat(20)).success).toBe(true);
   });
 
   it("rejects a too-short address", () => {
-    expect(Address.safeParse("0xabcd").success).toBe(false);
+    expect(AddressSchema.safeParse("0xabcd").success).toBe(false);
   });
 });
 
-describe("Bytecode schema", () => {
+describe("BytecodeSchema schema", () => {
   const withPlaceholder = "0x6080__$f2b8c1a0d3e4f5061728394a5b6c7d8e9f$__";
 
   it("accepts plain hex bytecode", () => {
-    expect(Bytecode.safeParse("0x6080604052").success).toBe(true);
+    expect(BytecodeSchema.safeParse("0x6080604052").success).toBe(true);
   });
 
   it("accepts bytecode carrying an unlinked library placeholder", () => {
-    expect(Bytecode.safeParse(withPlaceholder).success).toBe(true);
+    expect(BytecodeSchema.safeParse(withPlaceholder).success).toBe(true);
   });
 
-  it("does not loosen the strict Hex validator (tx hashes still reject placeholders)", () => {
-    expect(Hex.safeParse(withPlaceholder).success).toBe(false);
+  it("does not loosen the strict HexSchema validator (tx hashes still reject placeholders)", () => {
+    expect(HexSchema.safeParse(withPlaceholder).success).toBe(false);
   });
 });

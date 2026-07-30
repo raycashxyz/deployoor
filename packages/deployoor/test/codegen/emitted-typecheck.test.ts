@@ -55,13 +55,17 @@ describe("generated deployers type-check against deployoor", () => {
       }),
     );
 
-    let diagnostics = "";
-    try {
-      execFileSync(process.execPath, [tscBin, "-p", join(project, "tsconfig.json")], { stdio: "pipe" });
-    } catch (error) {
-      const e = error as { stdout?: Buffer; stderr?: Buffer };
-      diagnostics = `${e.stdout ?? ""}${e.stderr ?? ""}`;
-    }
+    const runTsc = (): string => {
+      try {
+        execFileSync(process.execPath, [tscBin, "-p", join(project, "tsconfig.json")], { stdio: "pipe" });
+        return "";
+      } catch (error) {
+        const e = error as { stdout?: Buffer; stderr?: Buffer };
+        return `${e.stdout ?? ""}${e.stderr ?? ""}`;
+      }
+    };
+
+    const diagnostics = runTsc();
     expect(diagnostics, diagnostics).toBe("");
   }, 60_000);
 });

@@ -2,12 +2,10 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { Plugin, ContractConfig } from "@wagmi/cli";
 import { z } from "zod";
+import type { Address } from "viem";
 
 const addressRe = /^0x[0-9a-fA-F]{40}$/;
-const AddressSchema = z.custom<`0x${string}`>(
-  (v) => typeof v === "string" && addressRe.test(v),
-  "invalid address",
-);
+const AddressSchema = z.custom<Address>((v) => typeof v === "string" && addressRe.test(v), "invalid address");
 
 const AbiSchema = z.custom<ContractConfig["abi"]>((v) => Array.isArray(v), "invalid abi");
 

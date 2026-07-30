@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 import type { Abi } from "viem";
 import { ArtifactsNotFound } from "../errors";
 import type { Artifact } from "../schemas";
-import { toArtifact, isDeployable, runtimeOrCreation, type LinkReferences } from "./parse";
+import { toArtifact, isDeployable, ensureHexPrefix, runtimeOrCreation, type LinkReferences } from "./parse";
 
 export interface ReadTevmOptions {
   /** Directory (relative to root) holding the `.sol` sources to compile. Default "src". */
@@ -60,15 +60,16 @@ const loadSolc = (root: string, provided: SolcLike | undefined): SolcLike => {
   }
 };
 
-const loadTevmCompiler = async (root: string): Promise<typeof import("@tevm/compiler")> => {
-  let entry: string;
+const resolveTevmCompiler = (root: string): string => {
   try {
-    entry = requireFromRoot(root).resolve("@tevm/compiler");
+    return requireFromRoot(root).resolve("@tevm/compiler");
   } catch {
     throw new Error("tevm generate needs `@tevm/compiler` — add it with `pnpm add -D @tevm/compiler solc`.");
   }
-  return import(pathToFileURL(entry).href);
 };
+
+const loadTevmCompiler = async (root: string): Promise<typeof import("@tevm/compiler")> =>
+  import(pathToFileURL(resolveTevmCompiler(root)).href);
 
 const nodeFao = () => ({
   readFile: (path: string, encoding: BufferEncoding) => readFile(path, encoding),
@@ -76,9 +77,6 @@ const nodeFao = () => ({
   existsSync,
   exists: async (path: string) => existsSync(path),
 });
-
-const hexBytecode = (object: string): `0x${string}` =>
-  (object.startsWith("0x") ? object : `0x${object}`) as `0x${string}`;
 
 /**
  * Read a tevm project's Solidity sources by compiling them with tevm's programmatic compiler
@@ -124,7 +122,7 @@ export const readTevmArtifacts = async (root: string, opts: ReadTevmOptions = {}
         .filter(([file]) => underSources(file))
         .flatMap(([file, contracts]) =>
           Object.entries(contracts).flatMap(([name, contract]) => {
-            const bytecode = hexBytecode(contract.evm?.bytecode?.object ?? "");
+            const bytecode = ensureHexPrefix(contract.evm?.bytecode?.object ?? "");
             if (!isDeployable(bytecode)) return [];
             return [
               toArtifact({
@@ -145,11 +143,15 @@ export const readTevmArtifacts = async (root: string, opts: ReadTevmOptions = {}
   );
 
   // Compiling each entry file independently re-emits any shared/imported project sources, so
-  // dedupe by fully-qualified name (keep the first).
-  const byFqn = new Map<string, Artifact>();
-  perFile.flat().forEach((artifact) => {
-    if (!byFqn.has(artifact.metadata.fullyQualifiedName))
-      byFqn.set(artifact.metadata.fullyQualifiedName, artifact);
-  });
+  // dedupe by fully-qualified name, keeping the first occurrence and its position.
+  const byFqn = perFile
+    .flat()
+    .reduce(
+      (seen, artifact) =>
+        seen.has(artifact.metadata.fullyQualifiedName)
+          ? seen
+          : seen.set(artifact.metadata.fullyQualifiedName, artifact),
+      new Map<string, Artifact>(),
+    );
   return [...byFqn.values()];
 };

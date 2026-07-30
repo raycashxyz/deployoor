@@ -1,5 +1,5 @@
 import { keccak256, stringToBytes } from "viem";
-import type { Abi } from "viem";
+import type { Abi, Hex } from "viem";
 import type { Artifact } from "../schemas";
 
 /** solc link references: sourceName → libName → byte positions in the bytecode. */
@@ -22,8 +22,8 @@ export interface RawCompiled {
   readonly name: string;
   readonly sourceName: string;
   readonly abi: Abi;
-  readonly bytecode: `0x${string}`;
-  readonly deployedBytecode: `0x${string}`;
+  readonly bytecode: Hex;
+  readonly deployedBytecode: Hex;
   readonly linkReferences?: LinkReferences;
   readonly compilerVersion: string;
   readonly sources: Record<string, { content: string }>;
@@ -48,13 +48,24 @@ export const toArtifact = (raw: RawCompiled): Artifact => ({
 export const isDeployable = (bytecode: string): boolean => bytecode !== "0x" && bytecode.length > 2;
 
 /**
+ * 0x-prefix raw solc bytecode output, which carries the prefix in some compiler/adapter
+ * combinations and not others.
+ *
+ * Deliberately not viem's `toHex`: that would *encode* the string, turning the hex text "6080"
+ * into `0x36303830`. There is no viem primitive for "this is already hex text, ensure the prefix",
+ * and none can be — an unlinked artifact contains `__$<hash>$__` library placeholders, so the
+ * value is not valid hex until `linkLibraries` substitutes them (see `BytecodeSchema`, which
+ * admits `_` and `$` for exactly this reason).
+ */
+export const ensureHexPrefix = (bytecode: string): Hex =>
+  (bytecode.startsWith("0x") ? bytecode : `0x${bytecode}`) as Hex;
+
+/**
  * Runtime bytecode for the deploy identity, falling back to the (always-present) creation
  * bytecode when a compiler omits it. Never let it be a bare `"0x"`: that would be identical
- * across contracts, collapsing the identity hash and silently defeating `'on-change'`. Also
- * 0x-prefixes raw solc output.
+ * across contracts, collapsing the identity hash and silently defeating `'on-change'`.
  */
-export const runtimeOrCreation = (runtime: string | undefined, creation: `0x${string}`): `0x${string}` => {
-  const raw = runtime ?? "";
-  const hex = (raw.startsWith("0x") ? raw : `0x${raw}`) as `0x${string}`;
+export const runtimeOrCreation = (runtime: string | undefined, creation: Hex): Hex => {
+  const hex = ensureHexPrefix(runtime ?? "");
   return hex === "0x" ? creation : hex;
 };

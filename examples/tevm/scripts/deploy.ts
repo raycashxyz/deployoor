@@ -4,7 +4,7 @@
 //
 //   cp .env.example .env       # then set RPC_URL / PRIVATE_KEY
 //   pnpm --filter @example/tevm deploy
-import { createPublicClient, createWalletClient, http } from "viem";
+import { createPublicClient, createWalletClient, http, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { foundry } from "viem/chains";
 import { getOrDeployCounter } from "../deployers";
@@ -14,7 +14,7 @@ const main = async (): Promise<void> => {
   const privateKey = process.env.PRIVATE_KEY;
   if (privateKey === undefined) throw new Error("Set PRIVATE_KEY (copy .env.example to .env).");
 
-  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  const account = privateKeyToAccount(privateKey as Hex);
   const transport = http(rpcUrl);
   const walletClient = createWalletClient({ account, chain: foundry, transport });
   const publicClient = createPublicClient({ chain: foundry, transport });

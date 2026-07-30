@@ -2,7 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { ArtifactsNotFound } from "../errors";
-import { AbiSchema, Bytecode } from "../schemas";
+import { AbiSchema, BytecodeSchema } from "../schemas";
 import type { Artifact } from "../schemas";
 import { toArtifact, isDeployable, runtimeOrCreation, type LinkReferences } from "./parse";
 
@@ -15,8 +15,8 @@ const LinkRefs = z.record(
 );
 const ArtifactFile = z.object({
   abi: AbiSchema,
-  bytecode: z.object({ object: Bytecode, linkReferences: LinkRefs.optional() }),
-  deployedBytecode: z.object({ object: Bytecode }).optional(),
+  bytecode: z.object({ object: BytecodeSchema, linkReferences: LinkRefs.optional() }),
+  deployedBytecode: z.object({ object: BytecodeSchema }).optional(),
   metadata: z.object({
     compiler: z.object({ version: z.string() }),
     settings: z.object({ compilationTarget: z.record(z.string(), z.string()) }),
