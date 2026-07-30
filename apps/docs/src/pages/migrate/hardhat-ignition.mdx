@@ -35,7 +35,7 @@ Ignition splits the address and the ABI across two files, so the import reads bo
 // scripts/import.ts, run with `RPC_URL=https://… tsx scripts/import.ts`
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { createPublicClient, http, type Abi } from "viem";
+import { createPublicClient, http, type Abi, type Address } from "viem";
 import { sepolia } from "viem/chains";
 import { register } from "../deployers";
 
@@ -52,16 +52,19 @@ if (liveChainId !== chain.id) throw new Error(`RPC is chain ${liveChainId}, expe
 // { "CounterModule#Counter": "0x..." }
 const addresses = JSON.parse(readFileSync(join(dir, "deployed_addresses.json"), "utf8")) as Record<
   string,
-  `0x${string}`
+  Address
 >;
 
-for (const [futureId, address] of Object.entries(addresses)) {
-  const { abi } = JSON.parse(readFileSync(join(dir, "artifacts", `${futureId}.json`), "utf8")) as {
-    abi: Abi;
-  };
-  // "CounterModule#Counter" is not a filename: take the contract name after the '#'.
-  await register({ publicClient, deploymentName: futureId.split("#").at(-1) as string, address, abi });
-}
+await Promise.all(
+  Object.entries(addresses).map(([futureId, address]) => {
+    const { abi } = JSON.parse(readFileSync(join(dir, "artifacts", `${futureId}.json`), "utf8")) as {
+      abi: Abi;
+    };
+    // "CounterModule#Counter" is not a filename: take the contract name after the '#'.
+    const deploymentName = futureId.split("#").at(-1) as string;
+    return register({ publicClient, deploymentName, address, abi });
+  }),
+);
 ```
 
 Run it once per deployment folder. If one module deploys the same contract twice, the part after `#` collides, so give those distinct names rather than letting the second overwrite the first. Commit the `deployments/` folder it writes.

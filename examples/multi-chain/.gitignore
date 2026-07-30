@@ -2,5 +2,5 @@ node_modules
 out
 cache
 deployers
-# NOTE: deployments/ (records + *.sources.json sidecars) is intentionally committed — it is the source of truth.
+# NOTE: deployments/ (records + the sources/ verification blobs) is intentionally committed — it is the source of truth.
 .env

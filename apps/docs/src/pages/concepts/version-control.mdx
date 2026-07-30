@@ -5,10 +5,13 @@
 ## Commit `deployments/`
 
 ```text
-deployments/**   ← commit: the records and their *.sources.json sidecars
+deployments/
+  8453-base/Token.json        ← commit: the record — the source of truth
+  10-optimism/Token.json      ← commit
+  sources/0x8f3a….json        ← commit: pinned verification input, shared by both records
 ```
 
-Each `<Name>.json` is the source of truth — address, ABI, both bytecodes, compiler, and the [history](/concepts/deployment-records#history) of every (re)deploy. It is small, vanilla JSON, read by your app, [`@wagmi/cli`](/guides/consumption), humans, and any other tool. Beside it, `<Name>.sources.json` pins the exact solc standard-json input at deploy time — see [verifying later](#verifying-later).
+Each `<Name>.json` is the source of truth — address, ABI, creation bytecode, compiler, and the [history](/concepts/deployment-records#history) of every (re)deploy. It is small, vanilla JSON, read by your app, [`@wagmi/cli`](/guides/consumption), humans, and any other tool. Its `sourcesHash` points into `deployments/sources/`, which pins the exact solc standard-json input used for that deploy — see [verifying later](#verifying-later).
 
 ## Gitignore `deployers/`
 
@@ -20,6 +23,12 @@ The generated deployers and typed artifact modules are regenerated on every comp
 
 ## Verifying later
 
-The `<Name>.sources.json` sidecar holds everything a standard-json block-explorer verify needs — the exact sources, settings, compiler version, and fully-qualified name used for that deploy. Because it is committed beside the record, a deployment stays verifiable **after** the fact, driven by the committed record and independent of what the source tree looks like now. You never have to reconstruct the exact old source or the commit it came from.
+A record's pinned sources hold everything a standard-json block-explorer verify needs — the exact sources, settings, compiler version, and fully-qualified name used for that deploy. Committing them keeps the material for a later verification in the repo, so you never have to reconstruct the old source or find the commit it came from.
 
-This is also why gitignoring `deployers/` is unconditionally safe: the one thing you might otherwise keep them for — re-verification from a clean checkout — is covered by the committed sidecar.
+They are **content-addressed**: the filename is a hash of the input, and the record references it by `sourcesHash`. A standard-json input is the whole compilation unit — every source file — so this is what keeps one contract deployed to six chains from meaning six copies of your entire source tree. Deploys that recompile nothing rewrite nothing, so the files stay out of your diffs.
+
+`reset` collects any pinned sources no remaining record references; blobs another chain still points at survive.
+
+:::note
+Verification runs at deploy time today, via the verifier [plugins](/guides/plugins). Verifying an _already-recorded_ deployment from its pinned sources is not wired up yet — the sources are pinned now so that it can be.
+:::

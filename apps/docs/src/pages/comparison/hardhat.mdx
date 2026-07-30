@@ -151,9 +151,10 @@ npx hardhat run scripts/deploy.ts --network sepolia
 The one place a signer is built. Swapping custody is a change to this file and nothing else.
 
 ```ts
+import type { Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
-export const deployer = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+export const deployer = privateKeyToAccount(process.env.PRIVATE_KEY as Hex);
 ```
 
 </Tab>
@@ -656,7 +657,7 @@ const privy = new PrivyClient({
 
 const deployer = await createViemAccount(privy, {
   walletId: process.env.PRIVY_WALLET_ID as string,
-  address: process.env.PRIVY_WALLET_ADDRESS as `0x${string}`,
+  address: process.env.PRIVY_WALLET_ADDRESS as Address,
 });
 
 const transport = http(process.env.RPC_URL);

@@ -15,6 +15,7 @@ pnpm add -D deployoor tsx
 
 ```ts
 // accounts.ts
+import type { Address } from "viem";
 import { PrivyClient } from "@privy-io/node";
 import { createViemAccount } from "@privy-io/node/viem";
 
@@ -25,7 +26,7 @@ const privy = new PrivyClient({
 
 export const deployer = await createViemAccount(privy, {
   walletId: process.env.PRIVY_WALLET_ID as string,
-  address: process.env.PRIVY_WALLET_ADDRESS as `0x${string}`,
+  address: process.env.PRIVY_WALLET_ADDRESS as Address,
 });
 ```
 
@@ -34,7 +35,7 @@ Wallets that require an authorization context take one more field. Note what thi
 ```ts
 export const deployer = await createViemAccount(privy, {
   walletId: process.env.PRIVY_WALLET_ID as string,
-  address: process.env.PRIVY_WALLET_ADDRESS as `0x${string}`,
+  address: process.env.PRIVY_WALLET_ADDRESS as Address,
   authorizationContext: {
     authorization_private_keys: [process.env.PRIVY_AUTHORIZATION_KEY as string],
   },

@@ -6,6 +6,7 @@ import type {
   Chain,
   GetContractReturnType,
   Hash,
+  Hex,
   PublicClient,
   TransactionReceipt,
   WalletClient,
@@ -44,7 +45,7 @@ export interface ClientsService {
   readonly account: Address;
   readonly deploy: (input: {
     readonly abi: Abi;
-    readonly bytecode: `0x${string}`;
+    readonly bytecode: Hex;
     readonly args: readonly unknown[];
   }) => Promise<Hash>;
   readonly waitForReceipt: (hash: Hash) => Promise<TransactionReceipt>;

@@ -11,11 +11,12 @@ deployoor is early. This is where it's heading, grouped by area. Have a use case
 
 ## Deploy engine
 
-- **Detect bytecode changes** — _Planned._ Today a recorded deployment is reused until you pass `force`. An opt-in mode will notice when a contract's compiled bytecode has actually changed (ignoring metadata-only diffs) and redeploy, warn, or error per a policy you choose. Record-existence stays the default, so there's no surprise address churn from an unrelated edit.
+- **Detect bytecode changes** — _Done._ `redeploymentStrategy` decides reuse-vs-redeploy: `'on-change'` (the default) redeploys when the **deploy identity** — metadata-stripped runtime bytecode + constructor args + linked library addresses — moved, so a comment-only recompile does not redeploy and a changed dependency address cascades. `'never'` reuses and warns on drift; `'always'` redeploys every call. Settable per call, globally, or per chain via `redeploymentStrategyByChainId` — pin `'never'` on chains carrying live state.
+- **Redeploy when the recorded address holds no code** — _Planned._ Nothing calls `eth_getCode` today, so a record that outlives its chain — the usual case being a restarted local node — still reads as deployed and gets reused. An opt-in check (rather than a silent default, since an RPC that lies would otherwise cause a redeploy) would close the loop between the record and reality.
 - **Pending transaction recovery** — _Planned._ Filesystem writes are atomic and filesystem deploys take a coarse lock today, but a crash after broadcasting and before a receipt still needs a recoverable pending-tx sidecar/record so the next run can wait for or inspect the transaction instead of leaving recovery to the user.
 - **Proxies & diamonds** — _Planned._ Upgradeable contracts: ERC1967 / Transparent / UUPS / ERC173 proxies and EIP-2535 diamonds, with implementation and facet history kept in the deployment record.
 - **Deterministic addresses (CREATE2 / CREATE3)** — _Exploring._ The same address on every chain, plus address prediction before you broadcast.
-- **Dry run** — _Exploring._ Simulate a deploy — predicted address and gas — without sending a transaction.
+- **Dry run / plan** — _Planned._ Answer "what would this run redeploy, and why?" without broadcasting. The decision is already a pure function of (record, artifact, args), and the reason strings that go into the record's history are the report — only the deploy call has to be skipped. This is what makes the `'on-change'` default comfortable to adopt. Simulating predicted address and gas is the natural extension.
 - **`getOrDeploy` return value** — _Done (0.2.0)._ Resolves to `{ contract, freshDeploy, receipt?, deployment }` so deploy scripts can gate one-time setup on `freshDeploy`.
 
 ## Testing
@@ -30,7 +31,7 @@ deployoor is early. This is where it's heading, grouped by area. Have a use case
 
 ## Verification
 
-- **Verify existing records** — _Planned._ Reused deployments now carry artifact metadata to plugins so verifiers can retry when possible. A dedicated `deployoor verify` command should re-read committed records and artifacts so a transient explorer outage never requires `force: true`.
+- **Verify existing records** — _Planned._ Every deploy already pins its exact standard-json input to `deployments/sources/<hash>.json` (content-addressed, referenced by the record's `sourcesHash`), but nothing reads it back yet — verification still only happens through the deploy-time plugins. A `deployoor verify` command walking committed records + their pinned sources would make a transient explorer outage recoverable without redeploying, and keep a deployment verifiable long after its source tree moved on.
 - **More explorers** — _Exploring._ Beyond Etherscan V2 (one key, all chains) and Sourcify: Blockscout-native, OKLink, and custom per-chain endpoints, with verification status recorded alongside the deployment.
 
 ## CLI & developer experience
