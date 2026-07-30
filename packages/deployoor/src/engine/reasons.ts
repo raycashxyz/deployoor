@@ -1,26 +1,42 @@
-import { isAddressEqual } from "viem";
-import type { Abi } from "viem";
-import { codeHash } from "./identity";
+import { encodeAbiParameters, isAddressEqual } from "viem";
+import type { Abi, AbiParameter, Hex } from "viem";
+import { codeHash, stripMetadata } from "./identity";
 import type { DeploymentRecord, IdentityChange, Libraries, RedeployReason } from "../schemas";
 
 /**
  * Component diff between a recorded deployment and the current artifact + args + libraries. It
  * drives both the redeploy decision (an empty diff ⟺ the same deploy identity) and the human
- * reason. It never ABI-encodes the record's JSON args — so it can't throw and isn't fooled by
- * bigint/checksum drift — and for a v1 record (no `deployedBytecode`) it falls back to a strict
- * creation-bytecode comparison.
+ * reason. Every comparison is canonical — metadata-stripped bytecode, ABI-encoded args,
+ * checksum-insensitive addresses — so representation drift is never mistaken for a change, and
+ * every partial operation has a fallback, so it never throws.
  */
 
-// Normalize one constructor arg to a stable key, matching how the store serializes values
-// (bigint → string, addresses lowercased), so representation drift is never flagged as a change.
-const argKey = (value: unknown): string =>
+// Fallback key for a value the abi cannot encode: normalize the way the store serializes
+// (bigint → string, addresses lowercased) so JSON round-tripping alone is not a change.
+const jsonKey = (value: unknown): string =>
   JSON.stringify(value, (_key, inner) => {
     if (typeof inner === "bigint") return inner.toString();
     if (typeof inner === "string" && /^0x[0-9a-fA-F]{40}$/.test(inner)) return inner.toLowerCase();
     return inner;
   }) ?? "undefined";
 
-const constructorInputs = (abi: Abi): readonly { readonly name?: string }[] => {
+/**
+ * Canonical key for one constructor arg: its ABI encoding against the declared input type, so
+ * values the EVM cannot tell apart — `1`, `1n`, `"1"`, an address in either casing — share a key.
+ * This is the canonicalisation `identityHash` applies to the whole tuple, so the diff and the hash
+ * agree by construction. Anything unencodable (arity drift, a junk value, no constructor in the
+ * abi) falls back to the JSON key rather than throwing.
+ */
+const argKey = (value: unknown, input: AbiParameter | undefined): string => {
+  if (input === undefined) return jsonKey(value);
+  try {
+    return encodeAbiParameters([input], [value]);
+  } catch {
+    return jsonKey(value);
+  }
+};
+
+const constructorInputs = (abi: Abi): readonly AbiParameter[] => {
   const ctor = abi.find(
     (item): item is Extract<Abi[number], { type: "constructor" }> => item.type === "constructor",
   );
@@ -29,15 +45,21 @@ const constructorInputs = (abi: Abi): readonly { readonly name?: string }[] => {
 
 export const diffIdentity = (input: {
   readonly existing: DeploymentRecord;
-  readonly bytecode: `0x${string}`;
-  readonly deployedBytecode: `0x${string}`;
+  readonly abi: Abi;
+  readonly bytecode: Hex;
+  readonly deployedBytecode: Hex;
   readonly args: readonly unknown[];
   readonly libraries: Libraries;
 }): IdentityChange[] => {
+  // Prefer the recorded `codeHash` (v2). Both sides can be absent — a v1 record, or bytecode
+  // still carrying unlinked library placeholders — so fall back to comparing the creation
+  // bytecode, metadata-stripped on both sides because solc's trailing CBOR hash moves on a
+  // comment-only recompile and creation bytecode carries that trailer just as runtime code does.
+  const currentCodeHash = codeHash(input.deployedBytecode);
   const codeChanged =
-    input.existing.deployedBytecode !== undefined
-      ? codeHash(input.existing.deployedBytecode) !== codeHash(input.deployedBytecode)
-      : input.existing.bytecode !== input.bytecode;
+    input.existing.codeHash !== undefined && currentCodeHash !== undefined
+      ? input.existing.codeHash !== currentCodeHash
+      : stripMetadata(input.existing.bytecode) !== stripMetadata(input.bytecode);
 
   const existingLibraries = input.existing.libraries ?? {};
   const names = [...new Set([...Object.keys(existingLibraries), ...Object.keys(input.libraries)])].sort();
@@ -50,10 +72,11 @@ export const diffIdentity = (input: {
     return changed ? [{ field: "library", name, from, to }] : [];
   });
 
+  const inputs = constructorInputs(input.abi);
   const from = input.existing.constructorArgs;
   const to = input.args;
   const changedIndices = Array.from({ length: Math.max(from.length, to.length) }, (_v, i) => i).filter(
-    (i) => argKey(from[i]) !== argKey(to[i]),
+    (i) => argKey(from[i], inputs[i]) !== argKey(to[i], inputs[i]),
   );
 
   return [
