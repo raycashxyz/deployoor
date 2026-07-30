@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import type { Hex } from "viem";
 import { LibrariesUnlinked } from "../errors";
 import type { Artifact, Libraries } from "../schemas";
 
@@ -13,7 +14,7 @@ import type { Artifact, Libraries } from "../schemas";
 export const linkLibraries = (
   artifact: Pick<Artifact, "name" | "bytecode" | "metadata">,
   libraries: Libraries = {},
-): Effect.Effect<`0x${string}`, LibrariesUnlinked> =>
+): Effect.Effect<Hex, LibrariesUnlinked> =>
   Effect.gen(function* () {
     const placeholders = artifact.metadata.libraryPlaceholders;
     const required = Object.keys(placeholders);
@@ -30,5 +31,5 @@ export const linkLibraries = (
       return bytecode.split(`__$${placeholder}$__`).join(padded);
     }, artifact.bytecode);
 
-    return linked as `0x${string}`;
+    return linked as Hex;
   });

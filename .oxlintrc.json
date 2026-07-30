@@ -1,3 +1,11 @@
 {
-  "ignorePatterns": ["dist", "**/*.d.ts", "**/test/fixtures/**"]
+  "ignorePatterns": ["dist", "**/*.d.ts", "**/test/fixtures/**", "apps/docs/public/**"],
+  "rules": {
+    "no-var": "error",
+    "prefer-const": "error",
+    "no-const-assign": "error",
+    "no-param-reassign": "error",
+    "no-plusplus": "error",
+    "unicorn/prefer-spread": "error"
+  }
 }

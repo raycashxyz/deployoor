@@ -81,16 +81,14 @@ describe("createFhevmRelayerHandlers", () => {
         return args.method === "eth_blockNumber" ? "0x2a" : true;
       },
     };
+    const handleEvmRevert = vi.fn(async () => {});
     const options = createOptions(baseProvider);
-    let revertedAt: number | undefined;
-    options.coprocessor.handleEvmRevert = async (blockNumber) => {
-      revertedAt = blockNumber;
-    };
+    options.coprocessor.handleEvmRevert = handleEvmRevert;
     const provider = createFhevmTevmProvider(baseProvider, createFhevmRelayerHandlers(options));
 
     await expect(provider.send("evm_revert", ["0x1"])).resolves.toBe(true);
     expect(calls).toEqual(["evm_revert", "eth_blockNumber"]);
-    expect(revertedAt).toBe(42);
+    expect(handleEvmRevert).toHaveBeenCalledWith(42);
   });
 
   it("returns KMS decryption signatures for a valid create-signatures payload", async () => {

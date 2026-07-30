@@ -92,8 +92,8 @@ Constructor args are type-checked against each contract's ABI. The deploy script
 
 - First run deploys and records to `deployments/<chainId>-<network>/<Contract>.json`. Later runs return the existing contract with **no transaction** — so a deploy script is safe to re-run.
 - `getOrDeploy<Name>` always resolves to `{ contract, freshDeploy, receipt, deployment }`, so callers never branch on "did it already exist" to read/write — reach for `result.contract` either way, and check `freshDeploy` when you need to run one-time setup only on the call that actually deployed.
-- Redeploy on purpose: `await getOrDeployToken({ ...clients, args, force: true })`.
-- Note: a recorded deployment is currently reused even if the contract code changed — use `force` to redeploy. (Automatic bytecode-change detection is on the roadmap.)
+- Redeploy on purpose: `await getOrDeployToken({ ...clients, args, redeploymentStrategy: "always" })`.
+- By default (`redeploymentStrategy: 'on-change'`) a recorded deployment is reused unless its deploy identity — metadata-stripped runtime bytecode, constructor args, or linked library addresses — changed. Pin `'never'` per chain for chains carrying live state.
 
 ## Multiple instances of one contract
 
@@ -135,7 +135,7 @@ await reset({ publicClient, deploymentName: "Token" }); // omit `deploymentName`
 
 ## Verification & notifications (plugins)
 
-Plugins are deploy-lifecycle hooks configured in `deployoor.config.ts`. `onContractDeployed` fires on a fresh deploy and also on a reused one — with `ctx.reused: true`, and with `ctx.metadata` still populated from the current artifact. So verifiers can retry a failed verification on a plain re-run (they skip only when `ctx.metadata` is undefined), while notifiers should `if (ctx.reused) return` to avoid announcing a deploy that didn't happen. Never reach for `force: true` to retry verification — it bypasses the record and deploys a new contract at a new address. Skip a plugin for a single contract with a per-deploy override:
+Plugins are deploy-lifecycle hooks configured in `deployoor.config.ts`. `onContractDeployed` fires on a fresh deploy and also on a reused one — with `ctx.reused: true`, and with `ctx.metadata` still populated from the current artifact. So verifiers can retry a failed verification on a plain re-run (they skip only when `ctx.metadata` is undefined), while notifiers should `if (ctx.reused) return` to avoid announcing a deploy that didn't happen. Never reach for `redeploymentStrategy: "always"` to retry verification — it bypasses the record and deploys a new contract at a new address. Skip a plugin for a single contract with a per-deploy override:
 
 ```ts
 await getOrDeployVault({ ...clients, args: [token.address], plugins: { etherscan: false } });

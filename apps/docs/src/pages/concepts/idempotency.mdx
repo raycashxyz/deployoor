@@ -16,8 +16,6 @@ Set it per call, or as a config default (globally or [per chain](/guides/configu
 await getOrDeployToken({ ...clients, args: [owner], redeploymentStrategy: "always" });
 ```
 
-`force: true` / `force: false` still work as deprecated aliases for `"always"` / `"never"`.
-
 ## Deploy identity
 
 `on-change` compares the **deploy identity**, not the source:
@@ -28,17 +26,28 @@ await getOrDeployToken({ ...clients, args: [owner], redeploymentStrategy: "alway
 - Changing a constructor arg **does** redeploy — including when that arg is a dependency's address. Redeploy a token and the vault that took its address redeploys too: **changes cascade through the stack**.
 - A changed linked-library address redeploys as well.
 
-The identity is recomputed from live values on every call, so a record's JSON (where bigints are stored as strings) never causes a spurious redeploy.
+Every comparison is canonical, never textual. Args are compared by their ABI encoding, so `1`, `1n`, and the `"1"` a record's JSON stores are one value, and an address matches in either casing — representation drift alone never redeploys.
 
-## Why the default is safe
+### What the cascade does not cover
 
-A redeploy is not destructive: the previous contract still lives on-chain at its old address, and the record change is a git diff you can revert. Every redeploy is logged loudly and recorded — the record's [history](/concepts/deployment-records#history) names _why_ it happened (`contract bytecode changed`, `constructor args changed from […] to […]`, …). For a chain where a redeploy's gas or address churn is unacceptable (e.g. mainnet), pin `never`:
+The cascade follows **constructor args**, because that is what the identity contains. Two things it cannot see:
+
+- **Addresses installed after deployment.** If a contract learns its dependency through `setToken(addr)` rather than a constructor arg, redeploying that dependency does not move the dependent's identity. You have to call the setter yourself.
+- **State.** A redeploy is a new, empty contract — balances, ownership, and storage stay with the old one.
+
+## Choosing a strategy
+
+`on-change` is built for the loop where contracts are still moving: edit, re-run the script, and what actually changed redeploys. Nothing is silent — every redeploy is logged loudly and appended to the record's [history](/concepts/deployment-records#history) with its reason (`contract bytecode changed`, `constructor args changed from […] to […]`, …), so the git diff says what moved and why.
+
+On a chain carrying **live state or real users**, pin `never`:
 
 ```ts
 export default defineConfig({
   redeploymentStrategyByChainId: { [mainnet.id]: "never" },
 });
 ```
+
+A redeploy does not destroy the old contract — it keeps its address, balances, and storage. But your record now names the new one, so anything still holding the old address (another deployed contract, a subgraph, a cached frontend build) is talking to a different contract than your app is. Undoing that means redeploying or rewiring the rest of the system, which is why the choice belongs in config per chain rather than in the moment.
 
 ## Stale-record warning (`never`)
 

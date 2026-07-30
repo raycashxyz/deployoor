@@ -1,12 +1,13 @@
 import { describe, it, expect } from "vitest";
-import type { Abi } from "viem";
+import { concatHex, keccak256, numberToHex } from "viem";
+import type { Abi, Hex } from "viem";
 import { codeHash, computeIdentity, stripMetadata } from "../../src/engine/identity";
 
 // Build a runtime blob = <code><cbor metadata><2-byte big-endian length>, the layout solc emits.
-const withTrailer = (code: string, cbor: string): `0x${string}` => {
-  const lengthHex = (cbor.length / 2).toString(16).padStart(4, "0");
-  return `0x${code}${cbor}${lengthHex}`;
-};
+// `numberToHex(n, { size: 2 })` is the length field; hand-rolling it as .toString(16).padStart(4)
+// is the same bytes with the width invariant left implicit.
+const withTrailer = (code: string, cbor: string): Hex =>
+  concatHex([`0x${code}`, `0x${cbor}`, numberToHex(cbor.length / 2, { size: 2 })]);
 
 const CODE = "6080604052348015";
 const runtimeA = withTrailer(CODE, "a2010203");
@@ -46,6 +47,19 @@ describe("stripMetadata", () => {
     expect(stripMetadata("0x")).toBe("0x");
     expect(stripMetadata("0x60")).toBe("0x60");
   });
+
+  it("leaves bytecode whose tail is an unlinked library placeholder unchanged", () => {
+    // An unlinked artifact is not valid hex. Those bytes can never be a metadata length, and
+    // parsing them as one throws — which would break the diff path that documents itself as total.
+    const unlinked = "0x6080__$f2b8c1a0d3e4f5061728394a5b6c7d8e9f$__" as const;
+    expect(stripMetadata(unlinked)).toBe(unlinked);
+  });
+
+  it("strips the trailer from creation bytecode too (solc appends it to both)", () => {
+    // The v1-record path compares creation bytecode, which carries the same CBOR trailer.
+    const creation = withTrailer(`${CODE}f3fe${CODE}`, "a2010203");
+    expect(stripMetadata(creation)).toBe(`0x${CODE}f3fe${CODE}`);
+  });
 });
 
 describe("codeHash", () => {
@@ -55,6 +69,16 @@ describe("codeHash", () => {
 
   it("differs when the runtime code itself changes", () => {
     expect(codeHash(runtimeA)).not.toBe(codeHash(runtimeOtherCode));
+  });
+
+  it("is the keccak of the stripped bytes, so it can be checked against on-chain code", () => {
+    expect(codeHash(runtimeA)).toBe(keccak256(`0x${CODE}`));
+  });
+
+  it("is undefined for unlinked bytecode rather than silently hashing the placeholder text", () => {
+    // viem's keccak256 does not reject non-hex — it falls through to hashing the string — so
+    // without this guard the field would mean two different things.
+    expect(codeHash("0x6080__$f2b8c1a0d3e4f5061728394a5b6c7d8e9f$__")).toBeUndefined();
   });
 });
 

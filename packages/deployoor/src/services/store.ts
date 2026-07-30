@@ -1,5 +1,6 @@
 import { Context, Effect, Layer, Option } from "effect";
 import { InvalidDeploymentRecord } from "../errors";
+import type { Hex } from "viem";
 import type { DeploymentRecord, SourcesSidecar } from "../schemas";
 import type { StoreAdapter } from "../store";
 
@@ -14,11 +15,7 @@ export interface StoreService {
     name: string,
   ) => Effect.Effect<Option.Option<DeploymentRecord>, InvalidDeploymentRecord>;
   readonly write: (record: DeploymentRecord) => Effect.Effect<void, InvalidDeploymentRecord>;
-  readonly writeSources: (
-    network: string,
-    name: string,
-    sources: SourcesSidecar,
-  ) => Effect.Effect<void, InvalidDeploymentRecord>;
+  readonly writeSources: (hash: Hex, sources: SourcesSidecar) => Effect.Effect<void, InvalidDeploymentRecord>;
   readonly list: (network: string) => Effect.Effect<ReadonlyArray<DeploymentRecord>, InvalidDeploymentRecord>;
   readonly remove: (network: string, name: string) => Effect.Effect<void, InvalidDeploymentRecord>;
 }
@@ -56,13 +53,12 @@ export const layerFromAdapter = (adapter: StoreAdapter): Layer.Layer<Store> =>
         },
         catch: (cause) => new InvalidDeploymentRecord({ path: record.deploymentName, issues: String(cause) }),
       }),
-    writeSources: (network, name, sources) =>
+    writeSources: (hash, sources) =>
       Effect.tryPromise({
         try: async () => {
-          await adapter.writeSources?.(network, name, sources);
+          await adapter.writeSources?.(hash, sources);
         },
-        catch: (cause) =>
-          new InvalidDeploymentRecord({ path: `${network}/${name}.sources`, issues: String(cause) }),
+        catch: (cause) => new InvalidDeploymentRecord({ path: `sources/${hash}`, issues: String(cause) }),
       }),
     list: (network) =>
       Effect.tryPromise({

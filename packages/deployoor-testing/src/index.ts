@@ -217,11 +217,14 @@ export const createTestClients = async (options?: CreateTestClientsOptions): Pro
 export const createFixture = <T>(
   setup: (clients: TestClients) => Promise<T> | T,
 ): ((clients: TestClients) => Promise<T>) => {
-  let cached: { readonly state: SerializableState; readonly value: T } | undefined;
+  // A lazy cache needs exactly one mutable slot. Hold it in a locally-created container (the
+  // carve-out `memoryStore` uses) so the no-reassignment rule still holds.
+  const cache: { current?: { readonly state: SerializableState; readonly value: T } } = {};
   return async (clients) => {
+    const cached = cache.current;
     if (cached === undefined) {
       const value = await setup(clients);
-      cached = { value, state: await clients.cheatcodes.dumpState() };
+      cache.current = { value, state: await clients.cheatcodes.dumpState() };
       return value;
     }
     await clients.cheatcodes.loadState(cached.state);

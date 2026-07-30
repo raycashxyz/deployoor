@@ -1,19 +1,15 @@
-import { describe, it, expect, vi, beforeAll } from "vitest";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { describe, it, expect, vi } from "vitest";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Address, PublicClient, WalletClient } from "viem";
+import { concatHex, slice, type Hex } from "viem";
 import { createDeployer, defineReset } from "../../src/engine/deployer";
 import { memoryStore, fsStore, networkKeyForChain } from "../../src/store";
 import { counterArtifact, COUNTER_DEPLOYED_BYTECODE } from "../fixtures";
 import { makeEvmClients } from "../evm-clients";
 
-let account: Address;
-let walletClient: WalletClient;
-let publicClient: PublicClient;
-beforeAll(async () => {
-  ({ address: account, walletClient, publicClient } = await makeEvmClients());
-});
+// Top-level await, so the clients are plain `const` rather than `let` filled in by a hook.
+const { address: account, walletClient, publicClient } = await makeEvmClients();
 const chainInfo = () => {
   const chain = walletClient.chain;
   if (chain === undefined) throw new Error("walletClient missing chain");
@@ -21,14 +17,15 @@ const chainInfo = () => {
 };
 const network = () => networkKeyForChain(chainInfo());
 
-// Same deployable creation bytecode as Counter, but a different runtime → different code identity.
+// Same deployable creation bytecode as Counter, but a different first runtime byte → different
+// code identity. `slice` counts bytes, so this says "replace byte 0" rather than "drop 4 chars".
 const changedCode = {
   ...counterArtifact,
-  deployedBytecode: `0x7f${COUNTER_DEPLOYED_BYTECODE.slice(4)}` as `0x${string}`,
+  deployedBytecode: concatHex(["0x7f", slice(COUNTER_DEPLOYED_BYTECODE, 1)]),
 };
 // Two artifacts whose runtime differs ONLY in the trailing metadata (same code, same length).
-const metaA = { ...counterArtifact, deployedBytecode: "0x6080604052348015a20102030004" as `0x${string}` };
-const metaB = { ...counterArtifact, deployedBytecode: "0x6080604052348015a2ffeedd0004" as `0x${string}` };
+const metaA = { ...counterArtifact, deployedBytecode: "0x6080604052348015a20102030004" } as const;
+const metaB = { ...counterArtifact, deployedBytecode: "0x6080604052348015a2ffeedd0004" } as const;
 
 describe("redeploymentStrategy: on-change (default)", () => {
   it("redeploys with a new address when the runtime code changes", async () => {
@@ -121,32 +118,29 @@ describe("redeploymentStrategy: always / never", () => {
   });
 });
 
-describe("deprecated force option", () => {
-  it("maps force:true → 'always' (redeploy + deprecation warning) and force:false → 'never'", async () => {
-    const warn = vi.fn();
+describe("per-call strategy", () => {
+  it("overrides the config default for a single deploy, in both directions", async () => {
     const deployer = createDeployer({
       walletClient,
       publicClient,
       store: memoryStore(),
-      deps: { log: { info: () => {}, warn } },
+      redeploymentStrategy: "never",
     });
 
-    const first = await deployer.getOrDeploy(counterArtifact, { args: [5n, account], deploymentName: "FC1" });
+    const first = await deployer.getOrDeploy(counterArtifact, { args: [5n, account], deploymentName: "PS1" });
     const forced = await deployer.getOrDeploy(counterArtifact, {
       args: [5n, account],
-      deploymentName: "FC1",
-      force: true,
+      deploymentName: "PS1",
+      redeploymentStrategy: "always", // beats the config's 'never'
     });
     const kept = await deployer.getOrDeploy(counterArtifact, {
       args: [7n, account],
-      deploymentName: "FC1",
-      force: false,
+      deploymentName: "PS1", // no override → config's 'never' → reuse despite the arg change
     });
 
     expect(forced.freshDeploy).toBe(true);
     expect(forced.contract.address).not.toBe(first.contract.address);
-    expect(kept.freshDeploy).toBe(false); // force:false → 'never' → reuse despite the arg change
-    expect(warn.mock.calls.map((c) => String(c[0])).join("\n")).toContain("deprecated");
+    expect(kept.freshDeploy).toBe(false);
   });
 });
 
@@ -178,26 +172,51 @@ describe("dependency cascade", () => {
   });
 });
 
-describe("verification sources sidecar", () => {
-  it("writes <Name>.sources.json with the standard-json input on a fresh deploy", async () => {
+describe("verification sources", () => {
+  const sourcesFile = (dir: string, record: { readonly sourcesHash?: string }): string => {
+    if (record.sourcesHash === undefined) throw new Error("record has no sourcesHash");
+    return join(dir, "sources", `${record.sourcesHash}.json`);
+  };
+
+  it("pins the standard-json input at sources/<hash>.json and points the record at it", async () => {
     const dir = mkdtempSync(join(tmpdir(), "deployoor-sidecar-"));
     const deployer = createDeployer({ walletClient, publicClient, store: fsStore(dir) });
 
-    await deployer.getOrDeploy(counterArtifact, { args: [5n, account], deploymentName: "Side1" });
+    const { deployment } = await deployer.getOrDeploy(counterArtifact, {
+      args: [5n, account],
+      deploymentName: "Side1",
+    });
 
-    const file = join(dir, network(), "Side1.sources.json");
+    const file = sourcesFile(dir, deployment);
     expect(existsSync(file)).toBe(true);
     const parsed = JSON.parse(readFileSync(file, "utf8"));
     expect(parsed.fullyQualifiedName).toBe("src/Counter.sol:Counter");
     expect(parsed.standardJsonInput.sources["src/Counter.sol"]).toBeDefined();
   });
 
-  it("does not rewrite the sidecar on a reuse", async () => {
+  it("stores one blob for two deployments sharing a compilation input", async () => {
     const dir = mkdtempSync(join(tmpdir(), "deployoor-sidecar-"));
     const deployer = createDeployer({ walletClient, publicClient, store: fsStore(dir) });
 
-    await deployer.getOrDeploy(counterArtifact, { args: [5n, account], deploymentName: "Side2" });
-    const file = join(dir, network(), "Side2.sources.json");
+    const first = await deployer.getOrDeploy(counterArtifact, { args: [5n, account], deploymentName: "ShA" });
+    const second = await deployer.getOrDeploy(counterArtifact, {
+      args: [6n, account],
+      deploymentName: "ShB",
+    });
+
+    expect(second.deployment.sourcesHash).toBe(first.deployment.sourcesHash);
+    expect(readdirSync(join(dir, "sources"))).toHaveLength(1);
+  });
+
+  it("does not rewrite the pinned sources on a reuse", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "deployoor-sidecar-"));
+    const deployer = createDeployer({ walletClient, publicClient, store: fsStore(dir) });
+
+    const { deployment } = await deployer.getOrDeploy(counterArtifact, {
+      args: [5n, account],
+      deploymentName: "Side2",
+    });
+    const file = sourcesFile(dir, deployment);
     rmSync(file);
 
     const reused = await deployer.getOrDeploy(counterArtifact, {
@@ -208,40 +227,96 @@ describe("verification sources sidecar", () => {
     expect(existsSync(file)).toBe(false); // reuse wrote nothing back
   });
 
-  it("reset removes both the record and its sidecar", async () => {
+  it("reset removes the record and collects its now-unreferenced sources", async () => {
     const dir = mkdtempSync(join(tmpdir(), "deployoor-sidecar-"));
     const store = fsStore(dir);
     const deployer = createDeployer({ walletClient, publicClient, store });
 
-    await deployer.getOrDeploy(counterArtifact, { args: [5n, account], deploymentName: "Side3" });
-    expect(existsSync(join(dir, network(), "Side3.sources.json"))).toBe(true);
+    const { deployment } = await deployer.getOrDeploy(counterArtifact, {
+      args: [5n, account],
+      deploymentName: "Side3",
+    });
+    expect(existsSync(sourcesFile(dir, deployment))).toBe(true);
 
     await defineReset({})({ publicClient, deploymentName: "Side3", store });
 
     expect(existsSync(join(dir, network(), "Side3.json"))).toBe(false);
-    expect(existsSync(join(dir, network(), "Side3.sources.json"))).toBe(false);
+    expect(existsSync(sourcesFile(dir, deployment))).toBe(false);
+  });
+
+  it("still records the deployment when pinning the sources fails", async () => {
+    // The deploy is already broadcast and confirmed by this point, so a store that cannot pin
+    // sources must not turn a successful deployment into a rejected promise.
+    const warn = vi.fn();
+    const failing = {
+      ...memoryStore(),
+      writeSources: () => {
+        throw new Error("disk full");
+      },
+    };
+    const deployer = createDeployer({
+      walletClient,
+      publicClient,
+      store: failing,
+      deps: { log: { info: () => {}, warn } },
+    });
+
+    expect(await failing.read(network(), "PinFail")).toBeNull();
+
+    const { freshDeploy, deployment } = await deployer.getOrDeploy(counterArtifact, {
+      args: [5n, account],
+      deploymentName: "PinFail",
+    });
+
+    expect(freshDeploy).toBe(true);
+    // Assert the persisted record, not just the returned one: the value the pipeline resolves with
+    // is the record it built in memory, so it looks identical whether or not the write happened.
+    const persisted = await failing.read(network(), "PinFail");
+    expect(persisted?.address).toBe(deployment.address);
+    // No sourcesHash, rather than a hash pointing at a blob that was never written.
+    expect(persisted?.sourcesHash).toBeUndefined();
+    expect(deployment.sourcesHash).toBeUndefined();
+    expect(warn.mock.calls.map((c) => String(c[0])).join("\n")).toContain("could not pin");
+  });
+
+  it("reset keeps a sources blob another deployment still references", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "deployoor-sidecar-"));
+    const store = fsStore(dir);
+    const deployer = createDeployer({ walletClient, publicClient, store });
+
+    const kept = await deployer.getOrDeploy(counterArtifact, {
+      args: [5n, account],
+      deploymentName: "KeepA",
+    });
+    await deployer.getOrDeploy(counterArtifact, { args: [6n, account], deploymentName: "KeepB" });
+
+    await defineReset({})({ publicClient, deploymentName: "KeepB", store });
+
+    expect(existsSync(join(dir, network(), "KeepA.json"))).toBe(true);
+    expect(existsSync(sourcesFile(dir, kept.deployment))).toBe(true); // KeepA still points at it
   });
 });
 
 describe("v1 record migration", () => {
+  const v1Record = (name: string, bytecode: Hex = counterArtifact.bytecode) => ({
+    schemaVersion: 1 as const,
+    contractName: "Counter",
+    deploymentName: name,
+    address: "0x00000000000000000000000000000000000000c0" as const,
+    chainId: chainInfo().id,
+    networkName: network(),
+    abi: counterArtifact.abi,
+    bytecode,
+    constructorArgs: [5n, account],
+    transactionHash: "0x" as const,
+    deployer: account,
+    deployedAt: 0,
+    compiler: { version: "0.8.35" },
+    kind: "standard" as const,
+  });
+
   it("reuses an unchanged v1 record, then upgrades it to v2 with history on redeploy", async () => {
-    const v1 = {
-      schemaVersion: 1 as const,
-      contractName: "Counter",
-      deploymentName: "V1",
-      address: "0x00000000000000000000000000000000000000c0" as const,
-      chainId: chainInfo().id,
-      networkName: network(),
-      abi: counterArtifact.abi,
-      bytecode: counterArtifact.bytecode,
-      constructorArgs: [5n, account],
-      transactionHash: "0x" as const,
-      deployer: account,
-      deployedAt: 0,
-      compiler: { version: "0.8.35" },
-      kind: "standard" as const,
-    };
-    const store = memoryStore([v1]);
+    const store = memoryStore([v1Record("V1")]);
     const deployer = createDeployer({ walletClient, publicClient, store });
 
     const reused = await deployer.getOrDeploy(counterArtifact, { args: [5n, account], deploymentName: "V1" });
@@ -254,5 +329,26 @@ describe("v1 record migration", () => {
     expect(redeployed.freshDeploy).toBe(true);
     expect(redeployed.deployment.schemaVersion).toBe(2);
     expect(redeployed.deployment.history?.[0]?.reason.kind).toBe("changed");
+  });
+
+  it("does not redeploy a v1 record after a comment-only recompile", async () => {
+    // The upgrade hazard: a v1 record has no identityHash, so the decision falls back to comparing
+    // creation bytecode — which carries solc's metadata hash. Left unstripped, adopting the
+    // 'on-change' default would redeploy every pre-existing contract on the first run.
+    const recompiled = counterArtifact.bytecode.replace(
+      "122049266f280ff0d3ac",
+      "1220ffffffffffffffff",
+    ) as Hex;
+    expect(recompiled).not.toBe(counterArtifact.bytecode); // guard: the trailer really moved
+
+    const store = memoryStore([v1Record("V1Meta")]);
+    const deployer = createDeployer({ walletClient, publicClient, store });
+
+    const reused = await deployer.getOrDeploy(
+      { ...counterArtifact, bytecode: recompiled },
+      { args: [5n, account], deploymentName: "V1Meta" },
+    );
+    expect(reused.freshDeploy).toBe(false);
+    expect(reused.contract.address).toBe("0x00000000000000000000000000000000000000c0");
   });
 });

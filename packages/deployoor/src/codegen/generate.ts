@@ -30,26 +30,27 @@ export const generate = (
   const typesDir = join(opts.outDir, "types");
   mkdirSync(typesDir, { recursive: true });
 
-  const written: GeneratedFile[] = [];
-  const emit = (path: string, contents: string): void => {
+  // Write and describe in one step, so the returned manifest is the `.map` of what was emitted
+  // rather than an accumulator the loop has to keep in sync with the writes.
+  const emit = (path: string, contents: string): GeneratedFile => {
     writeFileSync(path, contents);
-    written.push({ path, contents });
+    return { path, contents };
   };
 
-  artifacts.forEach((artifact) => {
-    emit(join(typesDir, `${artifact.name}.ts`), artifactModule(artifact, packageName));
+  return [
+    ...artifacts.flatMap((artifact) => [
+      emit(join(typesDir, `${artifact.name}.ts`), artifactModule(artifact, packageName)),
+      emit(
+        join(opts.outDir, `${artifact.name}.ts`),
+        deployerModule(artifact, { packageName, configImport: opts.configImport }),
+      ),
+    ]),
     emit(
-      join(opts.outDir, `${artifact.name}.ts`),
-      deployerModule(artifact, { packageName, configImport: opts.configImport }),
-    );
-  });
-  emit(
-    join(opts.outDir, "index.ts"),
-    indexModule(
-      artifacts.map((a) => a.name),
-      { packageName, configImport: opts.configImport },
+      join(opts.outDir, "index.ts"),
+      indexModule(
+        artifacts.map((a) => a.name),
+        { packageName, configImport: opts.configImport },
+      ),
     ),
-  );
-
-  return written;
+  ];
 };

@@ -1,4 +1,5 @@
 import { Effect, Option } from "effect";
+import { isAddressEqual } from "viem";
 import type { Abi, Address } from "viem";
 import { Clients, type DeployResult } from "../services/clients";
 import { Store } from "../services/store";
@@ -15,16 +16,15 @@ import type {
   TypedArtifact,
 } from "../schemas";
 import { networkKeyForChain } from "../store";
-import { codeHash, computeIdentity, type Identity } from "./identity";
+import { computeIdentity, type Identity } from "./identity";
 import { diffIdentity, renderSummary } from "./reasons";
+import { pinSources } from "./sources";
 import type { RedeploymentStrategy } from "../config";
 
 export interface GetOrDeployOptions {
   readonly args: readonly unknown[];
   readonly deploymentName?: string;
   readonly redeploymentStrategy?: RedeploymentStrategy;
-  /** @deprecated use `redeploymentStrategy`. `true` → 'always', `false` → 'never'. */
-  readonly force?: boolean;
   readonly libraries?: Libraries;
   readonly plugins?: Readonly<Record<string, unknown>>;
   readonly onPluginError?: OnPluginError;
@@ -70,6 +70,7 @@ const identityChanged = (
   return (
     diffIdentity({
       existing,
+      abi: artifact.abi,
       bytecode: artifact.bytecode,
       deployedBytecode: artifact.deployedBytecode,
       args,
@@ -82,7 +83,7 @@ const identityChanged = (
  * The deploy pipeline, read top-to-bottom. A recorded deployment is reused (no transaction)
  * unless the resolved `redeploymentStrategy` says otherwise: `always` redeploys, `on-change`
  * redeploys iff the deploy identity moved, `never` reuses and warns on drift. Every real
- * (re)deploy appends a reasoned history entry and pins the verification sources sidecar.
+ * (re)deploy appends a reasoned history entry and pins its verification sources.
  */
 export const getOrDeploy = <A extends Abi>(
   artifact: TypedArtifact<A>,
@@ -104,12 +105,6 @@ export const getOrDeploy = <A extends Abi>(
     const onError = opts.onPluginError ?? "warn";
     const libraries = opts.libraries ?? {};
     const strategy = strategyForChain(clients.chain.id);
-
-    if (opts.force !== undefined) {
-      deps.log.warn(
-        "[deployoor] `force` is deprecated; use `redeploymentStrategy` ('always' | 'never' | 'on-change'). `force: true` maps to 'always', `force: false` to 'never'.",
-      );
-    }
 
     const release = yield* store.lock(network, name);
     const runLocked = Effect.gen(function* () {
@@ -176,6 +171,7 @@ export const getOrDeploy = <A extends Abi>(
                 kind: "changed",
                 changes: diffIdentity({
                   existing,
+                  abi: artifact.abi,
                   bytecode: artifact.bytecode,
                   deployedBytecode: artifact.deployedBytecode,
                   args: opts.args,
@@ -200,17 +196,37 @@ export const getOrDeploy = <A extends Abi>(
       }
 
       const now = deps.now();
-      const identityHash = Option.match(currentIdentity, {
-        onNone: () => codeHash(artifact.deployedBytecode),
-        onSome: (identity) => identity.identityHash,
-      });
+      // Omitted rather than substituted when the identity is not computable: the field means one
+      // specific thing, and storing a bare code hash under it would never match a real identity
+      // hash — buying exactly one spurious redeploy. Absent, `identityChanged` falls back to the
+      // component diff, which is the honest answer.
+      const identity = Option.getOrUndefined(currentIdentity);
+      const identityHash = identity?.identityHash;
+      const contractCodeHash = identity?.codeHash;
+      // Pin the verification input BEFORE writing the record, so a record's `sourcesHash` never
+      // points at a blob that does not exist. Best-effort by design: the deploy is already
+      // broadcast and confirmed, so a store that cannot pin sources must not turn a successful
+      // deployment into a rejected promise (which would also skip the plugins below). Pinning is
+      // optional in the `StoreAdapter` contract — a store may implement no source methods at all.
+      const sources = pinSources(artifact.metadata);
+      const pinned = yield* store.writeSources(sources.hash, sources.sidecar).pipe(
+        Effect.as(true),
+        Effect.catchAll((cause) =>
+          Effect.sync(() => {
+            deps.log.warn(
+              `[deployoor] Deployed ${name}, but could not pin its verification sources (${cause}). The record is written without a sourcesHash.`,
+            );
+            return false;
+          }),
+        ),
+      );
       const summary = renderSummary(reason, artifact.abi);
       const entry: DeploymentHistoryEntry = {
         at: now,
         address,
         transactionHash: hash,
         deployer: clients.account,
-        identityHash,
+        ...(identityHash === undefined ? {} : { identityHash }),
         reason,
         summary,
         ...(existing === undefined ? {} : { supersededAddress: existing.address }),
@@ -226,7 +242,6 @@ export const getOrDeploy = <A extends Abi>(
         networkName: network,
         abi: artifact.abi,
         bytecode: artifact.bytecode,
-        deployedBytecode: artifact.deployedBytecode,
         constructorArgs: [...opts.args],
         transactionHash: hash,
         deployer: clients.account,
@@ -235,7 +250,9 @@ export const getOrDeploy = <A extends Abi>(
           version: artifact.metadata.compilerVersion,
           settings: artifact.metadata.standardJsonInput.settings,
         },
-        identityHash,
+        ...(contractCodeHash === undefined ? {} : { codeHash: contractCodeHash }),
+        ...(identityHash === undefined ? {} : { identityHash }),
+        ...(pinned ? { sourcesHash: sources.hash } : {}),
         // Record the linked libraries so a library-dependent deployment round-trips
         // (the stored bytecode keeps solc's placeholders; the addresses live here).
         ...(opts.libraries === undefined ? {} : { libraries: opts.libraries }),
@@ -243,14 +260,6 @@ export const getOrDeploy = <A extends Abi>(
         kind: "standard",
       };
       yield* store.write(record);
-      // Pin the exact verification input beside the record, so the contract stays verifiable on a
-      // block explorer forever — independent of the current source tree.
-      yield* store.writeSources(network, name, {
-        schemaVersion: 1,
-        fullyQualifiedName: artifact.metadata.fullyQualifiedName,
-        compilerVersion: artifact.metadata.compilerVersion,
-        standardJsonInput: artifact.metadata.standardJsonInput,
-      });
       deps.log.info(
         `[deployoor] Deployed ${name} on ${network} at ${address} — ${summary}${existing === undefined ? "" : ` (superseded ${existing.address})`}`,
       );
@@ -306,11 +315,28 @@ export const register = <A extends Abi>(
     const clients = yield* Clients;
     const store = yield* Store;
     const network = networkKeyForChain(clients.chain);
-    const existing = yield* store.read(network, entry.name);
-    if (Option.isSome(existing) && existing.value.kind !== "external") {
+    const existing = Option.getOrUndefined(yield* store.read(network, entry.name));
+    if (existing !== undefined && existing.kind !== "external") {
       return yield* Effect.fail(new DeploymentExists({ network, name: entry.name }));
     }
     const now = deps.now();
+    // The history is a log of changes, so re-registering the same address appends nothing —
+    // otherwise every re-run of a deploy script would add an identical entry forever. A moved
+    // address appends, and names what it replaced.
+    const priorHistory = existing?.history ?? [];
+    const lastLogged = priorHistory[priorHistory.length - 1];
+    const alreadyLogged = lastLogged !== undefined && isAddressEqual(lastLogged.address, entry.address);
+    const historyEntry: DeploymentHistoryEntry = {
+      at: now,
+      address: entry.address,
+      transactionHash: "0x",
+      deployer: clients.account,
+      reason: { kind: "registered" },
+      summary: "registered external contract",
+      ...(existing === undefined || isAddressEqual(existing.address, entry.address)
+        ? {}
+        : { supersededAddress: existing.address }),
+    };
     const record: DeploymentRecord = {
       schemaVersion: 2,
       contractName: entry.name,
@@ -325,16 +351,7 @@ export const register = <A extends Abi>(
       deployer: clients.account,
       deployedAt: now,
       compiler: { version: "" },
-      history: [
-        {
-          at: now,
-          address: entry.address,
-          transactionHash: "0x",
-          deployer: clients.account,
-          reason: { kind: "registered" },
-          summary: "registered external contract",
-        },
-      ],
+      history: alreadyLogged ? priorHistory : [...priorHistory, historyEntry],
       kind: "external",
     };
     yield* store.write(record);

@@ -3,7 +3,7 @@
 //   cp .env.example .env
 //   pnpm --filter @example/multi-chain generate
 //   pnpm --filter @example/multi-chain deploy
-import { type Address, type Chain, createPublicClient, createWalletClient, http, pad } from "viem";
+import { type Address, type Chain, type Hex, createPublicClient, createWalletClient, http, pad } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { baseSepolia, sepolia } from "viem/chains";
 import { getOrDeployPing, getOrDeployPong } from "../deployers";
@@ -17,18 +17,16 @@ const LZ_EID = {
   baseSepolia: 40_245,
 } as const;
 
-function peerAddress(address: Address): `0x${string}` {
-  return pad(address, { size: 32 });
-}
+const peerAddress = (address: Address): Hex => pad(address, { size: 32 });
 
-function clientsFor(chain: Chain, rpcUrl: string, privateKey: `0x${string}`) {
+const clientsFor = (chain: Chain, rpcUrl: string, privateKey: Hex) => {
   const account = privateKeyToAccount(privateKey);
   const transport = http(rpcUrl);
   return {
     walletClient: createWalletClient({ account, chain, transport }),
     publicClient: createPublicClient({ chain, transport }),
   };
-}
+};
 
 const main = async (): Promise<void> => {
   const privateKey = process.env.PRIVATE_KEY;
@@ -40,8 +38,8 @@ const main = async (): Promise<void> => {
     throw new Error("Set SEPOLIA_RPC_URL and BASE_SEPOLIA_RPC_URL in .env.");
   }
 
-  const sepoliaClients = clientsFor(sepolia, sepoliaRpc, privateKey as `0x${string}`);
-  const baseClients = clientsFor(baseSepolia, baseRpc, privateKey as `0x${string}`);
+  const sepoliaClients = clientsFor(sepolia, sepoliaRpc, privateKey as Hex);
+  const baseClients = clientsFor(baseSepolia, baseRpc, privateKey as Hex);
 
   // Same deployer function, different clients → different chain, different deployments/ record folder.
   const { contract: ping, freshDeploy: pingFresh } = await getOrDeployPing({

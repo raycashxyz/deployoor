@@ -46,9 +46,10 @@ Two small modules that every script, test, and ops task will import. You write t
 
 ```ts
 // accounts.ts
+import type { Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
-export const deployer = privateKeyToAccount(process.env.PK as `0x${string}`);
+export const deployer = privateKeyToAccount(process.env.PK as Hex);
 ```
 
 ```ts

@@ -49,7 +49,7 @@ Point `register` at your existing hardhat-deploy folder and every live address b
 // scripts/import.ts, run with `RPC_URL=https://… tsx scripts/import.ts`
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { createPublicClient, http, type Abi } from "viem";
+import { createPublicClient, http, type Abi, type Address } from "viem";
 import { sepolia } from "viem/chains";
 import { register } from "../deployers";
 
@@ -63,13 +63,16 @@ const publicClient = createPublicClient({ chain, transport: http(process.env.RPC
 const liveChainId = await publicClient.getChainId();
 if (liveChainId !== chain.id) throw new Error(`RPC is chain ${liveChainId}, expected ${chain.id}`);
 
-for (const file of readdirSync(dir).filter((f) => f.endsWith(".json"))) {
-  const { address, abi } = JSON.parse(readFileSync(join(dir, file), "utf8")) as {
-    address: `0x${string}`;
-    abi: Abi;
-  };
-  await register({ publicClient, deploymentName: file.replace(/\.json$/, ""), address, abi });
-}
+const files = readdirSync(dir).filter((f) => f.endsWith(".json"));
+await Promise.all(
+  files.map((file) => {
+    const { address, abi } = JSON.parse(readFileSync(join(dir, file), "utf8")) as {
+      address: Address;
+      abi: Abi;
+    };
+    return register({ publicClient, deploymentName: file.replace(/\.json$/, ""), address, abi });
+  }),
+);
 ```
 
 Run it once per network, changing `dir` and `chain` together. This works for both v1 and v2 folders, since the record shape barely changed. Commit the `deployments/` folder it writes: that is now your source of truth.
@@ -136,7 +139,7 @@ console.log(token.address, vault.address);
 The differences worth knowing:
 
 - **No tags or dependencies.** Ordering is the order of your statements; a dependency is a variable. `getOrDeployVault` takes `token.address` because you have `token` in scope.
-- **`getOrDeploy` redeploys `on-change` by default** — like hardhat-deploy. Re-running sends no transaction unless the runtime bytecode, constructor args, or linked libraries changed; then it redeploys. Set `redeploymentStrategy: 'never'` to only ever reuse, or `'always'` to force. See [idempotency](/concepts/idempotency).
+- **`getOrDeploy` redeploys `on-change` by default** — like hardhat-deploy. Re-running sends no transaction unless the runtime bytecode, constructor args, or linked libraries changed; then it redeploys. Set `redeploymentStrategy: 'never'` to only ever reuse, or `'always'` to redeploy every run. See [idempotency](/concepts/idempotency).
 - **Named accounts become viem accounts.** `getNamedAccounts()` has no equivalent; build the clients you need, one per signer.
 - **You get a contract object, not a receipt-ish struct.** `result.contract` is a typed viem contract, `contract.read.*` / `contract.write.*`, so there's no second `getContractAt` step.
 - **Multiple instances of one artifact** use `deploymentName` instead of a distinct contract name:

@@ -2,7 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { z } from "zod";
 import { ArtifactsNotFound } from "../errors";
-import { AbiSchema, Bytecode } from "../schemas";
+import { AbiSchema, BytecodeSchema } from "../schemas";
 import type { Artifact } from "../schemas";
 import { toArtifact, isDeployable, runtimeOrCreation, type LinkReferences } from "./parse";
 
@@ -20,8 +20,8 @@ const ArtifactFile = z.object({
   contractName: z.string(),
   sourceName: z.string(),
   abi: AbiSchema,
-  bytecode: Bytecode,
-  deployedBytecode: Bytecode.optional(),
+  bytecode: BytecodeSchema,
+  deployedBytecode: BytecodeSchema.optional(),
   linkReferences: LinkRefs.optional(),
   // Hardhat 3 additions (optional, so HH2 artifacts still parse):
   buildInfoId: z.string().optional(),

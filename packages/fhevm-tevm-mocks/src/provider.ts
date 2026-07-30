@@ -34,8 +34,7 @@ export const createFhevmTevmProvider = (
   handlers: FhevmRpcHandlers = {},
 ): FhevmTevmProvider => {
   const activeHandlers: Record<string, FhevmRpcHandler | undefined> = { ...handlers };
-  let provider: FhevmTevmProvider;
-  provider = {
+  const provider: FhevmTevmProvider = {
     baseProvider,
     handlers: activeHandlers,
     extendRpcHandlers(newHandlers) {

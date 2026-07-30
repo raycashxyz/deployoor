@@ -4,6 +4,7 @@ import {
   createPublicClient,
   custom,
   type Account,
+  type Address,
   type WalletClient,
   type PublicClient,
 } from "viem";
@@ -18,7 +19,7 @@ import {
  */
 export const makeEvmClients = async (): Promise<{
   account: Account;
-  address: `0x${string}`;
+  address: Address;
   walletClient: WalletClient;
   publicClient: PublicClient;
 }> => {

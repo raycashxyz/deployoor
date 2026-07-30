@@ -32,9 +32,9 @@ export type { DeployPlugin, DeployedContext, PluginDeps, PluginOverrides, Awaita
 // Domain types
 export type { TypedArtifact } from "./schemas";
 export {
-  Address,
-  Hex,
-  Bytecode,
+  AddressSchema,
+  HexSchema,
+  BytecodeSchema,
   AbiSchema,
   Artifact,
   ContractMetadata,
