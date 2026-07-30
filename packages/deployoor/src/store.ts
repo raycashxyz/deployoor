@@ -36,13 +36,17 @@ export interface StoreAdapter {
    */
   lock?: (network: string, name: string) => Awaitable<() => Awaitable<void>>;
   /**
-   * Optional verification-sources sidecar, persisted beside the record so a deployment stays
-   * verifiable forever. `fsStore`/`memoryStore` implement these; a store that omits them simply
-   * pins no sources (verification then falls back to recompiling the current sources).
+   * Optional content-addressed verification sources, keyed by the hash a record carries as
+   * `sourcesHash`, so identical compilation input is stored once no matter how many chains or
+   * contracts reference it. `fsStore`/`memoryStore` implement these; a store that omits them
+   * simply pins no sources (verification then falls back to recompiling the current sources).
+   *
+   * Because blobs are shared, they are collected rather than deleted per record: `pruneSources`
+   * drops every blob no surviving record references.
    */
-  writeSources?: (network: string, name: string, sources: SourcesSidecar) => Awaitable<void>;
-  readSources?: (network: string, name: string) => Awaitable<SourcesSidecar | null>;
-  removeSources?: (network: string, name: string) => Awaitable<void>;
+  writeSources?: (hash: string, sources: SourcesSidecar) => Awaitable<void>;
+  readSources?: (hash: string) => Awaitable<SourcesSidecar | null>;
+  pruneSources?: () => Awaitable<void>;
 }
 
 type Awaitable<T> = T | Promise<T>;
@@ -88,17 +92,19 @@ export const memoryStore = (seed: ReadonlyArray<DeploymentRecord> = []): StoreAd
     write: (record) => {
       map.set(key(record.networkName, record.deploymentName), record);
     },
-    list: (network) =>
-      Array.from(map.values()).filter((r) => r.networkName.toLowerCase() === network.toLowerCase()),
+    list: (network) => [...map.values()].filter((r) => r.networkName.toLowerCase() === network.toLowerCase()),
     remove: (network, name) => {
       map.delete(key(network, name));
     },
-    writeSources: (network, name, srcs) => {
-      sources.set(key(network, name), srcs);
+    writeSources: (hash, srcs) => {
+      sources.set(hash, srcs);
     },
-    readSources: (network, name) => sources.get(key(network, name)) ?? null,
-    removeSources: (network, name) => {
-      sources.delete(key(network, name));
+    readSources: (hash) => sources.get(hash) ?? null,
+    pruneSources: () => {
+      const referenced = new Set<string>(
+        [...map.values()].flatMap((r) => (r.sourcesHash === undefined ? [] : [r.sourcesHash])),
+      );
+      [...sources.keys()].filter((hash) => !referenced.has(hash)).forEach((hash) => sources.delete(hash));
     },
   };
 };
@@ -113,9 +119,13 @@ export const fsStore = (root: string): StoreAdapter => {
     assertSafeSegment(name, "deploymentName");
     return join(dirFor(network), `${name}.json`);
   };
-  const sourcesFileFor = (network: string, name: string): string => {
-    assertSafeSegment(name, "deploymentName");
-    return join(dirFor(network), `${name}.sources.json`);
+  // Content-addressed sources live once at the root, not per network dir, so the six chains a
+  // contract is deployed to share one blob. A network key is always `<chainId>-<slug>`, so the
+  // reserved name can never collide with one.
+  const sourcesDir = join(root, "sources");
+  const sourcesFileFor = (hash: string): string => {
+    assertSafeSegment(hash, "sourcesHash");
+    return join(sourcesDir, `${hash}.json`);
   };
   const readFile = (file: string): DeploymentRecord =>
     DeploymentRecord.parse(JSON.parse(readFileSync(file, "utf8")));
@@ -126,6 +136,22 @@ export const fsStore = (root: string): StoreAdapter => {
       return null;
     }
   };
+  const recordFilesIn = (dir: string): string[] =>
+    readdirSync(dir)
+      // Skip the legacy per-deployment `<Name>.sources.json` sidecars that predate content
+      // addressing: they are not records and would otherwise parse as null and vanish silently.
+      .filter((f) => f.endsWith(".json") && !f.endsWith(".sources.json"))
+      .map((f) => join(dir, f));
+  const allRecords = (): DeploymentRecord[] =>
+    !existsSync(root)
+      ? []
+      : readdirSync(root, { withFileTypes: true })
+          .filter((entry) => entry.isDirectory() && entry.name !== "sources")
+          .flatMap((entry) => recordFilesIn(join(root, entry.name)))
+          .flatMap((file) => {
+            const record = readFileSafe(file);
+            return record === null ? [] : [record];
+          });
   const acquireLock = async (network: string, name: string, attempts = 600): Promise<() => void> => {
     const dir = dirFor(network);
     mkdirSync(dir, { recursive: true });
@@ -171,33 +197,37 @@ export const fsStore = (root: string): StoreAdapter => {
     list: (network) => {
       const dir = dirFor(network);
       if (!existsSync(dir)) return [];
-      return readdirSync(dir)
-        .filter((f) => f.endsWith(".json") && !f.endsWith(".sources.json"))
-        .flatMap((f) => {
-          const record = readFileSafe(join(dir, f));
-          return record === null ? [] : [record];
-        });
+      return recordFilesIn(dir).flatMap((file) => {
+        const record = readFileSafe(file);
+        return record === null ? [] : [record];
+      });
     },
     remove: (network, name) => {
       const file = fileFor(network, name);
       if (existsSync(file)) rmSync(file);
     },
-    writeSources: (network, name, srcs) => {
-      const dir = dirFor(network);
-      mkdirSync(dir, { recursive: true });
-      assertSafeSegment(name, "deploymentName");
-      const file = join(dir, `${name}.sources.json`);
-      const tmp = join(dir, `.${name}.sources.${randomUUID()}.tmp`);
+    writeSources: (hash, srcs) => {
+      const file = sourcesFileFor(hash);
+      // Content-addressed: the same hash is byte-identical input, so re-deploying an unchanged
+      // compilation leaves the file (and the user's git diff) untouched.
+      if (existsSync(file)) return;
+      mkdirSync(sourcesDir, { recursive: true });
+      const tmp = join(sourcesDir, `.${hash}.${randomUUID()}.tmp`);
       writeFileSync(tmp, JSON.stringify(srcs, null, 2));
       renameSync(tmp, file);
     },
-    readSources: (network, name) => {
-      const file = sourcesFileFor(network, name);
+    readSources: (hash) => {
+      const file = sourcesFileFor(hash);
       return existsSync(file) ? SourcesSidecar.parse(JSON.parse(readFileSync(file, "utf8"))) : null;
     },
-    removeSources: (network, name) => {
-      const file = sourcesFileFor(network, name);
-      if (existsSync(file)) rmSync(file);
+    pruneSources: () => {
+      if (!existsSync(sourcesDir)) return;
+      const referenced = new Set(
+        allRecords().flatMap((r) => (r.sourcesHash === undefined ? [] : [`${r.sourcesHash}.json`])),
+      );
+      readdirSync(sourcesDir)
+        .filter((f) => f.endsWith(".json") && !referenced.has(f))
+        .forEach((f) => rmSync(join(sourcesDir, f)));
     },
     lock: acquireLock,
   };

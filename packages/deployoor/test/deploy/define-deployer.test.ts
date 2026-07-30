@@ -126,6 +126,26 @@ describe("defineRegister / defineReset (project-level entry points)", () => {
     expect(again.contract.address).toBe(account); // re-registering an external record is allowed
   });
 
+  it("register logs a moved address in history and leaves an unchanged re-register alone", async () => {
+    const deploymentsPath = mkdtempSync(join(tmpdir(), "deployoor-"));
+    const register = defineRegister(defineConfig({ deploymentsPath }));
+    const other = `0x${"ab".repeat(20)}` as const;
+
+    const { address: account, walletClient, publicClient } = await makeEvmClients();
+    const clients = { walletClient, publicClient, name: "USDC", abi: counterArtifact.abi };
+    const first = await register({ ...clients, address: account });
+    expect(first.deployment.history).toHaveLength(1);
+
+    // Re-registering the same address records nothing new — otherwise every script run would
+    // append an identical entry.
+    const same = await register({ ...clients, address: account });
+    expect(same.deployment.history).toHaveLength(1);
+
+    const moved = await register({ ...clients, address: other });
+    expect(moved.deployment.history).toHaveLength(2); // appended, not replaced
+    expect(moved.deployment.history?.[1]?.supersededAddress).toBe(account);
+  });
+
   it("register works with only a public client (no signer) and records the zero-address deployer", async () => {
     const deploymentsPath = mkdtempSync(join(tmpdir(), "deployoor-"));
     const register = defineRegister(defineConfig({ deploymentsPath }));

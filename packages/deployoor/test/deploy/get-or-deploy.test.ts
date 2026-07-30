@@ -1,22 +1,18 @@
-import { describe, it, expect, vi, beforeAll } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Address, PublicClient, WalletClient } from "viem";
 import { definePlugin } from "../../src/index";
 import { createDeployer } from "../../src/engine/deployer";
 import { memoryStore, fsStore, networkKeyForChain } from "../../src/store";
+import { codeHash } from "../../src/engine/identity";
 import { counterArtifact, reverterArtifact, libArtifact } from "../fixtures";
 import { makeEvmClients } from "../evm-clients";
 
 // One real in-process EVM shared across the suite; each test gets a fresh store
 // (so idempotency is per-test) and a unique deploymentName (so chain state is independent).
-let account: Address;
-let walletClient: WalletClient;
-let publicClient: PublicClient;
-beforeAll(async () => {
-  ({ address: account, walletClient, publicClient } = await makeEvmClients());
-});
+// Top-level await, so the clients are plain `const` rather than `let` filled in by a hook.
+const { address: account, walletClient, publicClient } = await makeEvmClients();
 const nonce = () => publicClient.getTransactionCount({ address: account });
 const network = () => {
   const chain = walletClient.chain;
@@ -41,6 +37,9 @@ describe("getOrDeploy", () => {
     expect(record?.address).toBe(contract.address);
     expect(record?.schemaVersion).toBe(2);
     expect(record?.history?.[0]?.reason.kind).toBe("fresh");
+    // The record keeps a 32-byte code hash, not a second copy of the runtime bytecode.
+    expect(record?.codeHash).toBe(codeHash(counterArtifact.deployedBytecode));
+    expect(record).not.toHaveProperty("deployedBytecode");
   });
 
   it("returns the existing contract with no transaction on the second call", async () => {
@@ -64,7 +63,7 @@ describe("getOrDeploy", () => {
     expect(after).toBe(before);
   });
 
-  it("redeploys (new address, new tx) when force is true", async () => {
+  it("redeploys (new address, new tx) with redeploymentStrategy 'always'", async () => {
     const deployer = createDeployer({ walletClient, publicClient, store: memoryStore() });
 
     const first = await deployer.getOrDeploy(counterArtifact, {
@@ -75,7 +74,7 @@ describe("getOrDeploy", () => {
     const second = await deployer.getOrDeploy(counterArtifact, {
       args: [5n, account],
       deploymentName: "Counter_c",
-      force: true,
+      redeploymentStrategy: "always",
     });
     const after = await nonce();
 

@@ -62,16 +62,16 @@ describe("fsStore", () => {
     expect(await store.list("42161-arbitrum-one")).toHaveLength(1);
   });
 
-  it("round-trips a v2 record's history, identityHash and deployedBytecode (bigint args stay portable)", async () => {
+  it("round-trips a v2 record's history, identityHash and codeHash (bigint args stay portable)", async () => {
     const root = mkdtempSync(join(tmpdir(), "deployoor-store-"));
     const store = fsStore(root);
     const { root: _root, ...base } = record(root);
-    const idHash = ("0x" + "ab".repeat(32)) as `0x${string}`;
+    const idHash = `0x${"ab".repeat(32)}` as const;
 
     await store.write({
       ...base,
       schemaVersion: 2,
-      deployedBytecode: "0x6080",
+      codeHash: idHash,
       identityHash: idHash,
       history: [
         {
@@ -91,7 +91,7 @@ describe("fsStore", () => {
 
     const read = await store.read("42161-arbitrum-one", "Counter");
     expect(read?.schemaVersion).toBe(2);
-    expect(read?.deployedBytecode).toBe("0x6080");
+    expect(read?.codeHash).toBe(idHash);
     expect(read?.identityHash).toBe(idHash);
     expect(read?.history?.[0]?.summary).toBe("constructor args changed");
     // the nested bigint-replacer path survives the fs round-trip (bigints as portable strings)

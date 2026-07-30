@@ -17,8 +17,6 @@ export interface GetOrDeployArgs<A extends Abi, P extends readonly AnyDeployPlug
   readonly args: ContractConstructorArgs<A>;
   readonly deploymentName?: string;
   readonly redeploymentStrategy?: RedeploymentStrategy;
-  /** @deprecated use `redeploymentStrategy`. `true` → 'always', `false` → 'never'. */
-  readonly force?: boolean;
   readonly libraries?: Libraries;
   readonly plugins?: PluginOverrides<P>;
   /** Override the deployer's plugin-failure policy for this deploy. */
@@ -99,7 +97,7 @@ export const createDeployer = <const P extends readonly AnyDeployPlugin[]>(
           deps,
           (chainId) =>
             resolveStrategy(
-              { redeploymentStrategy: opts.redeploymentStrategy, force: opts.force },
+              { redeploymentStrategy: opts.redeploymentStrategy },
               {
                 redeploymentStrategy: config.redeploymentStrategy,
                 redeploymentStrategyByChainId: config.redeploymentStrategyByChainId,
@@ -123,8 +121,6 @@ export interface DeployerCallOptions<A extends Abi, P extends readonly AnyDeploy
   readonly args: ContractConstructorArgs<A>;
   readonly deploymentName?: string;
   readonly redeploymentStrategy?: RedeploymentStrategy;
-  /** @deprecated use `redeploymentStrategy`. `true` → 'always', `false` → 'never'. */
-  readonly force?: boolean;
   readonly libraries?: Libraries;
   readonly plugins?: PluginOverrides<P>;
   readonly onPluginError?: OnPluginError;
@@ -160,7 +156,6 @@ export const defineDeployer = <A extends Abi, const P extends readonly AnyDeploy
       args: opts.args,
       deploymentName: opts.deploymentName,
       redeploymentStrategy: opts.redeploymentStrategy,
-      force: opts.force,
       libraries: opts.libraries,
       plugins: opts.plugins,
       onPluginError: opts.onPluginError,
@@ -238,15 +233,13 @@ export const defineReset = <const P extends readonly AnyDeployPlugin[]>(config: 
     const deploymentName = opts.deploymentName ?? opts.name;
     if (deploymentName === undefined) {
       const all = await active.list(network);
-      await Promise.all(
-        all.flatMap((r) => [
-          active.remove(network, r.deploymentName),
-          active.removeSources?.(network, r.deploymentName),
-        ]),
-      );
+      await Promise.all(all.map((r) => active.remove(network, r.deploymentName)));
     } else {
       await active.remove(network, deploymentName);
-      await active.removeSources?.(network, deploymentName);
     }
+    // Pinned sources are content-addressed and shared across chains, so they are collected after
+    // the records are gone rather than deleted by name — a blob another network still points at
+    // has to survive resetting this one.
+    await active.pruneSources?.();
   };
 };
