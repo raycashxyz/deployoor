@@ -1,5 +1,54 @@
 # deployoor
 
+## 0.6.0
+
+### Minor Changes
+
+- 1cb8250: Use viem's `Hex`/`Address` types, cap peer ranges below the next major, and remove the deprecated `force` option.
+
+  **BREAKING (pre-1.0)**
+
+  - The `force` option is **gone** (it was deprecated one release ago and never shipped in that state): replace `force: true` with `redeploymentStrategy: 'always'` and `force: false` with `redeploymentStrategy: 'never'`.
+  - `deployoor`'s zod validators are renamed to free the bare names for viem's types: `Hex` → `HexSchema`, `Address` → `AddressSchema`, `Bytecode` → `BytecodeSchema` (matching the existing `AbiSchema`). The exported record/artifact **types** are unchanged — they now spell their hex fields as viem's `Hex` and `Address`, which are structurally identical to the `` `0x${string}` `` they replace, so consumers need no change.
+
+  **Peer ranges**
+
+  viem 3 is imminent and `>=2` would have accepted it silently. Every `viem` peer is now `^2`; `@wagmi/cli` is `^2`, `@tevm/compiler` is capped `<2`, and `solc` `<0.9`. The plugin packages' `deployoor` peer was `*` — accepting any engine version, including breaking pre-1.0 minors — and is now `>=0.5.0 <1.0.0`. `@deployoor/testing` and `fhevm-tevm-mocks` additionally declared `viem >=2.49`, a floor their own catalog version (2.44.2) did not satisfy and that nothing required (tevm itself asks for `^2.37.9`). `@deployoor/wagmi` now declares the `viem` peer it always implicitly relied on.
+
+  **Internal**
+
+  - One `ensureHexPrefix` helper in `artifacts/parse.ts` replaces two copies of the "0x-prefix raw solc output" logic (`parse.ts` and `artifacts/tevm.ts`). It is deliberately not viem's `toHex`, which _encodes_ a string rather than prefixing it, and cannot assert `isHex` because unlinked bytecode legitimately contains `__$…$__` placeholders.
+  - Fixed-width hex fields are built with `numberToHex(n, { size })` / `concatHex` / byte-indexed `slice` instead of `.toString(16).padStart(...)` and character arithmetic.
+  - No `let`, `var`, or reassignment anywhere in the codebase, enforced by oxlint (`no-var`, `prefer-const`, `no-const-assign`, `no-param-reassign`, `no-plusplus`). The accumulator in `codegen/generate.ts` is a `.flatMap`, the tevm fully-qualified-name dedupe is a `.reduce`, and the deploy tests get their EVM clients from a top-level `await` rather than a `let` filled in by `beforeAll`.
+  - Dropped a duplicate `tevm` devDependency in `fhevm-tevm-mocks` (already a `dependencies` entry at the same version).
+
+- 1cb8250: Harden `redeploymentStrategy` and make the pinned verification sources content-addressed.
+
+  - **A v1 record no longer redeploys on a comment-only recompile.** The v1 fallback compared raw creation bytecode, which carries the same trailing CBOR metadata hash as the runtime code — so upgrading deployoor and recompiling redeployed every existing contract on the first run under the new `'on-change'` default. Both sides are now metadata-stripped.
+  - **Constructor args are compared by their ABI encoding**, not their JSON shape, so `1`, `1n`, and the `"1"` a record stores are one value. This is the canonicalisation `identityHash` already applied to the whole tuple, so the component diff and the hash now agree by construction. Both sides of a pair must encode for the encoded comparison to count: viem's address encoder accepts an all-lowercase address but rejects a non-checksummed mixed-case one, so encoding per value would compare an ABI key against a JSON key — two key spaces that can never be equal — and report a change that isn't one. Address casing is folded away by the shared JSON fallback.
+  - **`stripMetadata` is total.** It parsed the trailing bytes as a length without checking they were hex, so bytecode ending in an unlinked `__$…$__` library placeholder threw — surfacing as an untagged defect from the diff path, which documents itself as non-throwing.
+  - **Pinned verification sources are content-addressed**, at `deployments/sources/<hash>.json` with a `sourcesHash` on the record, replacing the per-record `<Name>.sources.json` sidecar. A standard-json input is the whole compilation unit, so the previous layout meant one copy of every source file per contract _per chain_; identical input is now stored once. `reset` collects blobs no remaining record references instead of deleting by name, so a blob another chain still points at survives. Pinning is best-effort: the deploy is already confirmed by then, so a store that cannot write sources logs a warning and the record is written without a `sourcesHash` rather than the whole call failing.
+
+    Custom `StoreAdapter` implementations need updating: `writeSources(hash, sources)` and `readSources(hash)` are keyed by the content hash (typed `Hex`) rather than `(network, name)`, and `removeSources` is replaced by `pruneSources()`, which drops every blob no surviving record references.
+
+  - **Records store a `codeHash`, not a second copy of the runtime bytecode.** Verification never reads it — a standard-json verify submits the pinned sources and the explorer recompiles — so the field is an artifact-side code identity, at 32 bytes instead of ~24KB of hex per contract per chain. It is `keccak` of the **metadata-stripped** runtime bytecode, so comparing it to on-chain code means stripping the trailing CBOR from `eth_getCode` first, and it will not match at all for a contract with `immutable` variables, whose deployed code has the values written in. It is omitted (rather than silently meaning something else) when the runtime bytecode still carries unlinked library placeholders, because viem's `keccak256` does not reject non-hex input — it falls through to hashing the text.
+  - **`identityHash` is omitted rather than substituted** when the identity is not computable. It previously fell back to a bare code hash, which can never equal a real identity hash and so bought exactly one spurious redeploy; absent, the reuse test falls back to the component diff.
+  - **`register` appends to history instead of replacing it.** Re-registering an external contract at a new address kept only the new entry and recorded no `supersededAddress`. Re-registering the _same_ address appends nothing, so a repeated script run no longer grows the log.
+
+  Upgrading: existing `deployments/**/<Name>.sources.json` files are no longer read or written, and nothing backfills them — a record only gains a `sourcesHash` when it is next deployed. Keep the legacy files until the records beside them carry a `sourcesHash`; for a deployment you never redeploy, the old sidecar stays the only pinned copy of its sources.
+
+- 1d04bfd: Add `redeploymentStrategy` and redeploy-on-change.
+
+  `getOrDeploy` now decides reuse-vs-redeploy by a `redeploymentStrategy` — `'on-change'` (the new default), `'never'`, or `'always'` — settable per call, as a config default, or per chain via `redeploymentStrategyByChainId`. `'on-change'` redeploys when the **deploy identity** (metadata-stripped runtime bytecode + constructor args + linked library addresses) changes, so a redeployed dependency's new address cascades through the contracts that take it — while a comment-only recompile does not redeploy.
+
+  Deployment records are now `schemaVersion: 2`: they carry a `codeHash`, an `identityHash`, and an append-only `history` of every (re)deploy with a descriptive `reason`/`summary` (v1 records still read, and upgrade in place on the next deploy). Each deploy also pins the exact solc standard-json input it used, so a deployment stays verifiable on a block explorer later — independent of the current source tree.
+
+  BREAKING (pre-1.0): the default is now `'on-change'` rather than reuse-only, so a changed contract redeploys on re-run. Set `redeploymentStrategy: 'never'` (globally or per chain) to restore the old behaviour. The boolean `force` option is **removed**: replace `force: true` with `redeploymentStrategy: 'always'` and `force: false` with `redeploymentStrategy: 'never'`.
+
+### Patch Changes
+
+- d7acf57: Update the package description to lead with what deployoor is: deploy EVM contracts from TypeScript with your own viem wallet, where a deploy is an artifact plus a client so scripts, tests, and your app share the same typed contract objects. No code change.
+
 ## 0.5.0
 
 ### Minor Changes

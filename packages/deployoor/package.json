@@ -1,10 +1,10 @@
 {
   "name": "deployoor",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": false,
   "type": "module",
   "sideEffects": false,
-  "description": "Deploy EVM contracts from TypeScript with your own viem wallet \u2014 a deploy is an artifact plus a client, so scripts, tests, and your app share typed contract objects.",
+  "description": "Deploy EVM contracts from TypeScript with your own viem wallet — a deploy is an artifact plus a client, so scripts, tests, and your app share typed contract objects.",
   "keywords": [
     "ethereum",
     "evm",
