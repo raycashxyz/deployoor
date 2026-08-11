@@ -49,7 +49,7 @@ The ABI is the one thing that stays inline, and it has to: a `.json` import wide
 
 Your framework's build output, which it already ignores: `artifacts/` and `cache/` for Hardhat, `out/` and `cache/` for Foundry. deployoor reads those; it does not write them.
 
-If a rule in your `.gitignore` covers deployoor's output, `deployoor generate` says so and offers to remove it — see [upgrading](/guides/upgrading#3-commit-deployers).
+If a rule in your `.gitignore` covers deployoor's output, both `deployoor generate` and `deployoor init` say so and offer to remove it — see [upgrading](/guides/upgrading#3-commit-deployers).
 
 ## Tell your formatter to skip them
 
@@ -61,8 +61,15 @@ deployers
 ```
 
 ```json
-// eslint.config.json / .oxlintrc.json
+// .oxlintrc.json
 { "ignorePatterns": ["deployers"] }
+```
+
+ESLint's flat config spells it differently, and has to be JS or TS rather than JSON:
+
+```js
+// eslint.config.js
+export default [{ ignores: ["deployers/**"] }];
 ```
 
 ## Verifying later

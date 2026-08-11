@@ -123,10 +123,12 @@ grep -L sourcesHash deployments/*/*.json | grep -vE '^deployments/sources/|\.sou
 
 The second `grep` matters, because two kinds of file live under `deployments/` without being records. `deployments/sources/` holds the pinned blobs, and older projects have per-deployment `<Name>.sources.json` sidecars from before pinning was content-addressed. Neither carries a `sourcesHash` of its own, so without the filter every one of them is listed as a deployment needing attention — and this being an upgrade guide, those are exactly the projects that have them. `fsStore` skips both when it reads records; this makes the one-liner agree with it.
 
-Anything listed there cannot be verified from committed data. It was deployed before sources were pinned, or the pinning failed at the time. Two ways forward:
+Anything listed there cannot be verified by `deployoor verify` at all — not "only while the source tree matches". The fully-qualified contract name and the standard-json input live solely in the sidecar, so with no `sourcesHash` there is nothing to submit, and the record is reported `unverifiable` before any plugin runs. A matching working tree does not help, because nothing reads it.
 
-- Check out the commit those contracts were deployed from, recompile, and deploy nothing — the sources get pinned by the next successful deploy, so this only helps if you are willing to redeploy.
-- Accept that those deployments verify only while your source tree still matches what was deployed, and verify them now with `deployoor verify` before it drifts further.
+Two ways forward, neither free:
+
+- **Verify it with your explorer's own tooling**, against the source tree at the commit it was deployed from. That is the only route that verifies _that_ address.
+- **Redeploy.** The new deploy pins its sources and is verifiable from then on — but it is a new contract at a new address, recorded alongside the old one. It does not make the historic deployment verifiable.
 
 :::warning[Ask first]
 Deciding what to do about unverifiable historic records depends on which of those contracts anyone actually needs verified. Ask rather than guessing.

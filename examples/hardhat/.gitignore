@@ -3,5 +3,5 @@ artifacts
 cache
 .env
 # NOTE: deployers/ and deployments/ are both intentionally committed. The records are the source of
-# truth, and the deployers are what makes a fresh clone typecheck and deploy without running
+# truth, and the deployers are what make a fresh clone typecheck and deploy without running
 # `deployoor generate` first.
