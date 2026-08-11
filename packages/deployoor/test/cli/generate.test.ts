@@ -85,6 +85,15 @@ describe("runInit + isDeployoorInstalled", () => {
     expect(readFileSync(join(root, "deployoor.config.ts"), "utf8")).toContain("defineConfig");
   });
 
+  it("rethrows a write failure that is not the file already existing", async () => {
+    // `wx` turns "already there" into EEXIST, which is a normal `created: false`. Anything else is a
+    // real failure and must not be swallowed as one — a root that does not exist fails with ENOENT,
+    // and does so on every platform, unlike a permissions trick.
+    const root = join(mkdtempSync(join(tmpdir(), "deployoor-init-enoent-")), "no", "such", "dir");
+
+    await expect(runInit(root)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
   it("says so when there is no toolchain to detect", async () => {
     const root = mkdtempSync(join(tmpdir(), "deployoor-init-bare-"));
 
