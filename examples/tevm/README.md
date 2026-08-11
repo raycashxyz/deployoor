@@ -6,7 +6,7 @@ deployoor on a project with **just `.sol` files** — no Hardhat, no Foundry. `d
 src/Counter.sol                           the contract
         │  deployoor generate   (compiles with @tevm/compiler + solc)
         ▼
-deployers/Counter.ts                      typed getOrDeployCounter (gitignored)
+deployers/Counter.ts                      typed getOrDeployCounter (generated, committed)
         │  scripts/deploy.ts
         ▼
 deployments/<chainId>-<network>/Counter.json   the source of truth — committed to the repo
@@ -14,7 +14,7 @@ deployments/<chainId>-<network>/Counter.json   the source of truth — committed
 
 ## 1. Generate (compiles for you)
 
-There's no `framework` in `deployoor.config.ts` — deployoor auto-detects a tevm project (no Foundry/Hardhat markers + `.sol` under `src/`) and compiles every `.sol` under `src/` with tevm during `deployoor generate` — no separate `hardhat compile`/`forge build` step. (Set `framework: "tevm"` or add a `tevm.config.*` only to be explicit, or `sources` if your contracts live outside `src/`/`contracts/`.) The compiler toolchain (`@tevm/compiler` + `solc`) is installed as a dev dependency (deployoor lists them as optional peers).
+This project has no `deployoor.config.ts` at all — deployoor auto-detects a tevm project (no Foundry/Hardhat markers + `.sol` under `src/`) and compiles every `.sol` under `src/` with tevm during `deployoor generate` — no separate `hardhat compile`/`forge build` step. (Set `framework: "tevm"` or add a `tevm.config.*` only to be explicit, or `sources` if your contracts live outside `src/`/`contracts/`.) The compiler toolchain (`@tevm/compiler` + `solc`) is installed as a dev dependency (deployoor lists them as optional peers).
 
 ```bash
 pnpm --filter @example/tevm exec deployoor generate

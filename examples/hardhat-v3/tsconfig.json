@@ -10,5 +10,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["scripts", "test", "deployers", "deployoor.config.ts"]
+  "include": ["scripts", "test", "deployers"]
 }
