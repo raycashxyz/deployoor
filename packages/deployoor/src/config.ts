@@ -30,6 +30,14 @@ export interface Config<P extends readonly AnyDeployPlugin[] = readonly AnyDeplo
    * Ignored by the Hardhat/Foundry adapters (they read `artifacts/` / `out/`).
    */
   readonly sources?: string;
+  /**
+   * Where the compiled artifacts are, when they are not in the framework's default directory
+   * (Hardhat `./artifacts`, Foundry `./out`). Set this to mirror a `paths.artifacts` in
+   * hardhat.config or an `out` in foundry.toml. deployoor already reads both of those settings
+   * automatically, so set this only to override the location it resolves, or when neither config
+   * states it. Ignored by the tevm adapter, which compiles `sources` instead.
+   */
+  readonly artifactsPath?: string;
   /** Lifecycle plugins (verify, notify, …). */
   readonly plugins?: P;
   /** Default plugin-failure policy. "warn" (default) logs and continues; "throw" surfaces it. */

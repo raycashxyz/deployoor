@@ -7,8 +7,11 @@ export interface RunGenerateOptions {
   readonly root: string;
   /** Absolute directory the deployers are written into. */
   readonly out: string;
-  /** Absolute path to the user's deployoor config (the deployers import it). */
-  readonly configPath: string;
+  /**
+   * Absolute path to the user's deployoor config (the deployers import it). Omit when the project
+   * has none — the deployers then carry the defaults inline.
+   */
+  readonly configPath?: string;
   /** Which contracts to generate for. Default: all (with bytecode). */
   readonly include?: ReadonlyArray<string> | RegExp;
   /** Runtime package the generated deployers import. Default "deployoor". */
@@ -17,6 +20,8 @@ export interface RunGenerateOptions {
   readonly framework?: Framework;
   /** For the tevm framework: the `.sol` sources directory (relative to root). */
   readonly sources?: string;
+  /** Artifacts directory, when it is not the framework default. See `Config.artifactsPath`. */
+  readonly artifactsPath?: string;
 }
 
 const matches = (name: string, include?: ReadonlyArray<string> | RegExp): boolean =>
@@ -32,7 +37,11 @@ const configSpecifier = (fromDir: string, configPath: string): string => {
 
 /** detect → read → filter → generate. The testable core of `deployoor generate`. */
 export const runGenerate = async (opts: RunGenerateOptions): Promise<ReadonlyArray<GeneratedFile>> => {
-  const all = await readArtifactsAsync(opts.root, { framework: opts.framework, sources: opts.sources });
+  const all = await readArtifactsAsync(opts.root, {
+    framework: opts.framework,
+    sources: opts.sources,
+    artifactsPath: opts.artifactsPath,
+  });
   const artifacts = all.filter((a) => matches(a.name, opts.include));
   if (artifacts.length === 0) {
     const includeHint =
@@ -56,7 +65,7 @@ export const runGenerate = async (opts: RunGenerateOptions): Promise<ReadonlyArr
   }
   return generate(artifacts, {
     outDir: opts.out,
-    configImport: configSpecifier(opts.out, opts.configPath),
+    configImport: opts.configPath === undefined ? undefined : configSpecifier(opts.out, opts.configPath),
     packageName: opts.packageName,
   });
 };

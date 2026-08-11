@@ -28,12 +28,12 @@ describe("runAfterCompile", () => {
   });
 
   it("reports but does not rethrow when generate fails, so hardhat compile still succeeds", async () => {
-    const generate = vi.fn().mockRejectedValue(new Error("no deployoor.config found"));
+    const generate = vi.fn().mockRejectedValue(new Error("No deployable contracts matched"));
     const warn = vi.fn();
 
     await expect(
       runAfterCompile({ root: "/project", enabled: true, generate, log: { info: () => {}, warn } }),
     ).resolves.toBeUndefined();
-    expect(warn).toHaveBeenCalledWith("deployoor: skipped generate — no deployoor.config found");
+    expect(warn).toHaveBeenCalledWith("deployoor: skipped generate — No deployable contracts matched");
   });
 });

@@ -33,11 +33,94 @@ export class LibrariesUnlinked extends Data.TaggedError("LibrariesUnlinked")<{
   }
 }
 
+/**
+ * Why the artifacts could not be read. Without this the message can only guess, and it guessed
+ * "compile first" — which is wrong, and unfixable-sounding, for the common case of a project that
+ * did compile but writes its output somewhere other than `artifacts/` or `out/`.
+ */
+export type ArtifactsNotFoundContext =
+  | { readonly kind: "no-toolchain"; readonly markers: string }
+  | {
+      readonly kind: "missing-output-dir";
+      readonly framework: "hardhat" | "foundry" | "tevm";
+      /** The file/dir that identified the toolchain; absent when `framework` came from config. */
+      readonly marker?: string;
+      /** Where `dir` came from, which decides what is worth suggesting. */
+      readonly source: "configured" | "framework-config" | "default";
+    };
+
+const COMPILE_COMMAND = {
+  hardhat: "npx hardhat compile",
+  foundry: "forge build",
+  tevm: "npx deployoor generate",
+} as const;
+
+/** Where each toolchain's own config puts the output dir, so the fix names the right knob. */
+const OUTPUT_DIR_SETTING = {
+  hardhat: "`paths.artifacts` in hardhat.config",
+  foundry: "`out` in foundry.toml",
+  tevm: "the sources dir",
+} as const;
+
+const FRAMEWORK_LABEL = { hardhat: "Hardhat", foundry: "Foundry", tevm: "tevm" } as const;
+
 export class ArtifactsNotFound extends Data.TaggedError("ArtifactsNotFound")<{
   readonly dir: string;
+  readonly context?: ArtifactsNotFoundContext;
 }> {
   override get message(): string {
-    return `No compiled artifacts found in ${this.dir}. Compile first with \`forge build\` or \`npx hardhat compile\`, then run \`deployoor generate\`.`;
+    const context = this.context;
+    if (context === undefined) {
+      return `No compiled artifacts found in ${this.dir}. Compile first with \`forge build\` or \`npx hardhat compile\`, then run \`deployoor generate\`.`;
+    }
+
+    if (context.kind === "no-toolchain") {
+      return [
+        `Could not tell what this project is built with, looking in ${this.dir}.`,
+        ``,
+        `deployoor looks for ${context.markers}.`,
+        `  1. Wrong directory? \`deployoor generate\` reads the current working directory.`,
+        `  2. Non-default layout? Name it yourself in deployoor.config.ts:`,
+        `       export default defineConfig({ framework: "hardhat", artifactsPath: "./build/artifacts" })`,
+      ].join("\n");
+    }
+
+    const label = FRAMEWORK_LABEL[context.framework];
+    const compile = COMPILE_COMMAND[context.framework];
+
+    if (context.source === "configured") {
+      return [
+        `No compiled artifacts in ${this.dir}.`,
+        ``,
+        `That path is the configured \`artifactsPath\`. Check it points at the`,
+        `directory \`${compile}\` actually writes to.`,
+      ].join("\n");
+    }
+
+    const detected = context.marker === undefined ? "set in deployoor.config.ts" : `found ${context.marker}`;
+
+    // The directory came from the project's own config, so it is already the right answer to
+    // "where do the artifacts go?" — nothing left to configure, it simply has not been built.
+    if (context.source === "framework-config") {
+      return [
+        `No compiled artifacts in ${this.dir}.`,
+        ``,
+        `This is a ${label} project (${detected}), and that is the output directory its own config`,
+        `sets (${OUTPUT_DIR_SETTING[context.framework]}), so nothing has compiled into it yet.`,
+        `Run \`${compile}\`, then \`deployoor generate\`.`,
+      ].join("\n");
+    }
+
+    return [
+      `No compiled artifacts in ${this.dir}.`,
+      ``,
+      `This is a ${label} project (${detected}), so deployoor looked in the default output`,
+      `directory. Either:`,
+      `  1. Nothing compiled yet — run \`${compile}\`.`,
+      `  2. The output lives elsewhere — deployoor reads ${OUTPUT_DIR_SETTING[context.framework]}`,
+      `     when it can, so if that is set and this path is still wrong, name it directly:`,
+      `       export default defineConfig({ artifactsPath: "./build/artifacts" })`,
+    ].join("\n");
   }
 }
 

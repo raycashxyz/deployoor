@@ -33,15 +33,22 @@ export const generateDeployers = async (
   const root = resolve(opts.root ?? process.cwd());
   if (!isDeployoorInstalled(root)) {
     throw new Error(
-      "`deployoor` is not in your package.json — generated deployers import it. Add it with `pnpm add -D deployoor viem`.",
+      "cannot find `deployoor` from this project — the generated deployers import it. Declare it in package.json or install it: `pnpm add -D deployoor viem`.",
     );
   }
   const configPath =
     opts.configPath ?? CONFIG_NAMES.map((name) => join(root, name)).find((p) => existsSync(p));
-  if (configPath === undefined || !existsSync(configPath)) {
-    throw new Error("no deployoor.config found. Run `npx deployoor init` first.");
+  // An explicit configPath that does not exist is a mistake worth reporting; discovering none is
+  // not. Every Config field has a default, so a vanilla project (artifacts auto-detected, no
+  // plugins) needs no config file — the generated deployers carry the defaults inline instead,
+  // and `deployoor init` becomes what you run when you actually want to change something.
+  if (opts.configPath !== undefined && !existsSync(opts.configPath)) {
+    throw new Error(`no deployoor config at ${opts.configPath}`);
   }
-  const config = (await createJiti(import.meta.url).import(configPath, { default: true })) as Config;
+  const config =
+    configPath === undefined
+      ? ({} satisfies Config)
+      : ((await createJiti(import.meta.url).import(configPath, { default: true })) as Config);
   const out = resolve(root, config.out ?? "./deployers");
   return runGenerate({
     root,
@@ -50,5 +57,6 @@ export const generateDeployers = async (
     include: config.include,
     framework: config.framework,
     sources: config.sources,
+    artifactsPath: config.artifactsPath,
   });
 };

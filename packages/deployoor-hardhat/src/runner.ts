@@ -15,9 +15,10 @@ export interface RunAfterCompileOptions {
 }
 
 /**
- * Run `deployoor generate` after a Hardhat compile. A generation failure (e.g. no config yet,
- * nothing compiled) is reported but never rethrown, so a deployoor misconfiguration can never
- * break `hardhat compile` itself.
+ * Run `deployoor generate` after a Hardhat compile. A generation failure (e.g. nothing compiled,
+ * or an `include` that matched no contract) is reported but never rethrown, so a deployoor
+ * misconfiguration can never break `hardhat compile` itself. A project with no
+ * `deployoor.config.*` is not a failure — the deployers are generated with the defaults.
  */
 export const runAfterCompile = async (opts: RunAfterCompileOptions): Promise<void> => {
   if (!opts.enabled) return;

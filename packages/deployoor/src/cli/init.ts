@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 const CONFIG_TEMPLATE = `import { defineConfig } from "deployoor";
 
@@ -24,11 +24,71 @@ export const runInit = (root: string): InitResult => {
   return { configPath, created };
 };
 
-/** Whether `deployoor` is a declared dependency of the project (not just present via npx). */
-export const isDeployoorInstalled = (root: string): boolean => {
+/** Every field a package.json can declare a dependency under. */
+const DEPENDENCY_FIELDS = [
+  "dependencies",
+  "devDependencies",
+  // Both count as the project having said it wants this package, which is the question here rather
+  // than whether it happens to be installed. optionalDependencies are installed by default anyway,
+  // and a peer declaration is a deliberate statement of intent — nagging either to "add a dependency
+  // you already declared" is noise.
+  "peerDependencies",
+  "optionalDependencies",
+] as const;
+
+/** Whether `name` is declared anywhere in the project's package.json. */
+export const hasDependency = (root: string, name: string): boolean => {
   const pkgPath = join(root, "package.json");
   if (!existsSync(pkgPath)) return false;
   const parsed: unknown = JSON.parse(readFileSync(pkgPath, "utf8"));
-  const deps = parsed as { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
-  return Boolean(deps.dependencies?.deployoor ?? deps.devDependencies?.deployoor);
+  const manifest = parsed as Partial<Record<(typeof DEPENDENCY_FIELDS)[number], Record<string, string>>>;
+  return DEPENDENCY_FIELDS.some((field) => manifest[field]?.[name] !== undefined);
 };
+
+/** What the generated deployers import, so generating without them yields a tree that cannot build. */
+export const REQUIRED_DEPENDENCIES = ["deployoor", "viem"] as const;
+
+/** `dir` and every directory above it, nearest first. */
+const ancestors = (dir: string): readonly string[] => {
+  const parent = dirname(dir);
+  return parent === dir ? [dir] : [dir, ...ancestors(parent)];
+};
+
+/**
+ * Whether `name` is installed somewhere the generated deployers' import would find it.
+ *
+ * Declaration alone is the wrong test: a package inside a workspace legitimately gets `viem` from an
+ * ancestor's dependencies without declaring it, and the emitted import resolves fine — but a
+ * declaration-only check calls it missing, which prompts for nothing interactively and *fails the run*
+ * in CI.
+ *
+ * This walks `node_modules` by hand rather than calling `require.resolve`, deliberately.
+ * `require.resolve` also consults `NODE_PATH` and Node's global folders, which makes it answer "is
+ * this importable from somewhere on this machine" rather than "from this project" — vitest sets
+ * `NODE_PATH` to the pnpm store, so under test every package resolves from any directory at all and
+ * the check could never be exercised. `Module.globalPaths` is read once at startup, so no amount of
+ * env stubbing fixes that. The walk is deterministic and matches what the import actually does.
+ */
+const installedNear = (root: string, name: string): boolean =>
+  ancestors(resolve(root)).some((dir) => existsSync(join(dir, "node_modules", name, "package.json")));
+
+/**
+ * Whether the generated deployers' import of `name` will work from `root`: the project either declared
+ * it, or it is installed somewhere the import would find it.
+ *
+ * Declared is checked first because it is one file read, and because a declared-but-not-yet-installed
+ * dependency should not be reported as missing either — the next step there is `install`, not adding a
+ * dependency the project already has.
+ *
+ * Every caller goes through this. Answering the question two different ways is what let the CLI accept
+ * a workspace-hoisted dependency while `generateDeployers` rejected the same project.
+ */
+const isAvailable = (root: string, name: string): boolean =>
+  hasDependency(root, name) || installedNear(root, name);
+
+/** Which of `REQUIRED_DEPENDENCIES` the project can neither import nor claims to depend on. */
+export const missingDependencies = (root: string): readonly string[] =>
+  REQUIRED_DEPENDENCIES.filter((name) => !isAvailable(root, name));
+
+/** Whether the generated deployers' `import … from "deployoor"` will resolve from `root`. */
+export const isDeployoorInstalled = (root: string): boolean => isAvailable(root, "deployoor");

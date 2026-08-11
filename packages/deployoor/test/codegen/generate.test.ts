@@ -11,6 +11,13 @@ const run = () => {
   return outDir;
 };
 
+/** A project with no deployoor.config.* at all — every option left at its default. */
+const runWithoutConfig = () => {
+  const outDir = mkdtempSync(join(tmpdir(), "deployoor-gen-noconfig-"));
+  generate([counterArtifact], { outDir });
+  return outDir;
+};
+
 describe("generate (codegen)", () => {
   it("emits a typed artifact module, a deployer, and an index", () => {
     const outDir = run();
@@ -46,5 +53,23 @@ describe("generate (codegen)", () => {
     expect(idx).toContain('import config from "../deployoor.config";');
     expect(idx).toContain("export const register = defineRegister(config);");
     expect(idx).toContain("export const reset = defineReset(config);");
+  });
+
+  describe("without a config file", () => {
+    it("inlines the defaults in the deployer instead of importing a config", () => {
+      const mod = readFileSync(join(runWithoutConfig(), "Counter.ts"), "utf8");
+      expect(mod).not.toContain("deployoor.config");
+      expect(mod).toContain('import type { Config } from "deployoor";');
+      expect(mod).toContain(
+        "export const getOrDeployCounter = defineDeployer(counterArtifact, {} satisfies Config)",
+      );
+    });
+
+    it("inlines the defaults in the index's register and reset", () => {
+      const idx = readFileSync(join(runWithoutConfig(), "index.ts"), "utf8");
+      expect(idx).not.toContain("deployoor.config");
+      expect(idx).toContain("export const register = defineRegister({} satisfies Config);");
+      expect(idx).toContain("export const reset = defineReset({} satisfies Config);");
+    });
   });
 });

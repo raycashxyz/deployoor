@@ -27,28 +27,54 @@ export const ${artifactConstName(artifact.name)} = {
 } satisfies TypedArtifact<typeof abi>;
 `;
 
+/**
+ * How a generated module gets at the config. A project with a `deployoor.config.*` imports it;
+ * one without (every option defaulted) gets an inline `{}` instead, so a vanilla Hardhat or
+ * Foundry project needs no config file at all. Two consts rather than a conditional at each
+ * use site: the import line (empty when there is nothing to import) and the expression passed
+ * to `defineDeployer` / `defineRegister`.
+ */
+const configAccess = (
+  packageName: string,
+  configImport: string | undefined,
+): { importLine: string; expression: string } =>
+  configImport === undefined
+    ? {
+        importLine: `import type { Config } from "${packageName}";`,
+        // Annotated so the emitted file still states its shape, and so a later `deployoor init`
+        // swapping this for a real import is a type-compatible change.
+        expression: "{} satisfies Config",
+      }
+    : { importLine: `import config from "${configImport}";`, expression: "config" };
+
 export const deployerModule = (
   artifact: Artifact,
-  opts: { packageName: string; configImport: string },
-): string => `${AUTOGEN}
+  opts: { packageName: string; configImport?: string },
+): string => {
+  const config = configAccess(opts.packageName, opts.configImport);
+  return `${AUTOGEN}
 import { defineDeployer } from "${opts.packageName}";
-import config from "${opts.configImport}";
+${config.importLine}
 import { ${artifactConstName(artifact.name)} } from "./types/${artifact.name}";
 
-export const getOrDeploy${artifact.name} = defineDeployer(${artifactConstName(artifact.name)}, config);
+export const getOrDeploy${artifact.name} = defineDeployer(${artifactConstName(artifact.name)}, ${config.expression});
 `;
+};
 
 export const indexModule = (
   names: ReadonlyArray<string>,
-  opts: { packageName: string; configImport: string },
-): string => `${AUTOGEN}
+  opts: { packageName: string; configImport?: string },
+): string => {
+  const config = configAccess(opts.packageName, opts.configImport);
+  return `${AUTOGEN}
 import { defineRegister, defineReset } from "${opts.packageName}";
-import config from "${opts.configImport}";
+${config.importLine}
 
 ${names.map((n) => `export { getOrDeploy${n} } from "./${n}";`).join("\n")}
 
 // Record a contract you did not deploy (e.g. USDC), or forget recorded deployments —
 // both config-bound and scoped to the client's chain, like the generated deployers.
-export const register = defineRegister(config);
-export const reset = defineReset(config);
+export const register = defineRegister(${config.expression});
+export const reset = defineReset(${config.expression});
 `;
+};
