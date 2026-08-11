@@ -145,6 +145,17 @@ describe("diffAbi", () => {
     ).toBe(false);
   });
 
+  it("detects an event becoming anonymous", () => {
+    // An anonymous event carries no topic0 and decodes differently, so the flag is part of the
+    // interface even though the signature text is unchanged.
+    expect(abiMatches(base, replacing("Sent", { ...base[2], anonymous: true }))).toBe(false);
+  });
+
+  it("treats anonymous: false and an absent flag as the same thing", () => {
+    // solc omits the key rather than writing false in some outputs; that is not a change.
+    expect(abiMatches(base, replacing("Sent", { ...base[2], anonymous: false }))).toBe(true);
+  });
+
   it("detects an event parameter losing indexed", () => {
     expect(
       abiMatches(

@@ -38,13 +38,20 @@ const parameter = (p: AbiParameter): string => {
   return `${parameterType(p)}${indexed}${p.name === undefined || p.name === "" ? "" : ` ${p.name}`}`;
 };
 
+/**
+ * Covers the whole JSON-ABI surface: `function` (name, inputs, outputs, mutability), `constructor` and
+ * `fallback`/`receive` (mutability), `error` (name, inputs), and `event` (name, indexed inputs, and
+ * `anonymous`). An anonymous event carries no topic0 and is decoded differently, so flipping the flag
+ * is an interface change even though the signature text is identical.
+ */
 const canonicalItem = (item: Abi[number]): string => {
   const inputs = "inputs" in item ? item.inputs : [];
   const outputs =
     "outputs" in item && item.outputs.length > 0 ? ` returns (${item.outputs.map(parameter).join(",")})` : "";
   const mutability = "stateMutability" in item ? ` ${item.stateMutability}` : "";
+  const anonymous = item.type === "event" && item.anonymous === true ? " anonymous" : "";
   const name = "name" in item ? item.name : "";
-  return `${item.type} ${name}(${inputs.map(parameter).join(",")})${mutability}${outputs}`;
+  return `${item.type} ${name}(${inputs.map(parameter).join(",")})${mutability}${outputs}${anonymous}`;
 };
 
 /** Sorted so entry order never matters. */
