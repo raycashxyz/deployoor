@@ -64,7 +64,7 @@ export default defineConfig({
   include: ["Token", "Vault"], // default: everything with bytecode
   out: "./deployers", // default
   deploymentsPath: "./deployments", // default
-  plugins: [etherscan({ apiKey: process.env.ETHERSCAN_KEY }), slack({ webhook: process.env.SLACK_HOOK })],
+  plugins: [etherscan({ apiKey: process.env.ETHERSCAN_KEY }), slack({ webhook: process.env.SLACK_WEBHOOK })],
 });
 ```
 
