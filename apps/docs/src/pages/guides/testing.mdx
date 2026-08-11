@@ -10,6 +10,16 @@ To make testing feel like writing TypeScript scripts — not standing up infrast
 pnpm add -D @deployoor/testing vitest
 ```
 
+Put a compile in front of your test script. A generated deployer holds only a name and an abi, and reads bytecode from your artifacts when you call it, so a test run against an uncompiled tree fails — clearly, but it fails:
+
+```json
+{
+  "scripts": {
+    "test": "hardhat compile && vitest run"
+  }
+}
+```
+
 ```ts
 import { test, expect } from "vitest";
 import { createTestClients } from "@deployoor/testing";
@@ -71,3 +81,5 @@ tevm also powers `deployoor generate` for plain-Solidity projects — no Hardhat
 ## Requirements
 
 `@deployoor/testing` requires **Node ≥ 20** (tevm dependency).
+
+Your contracts must be **compiled**. Test deploys read bytecode, compiler version and sources from `artifacts/` (or `out/`) exactly as a real deploy does — `createTestClients()` replaces the chain and the store, not the artifacts. A test that builds a `TypedArtifact` by hand is the one exception: a full artifact is used as given and never sends deployoor to disk.
