@@ -93,11 +93,9 @@ describe("readHardhatArtifactsPath", () => {
     await expect(readHardhatArtifactsPath(root)).resolves.toBe("real");
   });
 
-  it("refuses rather than guess when a nested paths block could be confused for the exported one", async () => {
-    // Telling `networks.local.paths` from the exported `paths` needs brace matching this does not
-    // attempt, and picking the wrong one would send a deploy at the wrong directory. Two `paths:`
-    // keys therefore make the file ambiguous, and ambiguous means undefined — the caller falls back
-    // to the framework default and names `artifactsPath`.
+  it("skips a paths block nested in networks and takes the exported one", async () => {
+    // `networks.local.paths` comes first in the file, so it used to win on position alone. `paths` is
+    // now required to be a direct key of the exported object, which the nested one is not.
     const root = project({
       "hardhat.config.js": [
         "require('a-plugin-that-is-not-installed');",
@@ -105,6 +103,54 @@ describe("readHardhatArtifactsPath", () => {
         "  networks: { local: { paths: { artifacts: 'decoy' } } },",
         "  paths: { artifacts: 'build/artifacts' },",
         "};",
+      ].join("\n"),
+    });
+
+    await expect(readHardhatArtifactsPath(root)).resolves.toBe("build/artifacts");
+  });
+
+  it("skips an artifacts key nested inside paths and takes the direct one", async () => {
+    const root = project({
+      "hardhat.config.js": [
+        "require('a-plugin-that-is-not-installed');",
+        "module.exports = { paths: { extra: { artifacts: 'decoy' }, artifacts: 'build/artifacts' } };",
+      ].join("\n"),
+    });
+
+    await expect(readHardhatArtifactsPath(root)).resolves.toBe("build/artifacts");
+  });
+
+  it("returns undefined when the only paths block belongs to something else", async () => {
+    // Nothing to read: there is no exported `paths`, so an unrelated nested one must not stand in for
+    // it. Reading it would point deployoor at a directory the project never compiles into.
+    const root = project({
+      "hardhat.config.js": [
+        "require('a-plugin-that-is-not-installed');",
+        "module.exports = { networks: { local: { paths: { artifacts: 'unrelated' } } } };",
+      ].join("\n"),
+    });
+
+    await expect(readHardhatArtifactsPath(root)).resolves.toBeUndefined();
+  });
+
+  it("is not fooled by a brace inside a string", async () => {
+    // Depth counting runs over a copy with string contents blanked; without that, this `{` shifts
+    // every depth after it and `paths` stops looking like a direct key.
+    const root = project({
+      "hardhat.config.js": [
+        "require('a-plugin-that-is-not-installed');",
+        "module.exports = { note: 'a { brace', paths: { artifacts: 'build/artifacts' } };",
+      ].join("\n"),
+    });
+
+    await expect(readHardhatArtifactsPath(root)).resolves.toBe("build/artifacts");
+  });
+
+  it("returns undefined when the config exports nothing it can find", async () => {
+    const root = project({
+      "hardhat.config.js": [
+        "require('a-plugin-that-is-not-installed');",
+        "const config = { paths: { artifacts: 'never-exported' } };",
       ].join("\n"),
     });
 

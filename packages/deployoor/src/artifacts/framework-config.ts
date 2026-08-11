@@ -33,42 +33,99 @@ interface HardhatConfigShape {
   readonly paths?: { readonly artifacts?: unknown };
 }
 
-/** Line and block comments. The `[^:\\]` guard keeps `https://…` inside a string from matching. */
+/** Line and block comments. The `[^:\\]` guard keeps the `//` in `https://…` from starting one. */
 const COMMENTS = /\/\*[\s\S]*?\*\/|(^|[^:\\])\/\/[^\n]*/gm;
 
-/** Any `paths:` key, used to count them — more than one and the right object cannot be identified. */
-const PATHS_KEY = /\bpaths\s*:/g;
+/** A quoted string, captured as delimiter + contents so the contents can be blanked. */
+const STRINGS = /(['"`])((?:[^'"`\\\n]|\\.)*)\1/g;
 
-/** A literal `artifacts` inside a `paths` object. `[^}]*?` keeps the match from leaving the object. */
-const PATHS_ARTIFACTS = /\bpaths\s*:\s*\{[^}]*?\bartifacts\s*:\s*(['"`])([^'"`]*)\1/s;
+/** The `{` that opens the exported config object — `module.exports = {` or `export default {`. */
+const EXPORT_OPENS = /(?:module\s*\.\s*exports\s*=|export\s+default)[^{]*\{/;
+
+/** A literal string value under an `artifacts` key, matched at a known offset. */
+const ARTIFACTS_LITERAL = /^\s*artifacts\s*:\s*(['"`])([^'"`]*)\1/;
+
+/**
+ * `source` with comments and string *contents* replaced by filler of identical length.
+ *
+ * Equal length is the point: every index in the result still refers to the same character of the
+ * original, so structure can be analysed on this copy and the value read back out of the real source.
+ * Newlines survive so a line comment cannot swallow the line after it.
+ */
+const blankNonCode = (source: string): string =>
+  source
+    .replace(COMMENTS, (match: string, keep: string | undefined) => {
+      const prefix = keep ?? "";
+      return prefix + match.slice(prefix.length).replace(/[^\n]/g, " ");
+    })
+    .replace(
+      STRINGS,
+      (_match, quote: string, contents: string) => quote + "\0".repeat(contents.length) + quote,
+    );
+
+/**
+ * Offsets of every `<name>:` key sitting at brace depth `depth` within `body`.
+ *
+ * `body` must start at an opening `{`, and must be blanked source — a `{` inside a string literal
+ * would otherwise shift every depth after it.
+ */
+const keyOffsetsAtDepth = (body: string, name: string, depth: number): readonly number[] => {
+  const depths = [...body].reduce<{ readonly at: readonly number[]; readonly depth: number }>(
+    (acc, char) => ({
+      at: [...acc.at, char === "}" ? acc.depth : acc.depth + (char === "{" ? 1 : 0)],
+      depth: acc.depth + (char === "{" ? 1 : char === "}" ? -1 : 0),
+    }),
+    { at: [], depth: 0 },
+  ).at;
+
+  return [...body.matchAll(new RegExp(`\\b${name}\\s*:`, "g"))]
+    .map((match) => match.index)
+    .filter((index): index is number => index !== undefined && depths[index] === depth);
+};
 
 /**
  * A literal `paths.artifacts` read out of config *source*, or undefined when it cannot be proven.
  *
- * Text is a poor way to read a value out of code, so this refuses far more than it accepts. The bias
- * is deliberate: a wrong answer here is worse than none, because deployoor would read a different
- * directory than the one the project compiles into — and if artifacts happen to exist there, that is a
- * deploy of stale bytecode rather than a clean "nothing compiled" error. Declining just falls back to
- * the framework default, which the caller reports with the `artifactsPath` escape hatch.
+ * The fallback for a config that will not evaluate. Reading a value out of code with text is the wrong
+ * tool, and three separate review findings landed on this before it was structural rather than a
+ * pattern — a commented-out `paths` block, a `paths` nested in `networks`, and an `artifacts` nested
+ * inside `paths` each beat the real one purely by coming first in the file. So this does the smallest
+ * amount of actual parsing that makes the answer provable:
  *
- * Two ways a naive scan gets it wrong, both of which it used to:
+ * 1. Comments and string contents are blanked (`blankNonCode`), so nothing inside either is read as
+ *    structure, and a `{` in a string cannot shift the brace depth.
+ * 2. The exported object is located, and `paths` is required to be a **direct** key of it — a `paths`
+ *    belonging to `networks.local` is at the wrong depth and is not considered.
+ * 3. `artifacts` is required to be a **direct** key of that `paths` object, so a decoy one nested
+ *    inside it is likewise ignored rather than preferred.
+ * 4. The value is then read from the original source at that exact offset, and only a quoted literal
+ *    matches — a computed path (`join(__dirname, …)`) yields nothing.
  *
- * 1. A **commented-out** `paths` block above the real one wins, because it comes first in the text.
- *    So comments are stripped before anything is matched.
- * 2. A **nested** `paths` — `networks: { local: { paths: { artifacts: "…" } } }` — also wins on
- *    position, and telling it from the exported one needs brace matching this deliberately does not
- *    attempt. So a second `paths:` key anywhere makes the file ambiguous and the answer is refused.
- *
- * A computed value (`join(__dirname, …)`) never matches either. All three cases need `artifactsPath`.
+ * Anything it cannot prove returns undefined, which costs only the framework default and the error the
+ * caller already raises naming `artifactsPath`. The bias is deliberate: a wrong directory that happens
+ * to hold old artifacts is a silent deploy of stale bytecode, which is worse than any error.
  */
 const artifactsFromSource = (source: string): string | undefined => {
-  const stripped = source.replace(COMMENTS, (match, keep: string | undefined) =>
-    keep === undefined ? " " : keep,
-  );
-  const pathsKeys = stripped.match(PATHS_KEY) ?? [];
-  if (pathsKeys.length !== 1) return undefined;
+  const blanked = blankNonCode(source);
+  const exported = EXPORT_OPENS.exec(blanked);
+  if (exported?.index === undefined) return undefined;
 
-  return PATHS_ARTIFACTS.exec(stripped)?.[2];
+  const objectAt = exported.index + exported[0].length - 1;
+  const body = blanked.slice(objectAt);
+
+  const pathsKeys = keyOffsetsAtDepth(body, "paths", 1);
+  const pathsAt = pathsKeys.length === 1 ? pathsKeys[0] : undefined;
+  if (pathsAt === undefined) return undefined;
+
+  const pathsObjectAt = body.indexOf("{", pathsAt);
+  if (pathsObjectAt === -1) return undefined;
+
+  const artifactsKeys = keyOffsetsAtDepth(body.slice(pathsObjectAt), "artifacts", 1);
+  const artifactsAt = artifactsKeys.length === 1 ? artifactsKeys[0] : undefined;
+  if (artifactsAt === undefined) return undefined;
+
+  // Read the value from the real source, at the offset the blanked copy proved is the right one.
+  return ARTIFACTS_LITERAL.exec(source.slice(objectAt + pathsObjectAt + artifactsAt))?.[2];
 };
 
 /**
