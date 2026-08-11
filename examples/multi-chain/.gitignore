@@ -1,6 +1,5 @@
 node_modules
 out
 cache
-deployers
-# NOTE: deployments/ (records + the sources/ verification blobs) is intentionally committed — it is the source of truth.
 .env
+# NOTE: deployers/ and deployments/ are both intentionally committed — see examples/hardhat/.gitignore.
