@@ -86,8 +86,11 @@ export interface TypedArtifact<A extends Abi = Abi> {
  * from the compiled artifact at deploy time, which is why this file stays small enough to commit and
  * only changes when your interface does.
  *
- * `defineDeployer` accepts this or a full `TypedArtifact`. A full one is used as-is — that is how a
- * hand-built or compiled-in-memory artifact keeps working with no filesystem at all.
+ * Nothing emits or consumes this yet: `defineDeployer` still takes a full `TypedArtifact`, and it is
+ * added ahead of the loader so the type and the abi comparison can be reviewed on their own. When the
+ * loader lands, `defineDeployer` will accept either — a full artifact used as-is, which is how a
+ * hand-built or compiled-in-memory one keeps working with no filesystem at all, and a generated one
+ * resolved from the compiled artifact by `fullyQualifiedName`.
  */
 export interface GeneratedArtifact<A extends Abi = Abi> {
   readonly name: string;
