@@ -51,149 +51,6 @@ describe("readHardhatArtifactsPath", () => {
     await expect(readHardhatArtifactsPath(root)).resolves.toBeUndefined();
   });
 
-  it("reads paths.artifacts from a config that cannot be evaluated", async () => {
-    // The case the custom-paths example surfaced. A config that registers a plugin throws when it is
-    // imported outside a Hardhat run — the real message is `HH5: HardhatContext is not created` — and
-    // that is the normal shape of a Hardhat project, not an edge case. Treating the failure as "no
-    // paths.artifacts" sent every such project to the default directory, and it broke at *deploy*
-    // time while `generate` worked, because the Hardhat plugin passes the path in directly.
-    const root = project({
-      "hardhat.config.js": [
-        "require('a-plugin-that-is-not-installed');",
-        "module.exports = { solidity: '0.8.24', paths: { sources: 'src/contracts', artifacts: 'build/artifacts' } };",
-      ].join("\n"),
-    });
-
-    await expect(readHardhatArtifactsPath(root)).resolves.toBe("build/artifacts");
-  });
-
-  it("ignores a commented-out paths block above the real one", async () => {
-    // Text is read in order, so the commented block used to win purely on position — and it wins
-    // silently, pointing deployoor at a directory the project stopped compiling into.
-    const root = project({
-      "hardhat.config.js": [
-        "require('a-plugin-that-is-not-installed');",
-        '// paths: { artifacts: "old/place" },',
-        "module.exports = { paths: { artifacts: 'build/artifacts' } };",
-      ].join("\n"),
-    });
-
-    await expect(readHardhatArtifactsPath(root)).resolves.toBe("build/artifacts");
-  });
-
-  it("ignores a block-commented paths block too", async () => {
-    const root = project({
-      "hardhat.config.js": [
-        "require('a-plugin-that-is-not-installed');",
-        '/* paths: { artifacts: "commented" } */',
-        "module.exports = { paths: { artifacts: 'real' } };",
-      ].join("\n"),
-    });
-
-    await expect(readHardhatArtifactsPath(root)).resolves.toBe("real");
-  });
-
-  it("skips a paths block nested in networks and takes the exported one", async () => {
-    // `networks.local.paths` comes first in the file, so it used to win on position alone. `paths` is
-    // now required to be a direct key of the exported object, which the nested one is not.
-    const root = project({
-      "hardhat.config.js": [
-        "require('a-plugin-that-is-not-installed');",
-        "module.exports = {",
-        "  networks: { local: { paths: { artifacts: 'decoy' } } },",
-        "  paths: { artifacts: 'build/artifacts' },",
-        "};",
-      ].join("\n"),
-    });
-
-    await expect(readHardhatArtifactsPath(root)).resolves.toBe("build/artifacts");
-  });
-
-  it("skips an artifacts key nested inside paths and takes the direct one", async () => {
-    const root = project({
-      "hardhat.config.js": [
-        "require('a-plugin-that-is-not-installed');",
-        "module.exports = { paths: { extra: { artifacts: 'decoy' }, artifacts: 'build/artifacts' } };",
-      ].join("\n"),
-    });
-
-    await expect(readHardhatArtifactsPath(root)).resolves.toBe("build/artifacts");
-  });
-
-  it("returns undefined when the only paths block belongs to something else", async () => {
-    // Nothing to read: there is no exported `paths`, so an unrelated nested one must not stand in for
-    // it. Reading it would point deployoor at a directory the project never compiles into.
-    const root = project({
-      "hardhat.config.js": [
-        "require('a-plugin-that-is-not-installed');",
-        "module.exports = { networks: { local: { paths: { artifacts: 'unrelated' } } } };",
-      ].join("\n"),
-    });
-
-    await expect(readHardhatArtifactsPath(root)).resolves.toBeUndefined();
-  });
-
-  it("is not fooled by a brace inside a string", async () => {
-    // Depth counting runs over a copy with string contents blanked; without that, this `{` shifts
-    // every depth after it and `paths` stops looking like a direct key.
-    const root = project({
-      "hardhat.config.js": [
-        "require('a-plugin-that-is-not-installed');",
-        "module.exports = { note: 'a { brace', paths: { artifacts: 'build/artifacts' } };",
-      ].join("\n"),
-    });
-
-    await expect(readHardhatArtifactsPath(root)).resolves.toBe("build/artifacts");
-  });
-
-  it("returns undefined when the config exports nothing it can find", async () => {
-    const root = project({
-      "hardhat.config.js": [
-        "require('a-plugin-that-is-not-installed');",
-        "const config = { paths: { artifacts: 'never-exported' } };",
-      ].join("\n"),
-    });
-
-    await expect(readHardhatArtifactsPath(root)).resolves.toBeUndefined();
-  });
-
-  it("does not treat a URL inside a string as a comment", async () => {
-    // Stripping comments must not treat the `//` in `https://…` as one. The paths block sits after the
-    // URL on the same line, so a naive strip takes it with the rest of the line and the answer is lost.
-    const root = project({
-      "hardhat.config.js": [
-        "require('a-plugin-that-is-not-installed');",
-        "module.exports = { rpc: 'https://sepolia.example.dev', paths: { artifacts: 'build/artifacts' } };",
-      ].join("\n"),
-    });
-
-    await expect(readHardhatArtifactsPath(root)).resolves.toBe("build/artifacts");
-  });
-
-  it("does not mistake an artifacts key outside paths for this one", async () => {
-    const root = project({
-      "hardhat.config.js": [
-        "require('a-plugin-that-is-not-installed');",
-        "module.exports = { paths: { sources: 'src' }, artifacts: 'DECOY' };",
-      ].join("\n"),
-    });
-
-    await expect(readHardhatArtifactsPath(root)).resolves.toBeUndefined();
-  });
-
-  it("declines a computed artifacts path rather than guessing at it", async () => {
-    // Text cannot resolve `join(__dirname, …)`, and inventing an answer would be worse than the
-    // reported default — `artifactsPath` is the escape hatch for this.
-    const root = project({
-      "hardhat.config.js": [
-        "require('a-plugin-that-is-not-installed');",
-        "module.exports = { paths: { artifacts: require('path').join(__dirname, 'x') } };",
-      ].join("\n"),
-    });
-
-    await expect(readHardhatArtifactsPath(root)).resolves.toBeUndefined();
-  });
-
   it("prefers the evaluated config over the text scan when both could answer", async () => {
     // An importable config is authoritative: it can compute a path the text cannot see.
     const root = project({
@@ -204,6 +61,22 @@ describe("readHardhatArtifactsPath", () => {
     });
 
     await expect(readHardhatArtifactsPath(root)).resolves.toBe("from-code");
+  });
+
+  it("returns undefined for a config it cannot evaluate, rather than reading it as text", async () => {
+    // A plugin-bearing config throws outside a Hardhat run (the real message is
+    // `HH5: HardhatContext is not created`), and a literal `paths.artifacts` is deliberately *not*
+    // read out of the source. Four review rounds found four shapes where a text scan returned the
+    // wrong directory, and a wrong artifacts directory holding stale artifacts deploys old bytecode
+    // silently. The caller falls back to the framework default and names `artifactsPath`.
+    const root = project({
+      "hardhat.config.js": [
+        "require('a-plugin-that-is-not-installed');",
+        "module.exports = { paths: { artifacts: 'build/artifacts' } };",
+      ].join("\n"),
+    });
+
+    await expect(readHardhatArtifactsPath(root)).resolves.toBeUndefined();
   });
 
   it("returns undefined when there is no hardhat config at all", async () => {
