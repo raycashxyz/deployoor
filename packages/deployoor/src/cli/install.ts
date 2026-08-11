@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { createInterface } from "node:readline/promises";
+import { confirm, loggerFor, type ConfirmDeps } from "./prompt";
 
 /**
  * Offer to install the packages the generated deployers need, when `deployoor generate` runs in a
@@ -46,24 +46,10 @@ export const detectPackageManager = (root: string): PackageManager => {
 export const installCommandLine = (pm: PackageManager, packages: readonly string[]): string =>
   [pm.command, ...pm.args, ...packages].join(" ");
 
-export interface PromptDeps {
-  /** Whether we can ask a question at all. Defaults to stdin being a TTY. */
-  readonly isInteractive?: () => boolean;
-  /** Asks the question, resolving to the raw answer. Defaults to a readline prompt on stdio. */
-  readonly ask?: (question: string) => Promise<string>;
+export interface PromptDeps extends ConfirmDeps {
   /** Runs the install, resolving to whether it succeeded. Defaults to a stdio-inherited spawn. */
   readonly run?: (pm: PackageManager, packages: readonly string[]) => boolean;
-  readonly log?: (message: string) => void;
 }
-
-const defaultAsk = async (question: string): Promise<string> => {
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  try {
-    return await rl.question(question);
-  } finally {
-    rl.close();
-  }
-};
 
 const defaultRun = (pm: PackageManager, packages: readonly string[]): boolean =>
   spawnSync(pm.command, [...pm.args, ...packages], { stdio: "inherit", shell: process.platform === "win32" })
@@ -71,23 +57,18 @@ const defaultRun = (pm: PackageManager, packages: readonly string[]): boolean =>
 
 /**
  * Ask whether to install `packages`, and do it if the answer is yes. Resolves to whether they are
- * now installed. Anything other than y/yes — including a bare Enter — is a no, so the risky branch
- * needs a deliberate keystroke.
+ * now installed. See `confirm` for what counts as a yes and what happens without a TTY.
  */
 export const offerInstall = async (
   root: string,
   packages: readonly string[],
   deps: PromptDeps = {},
 ): Promise<boolean> => {
-  const isInteractive = deps.isInteractive ?? (() => process.stdin.isTTY === true);
-  const log = deps.log ?? ((message: string) => console.log(message));
+  const log = loggerFor(deps);
   const pm = detectPackageManager(root);
   const commandLine = installCommandLine(pm, packages);
 
-  if (!isInteractive()) return false;
-
-  const answer = await (deps.ask ?? defaultAsk)(`deployoor: run \`${commandLine}\` now? [y/N] `);
-  if (!/^y(es)?$/i.test(answer.trim())) return false;
+  if (!(await confirm(`deployoor: run \`${commandLine}\` now? [y/N] `, deps))) return false;
 
   log(`deployoor: ${commandLine}`);
   const ok = (deps.run ?? defaultRun)(pm, packages);

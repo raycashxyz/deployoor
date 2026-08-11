@@ -4,6 +4,7 @@ import { generateDeployers } from "./generate";
 import { loadConfig } from "./cli/config-file";
 import { runInit, isDeployoorInstalled, missingDependencies } from "./cli/init";
 import { detectPackageManager, installCommandLine, offerInstall } from "./cli/install";
+import { reviewIgnoredOutput } from "./cli/gitignore";
 import { parseVerifyArgs, runVerify, VERIFY_FLAG_HELP, VERIFY_USAGE, type VerifyResult } from "./cli/verify";
 
 const fail = (message: string): never => {
@@ -55,6 +56,10 @@ const generate = async (root: string): Promise<void> => {
   await ensureDependencies(root);
   const files = await generateDeployers({ root });
   console.log(`deployoor: generated ${files.length} file(s)`);
+  // After writing, not before: the advice is about committing files that now exist, and the config is
+  // read a second time here so that a `generate` failure never stops to ask about a `.gitignore`.
+  const { config } = await loadConfig(root);
+  await reviewIgnoredOutput(root, config);
 };
 
 /**
@@ -106,9 +111,13 @@ const verify = async (root: string, argv: ReadonlyArray<string>): Promise<void> 
   if (!report.ok) process.exitCode = 1;
 };
 
-const init = (root: string): void => {
-  const { configPath, created } = runInit(root);
+const init = async (root: string): Promise<void> => {
+  const { configPath, created } = await runInit(root);
   console.log(created ? `deployoor: created ${configPath}` : `deployoor: ${configPath} already exists`);
+  // The scaffold has just declared where the output goes, so this is the moment a rule ignoring it is
+  // both discoverable and cheap to fix — before anything has been generated or deployed.
+  const { config } = await loadConfig(root);
+  await reviewIgnoredOutput(root, config);
   if (!isDeployoorInstalled(root))
     console.log("  next: add deployoor and viem → `pnpm add -D deployoor viem`");
   console.log("  next: compile contracts → `forge build` or `npx hardhat compile`");

@@ -109,6 +109,7 @@ export default defineConfig({
         { text: "Hardhat", link: "/guides/hardhat" },
         { text: "Foundry", link: "/guides/foundry" },
         { text: "TEVM", link: "/guides/tevm" },
+        { text: "Upgrading to 0.7", link: "/guides/upgrading" },
       ],
     },
     {

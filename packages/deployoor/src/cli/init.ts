@@ -1,27 +1,100 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { detectToolchain, type DetectedToolchain } from "../artifacts/detect";
+import { readFoundryOutPath, readHardhatArtifactsPath } from "../artifacts/framework-config";
 
-const CONFIG_TEMPLATE = `import { defineConfig } from "deployoor";
+/** What deployoor resolved about this project, written into the scaffold so the user can check it. */
+interface Detected {
+  readonly toolchain: DetectedToolchain | null;
+  /** The artifacts directory the framework's own config states, if it states one. */
+  readonly artifactsPath?: string;
+}
 
-export default defineConfig({
-  // include: ["Token", "Vault"],  // default: every contract with bytecode
-  out: "./deployers",
-  deploymentsPath: "./deployments",
-  plugins: [],
-});
-`;
+const detect = async (root: string): Promise<Detected> => {
+  const toolchain = detectToolchain(root);
+  if (toolchain?.framework === "hardhat") {
+    const artifactsPath = await readHardhatArtifactsPath(root);
+    return { toolchain, artifactsPath };
+  }
+  if (toolchain?.framework === "foundry") {
+    return { toolchain, artifactsPath: readFoundryOutPath(root) };
+  }
+  return { toolchain };
+};
+
+/**
+ * The two comment lines about where artifacts come from.
+ *
+ * `artifactsPath` is scaffolded **commented out**, even when the framework's config states a
+ * non-default directory — because deployoor reads that config itself. Writing the value here would
+ * copy a setting that already has an owner, and the copy is then free to drift from it. So the
+ * scaffold shows what was resolved and leaves it unset, which is also the only way to tell the user
+ * that they do not need to repeat themselves.
+ */
+const artifactsComment = ({ toolchain, artifactsPath }: Detected): ReadonlyArray<string> => {
+  if (toolchain === null) {
+    return [
+      "  // No Foundry, Hardhat or Solidity sources detected in this directory.",
+      '  // framework: "hardhat",',
+      '  // artifactsPath: "./artifacts",',
+    ];
+  }
+  if (toolchain.framework === "tevm") {
+    return [
+      `  // Detected: plain Solidity (${toolchain.marker}) — deployoor compiles the sources itself.`,
+      '  // sources: "./src",',
+    ];
+  }
+  const where =
+    artifactsPath === undefined
+      ? `the ${toolchain.framework} default`
+      : `${artifactsPath} (from ${toolchain.marker})`;
+  return [
+    `  // Detected: ${toolchain.framework}, artifacts in ${where}.`,
+    "  // deployoor reads that from your framework's own config, so leave this unset unless you",
+    "  // want to override it.",
+    `  // artifactsPath: ${JSON.stringify(artifactsPath ?? (toolchain.framework === "foundry" ? "./out" : "./artifacts"))},`,
+  ];
+};
+
+const template = (detected: Detected): string =>
+  [
+    'import { defineConfig } from "deployoor";',
+    "",
+    "export default defineConfig({",
+    ...artifactsComment(detected),
+    "",
+    '  out: "./deployers", // generated deployers — commit them',
+    '  deploymentsPath: "./deployments", // the deployment record — commit it',
+    '  // include: ["Token", "Vault"], // default: every contract with bytecode',
+    "  plugins: [],",
+    "});",
+    "",
+  ].join("\n");
 
 export interface InitResult {
   readonly configPath: string;
   readonly created: boolean;
 }
 
-/** Scaffold deployoor.config.ts if absent. Does not install anything. */
-export const runInit = (root: string): InitResult => {
+/**
+ * Scaffold deployoor.config.ts if absent, filled in from what this project looks like rather than
+ * from a fixed template — so the file confirms which toolchain deployoor found and where it will
+ * read artifacts from. Installs nothing.
+ */
+export const runInit = async (root: string): Promise<InitResult> => {
   const configPath = join(root, "deployoor.config.ts");
-  const created = !existsSync(configPath);
-  if (created) writeFileSync(configPath, CONFIG_TEMPLATE);
-  return { configPath, created };
+  // `wx` rather than an existsSync guard: detection is async, so a check before it leaves a window in
+  // which something else can create the config, and the write would then truncate whatever it wrote.
+  // Exclusive creation makes "does it exist" and "claim it" the same operation.
+  const contents = template(await detect(root));
+  try {
+    writeFileSync(configPath, contents, { flag: "wx" });
+    return { configPath, created: true };
+  } catch (cause) {
+    if ((cause as NodeJS.ErrnoException).code === "EEXIST") return { configPath, created: false };
+    throw cause;
+  }
 };
 
 /** Every field a package.json can declare a dependency under. */
