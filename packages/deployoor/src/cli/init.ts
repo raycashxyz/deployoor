@@ -24,11 +24,21 @@ export const runInit = (root: string): InitResult => {
   return { configPath, created };
 };
 
-/** Whether `deployoor` is a declared dependency of the project (not just present via npx). */
-export const isDeployoorInstalled = (root: string): boolean => {
+/** Whether `name` is a declared dependency of the project (not just resolvable via npx). */
+export const hasDependency = (root: string, name: string): boolean => {
   const pkgPath = join(root, "package.json");
   if (!existsSync(pkgPath)) return false;
   const parsed: unknown = JSON.parse(readFileSync(pkgPath, "utf8"));
   const deps = parsed as { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
-  return Boolean(deps.dependencies?.deployoor ?? deps.devDependencies?.deployoor);
+  return Boolean(deps.dependencies?.[name] ?? deps.devDependencies?.[name]);
 };
+
+/** What the generated deployers import, so generating without them yields a tree that cannot build. */
+export const REQUIRED_DEPENDENCIES = ["deployoor", "viem"] as const;
+
+/** Which of `REQUIRED_DEPENDENCIES` the project has not declared. */
+export const missingDependencies = (root: string): readonly string[] =>
+  REQUIRED_DEPENDENCIES.filter((name) => !hasDependency(root, name));
+
+/** Whether `deployoor` is a declared dependency of the project (not just present via npx). */
+export const isDeployoorInstalled = (root: string): boolean => hasDependency(root, "deployoor");

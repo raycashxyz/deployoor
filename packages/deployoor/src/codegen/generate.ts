@@ -6,8 +6,11 @@ import { artifactModule, deployerModule, indexModule } from "./templates";
 export interface GenerateOptions {
   /** Directory the deployer + types files are written into (e.g. "./deployers"). */
   readonly outDir: string;
-  /** Import specifier from a generated deployer file to the user's deployoor config. */
-  readonly configImport: string;
+  /**
+   * Import specifier from a generated deployer file to the user's deployoor config. Omitted when
+   * the project has no config file, in which case the deployers carry the defaults inline.
+   */
+  readonly configImport?: string;
   /** The runtime package generated deployers import. Default "deployoor". */
   readonly packageName?: string;
 }

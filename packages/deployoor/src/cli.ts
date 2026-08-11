@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
 import { generateDeployers } from "./generate";
-import { runInit, isDeployoorInstalled } from "./cli/init";
+import { runInit, isDeployoorInstalled, missingDependencies } from "./cli/init";
+import { detectPackageManager, installCommandLine, offerInstall } from "./cli/install";
 
 const fail = (message: string): never => {
   console.error(`deployoor: ${message}`);
@@ -11,7 +12,7 @@ const fail = (message: string): never => {
 const usage = `usage: deployoor <command>
 
 Commands:
-  init       write deployoor.config.ts
+  init       write deployoor.config.ts (optional — generate defaults without one)
   generate   read compiled artifacts and write typed deployers
 
 Options:
@@ -25,7 +26,27 @@ const version = (): string => {
   return pkg.version ?? "0.0.0";
 };
 
+/**
+ * The generated deployers import `deployoor` and `viem`, so generating into a project that has not
+ * declared them leaves a tree that cannot compile. Offer to add them rather than only naming the
+ * command — and if the offer is declined, or there is no TTY to ask at, fail with that command.
+ */
+const ensureDependencies = async (root: string): Promise<void> => {
+  const missing = missingDependencies(root);
+  if (missing.length === 0) return;
+
+  const commandLine = installCommandLine(detectPackageManager(root), missing);
+  console.log(
+    `deployoor: the generated deployers import ${missing.join(" and ")}, ${
+      missing.length === 1 ? "which is" : "which are"
+    } not in your package.json.`,
+  );
+  if (await offerInstall(root, missing)) return;
+  fail(`install ${missing.join(" and ")} first:\n  ${commandLine}`);
+};
+
 const generate = async (root: string): Promise<void> => {
+  await ensureDependencies(root);
   const files = await generateDeployers({ root });
   console.log(`deployoor: generated ${files.length} file(s)`);
 };

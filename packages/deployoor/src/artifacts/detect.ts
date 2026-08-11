@@ -3,10 +3,25 @@ import { join } from "node:path";
 
 export type Framework = "hardhat" | "foundry" | "tevm";
 
-const has = (root: string, ...names: string[]): boolean => names.some((name) => existsSync(join(root, name)));
+/** A detected toolchain plus the file or directory that gave it away, so errors can cite it. */
+export interface DetectedToolchain {
+  readonly framework: Framework;
+  /** e.g. "hardhat.config.ts", "foundry.toml", "src/". */
+  readonly marker: string;
+}
 
-const hasHardhatConfig = (root: string): boolean =>
-  has(root, "hardhat.config.ts", "hardhat.config.js", "hardhat.config.cjs", "hardhat.config.mjs");
+/** The first of `names` that exists in `root` — the marker an error message can name back. */
+const firstPresent = (root: string, ...names: string[]): string | undefined =>
+  names.find((name) => existsSync(join(root, name)));
+
+const HARDHAT_CONFIGS = [
+  "hardhat.config.ts",
+  "hardhat.config.js",
+  "hardhat.config.cjs",
+  "hardhat.config.mjs",
+] as const;
+
+const TEVM_CONFIGS = ["tevm.config.ts", "tevm.config.js", "tevm.config.json"] as const;
 
 // Conventional Solidity source directories for a plain (no Hardhat/Foundry) project.
 const TEVM_SOURCE_DIRS = ["src", "contracts"] as const;
@@ -36,10 +51,23 @@ const containsSolidity = (dir: string): boolean =>
  * The tevm fallback is last on purpose: reading Foundry/Hardhat artifacts is passive, whereas the
  * tevm path *compiles*, so it only kicks in once the other toolchains are ruled out.
  */
-export const detectFramework = (root: string): Framework | null => {
-  if (has(root, "foundry.toml")) return "foundry";
-  if (hasHardhatConfig(root)) return "hardhat";
-  if (has(root, "tevm.config.ts", "tevm.config.js", "tevm.config.json")) return "tevm";
-  if (TEVM_SOURCE_DIRS.some((dir) => containsSolidity(join(root, dir)))) return "tevm";
+export const detectToolchain = (root: string): DetectedToolchain | null => {
+  const foundry = firstPresent(root, "foundry.toml");
+  if (foundry !== undefined) return { framework: "foundry", marker: foundry };
+
+  const hardhat = firstPresent(root, ...HARDHAT_CONFIGS);
+  if (hardhat !== undefined) return { framework: "hardhat", marker: hardhat };
+
+  const tevm = firstPresent(root, ...TEVM_CONFIGS);
+  if (tevm !== undefined) return { framework: "tevm", marker: tevm };
+
+  const sources = TEVM_SOURCE_DIRS.find((dir) => containsSolidity(join(root, dir)));
+  if (sources !== undefined) return { framework: "tevm", marker: `${sources}/` };
+
   return null;
 };
+
+/** What deployoor looks for, quoted back by the "could not detect" error. */
+export const DETECTION_MARKERS = `foundry.toml (Foundry), ${HARDHAT_CONFIGS.join(" / ")} (Hardhat), ${TEVM_CONFIGS.join(" / ")} or .sol under ${TEVM_SOURCE_DIRS.map((d) => `${d}/`).join(" or ")} (tevm)`;
+
+export const detectFramework = (root: string): Framework | null => detectToolchain(root)?.framework ?? null;

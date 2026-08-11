@@ -27,17 +27,31 @@ describe("generated deployers type-check against deployoor", () => {
     ensureBuilt();
   }, 120_000);
 
-  it("compiles the emitted deployers, artifact modules, and config", async () => {
+  const runTsc = (project: string): string => {
+    try {
+      execFileSync(process.execPath, [tscBin, "-p", join(project, "tsconfig.json")], { stdio: "pipe" });
+      return "";
+    } catch (error) {
+      const e = error as { stdout?: Buffer; stderr?: Buffer };
+      return `${e.stdout ?? ""}${e.stderr ?? ""}`;
+    }
+  };
+
+  /** Generate into a throwaway project — with or without a config file — and tsc the result. */
+  const typecheckEmitted = async ({ withConfig }: { withConfig: boolean }): Promise<string> => {
     const project = mkdtempSync(join(tmpdir(), "deployoor-tsc-"));
+    const configPath = join(project, "deployoor.config.ts");
     await runGenerate({
       root: hhRoot,
       out: join(project, "deployers"),
-      configPath: join(project, "deployoor.config.ts"),
+      ...(withConfig ? { configPath } : {}),
     });
-    writeFileSync(
-      join(project, "deployoor.config.ts"),
-      'import { defineConfig } from "deployoor";\nexport default defineConfig({});\n',
-    );
+    if (withConfig) {
+      writeFileSync(
+        configPath,
+        'import { defineConfig } from "deployoor";\nexport default defineConfig({});\n',
+      );
+    }
     writeFileSync(
       join(project, "tsconfig.json"),
       JSON.stringify({
@@ -51,21 +65,22 @@ describe("generated deployers type-check against deployoor", () => {
           baseUrl: ".",
           paths: { deployoor: [distTypes] },
         },
-        include: ["deployers/**/*.ts", "deployoor.config.ts"],
+        include: withConfig ? ["deployers/**/*.ts", "deployoor.config.ts"] : ["deployers/**/*.ts"],
       }),
     );
 
-    const runTsc = (): string => {
-      try {
-        execFileSync(process.execPath, [tscBin, "-p", join(project, "tsconfig.json")], { stdio: "pipe" });
-        return "";
-      } catch (error) {
-        const e = error as { stdout?: Buffer; stderr?: Buffer };
-        return `${e.stdout ?? ""}${e.stderr ?? ""}`;
-      }
-    };
+    return runTsc(project);
+  };
 
-    const diagnostics = runTsc();
+  it("compiles the emitted deployers, artifact modules, and config", async () => {
+    const diagnostics = await typecheckEmitted({ withConfig: true });
+    expect(diagnostics, diagnostics).toBe("");
+  }, 60_000);
+
+  // The zero-config path: no deployoor.config.* anywhere, so the deployers carry `{} satisfies
+  // Config` inline. Proves the inlined defaults satisfy the same signature the imported config does.
+  it("compiles the emitted deployers when the project has no config file", async () => {
+    const diagnostics = await typecheckEmitted({ withConfig: false });
     expect(diagnostics, diagnostics).toBe("");
   }, 60_000);
 });
