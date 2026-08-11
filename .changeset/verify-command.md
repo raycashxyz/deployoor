@@ -68,3 +68,9 @@ the run.
 `StoreAdapter` gains an optional `listAll()` (implemented by `fsStore` and `memoryStore`), because
 `list` is per-network and a repo-wide walk needs the whole set. A store that omits it can still be
 verified one `--network` at a time.
+
+Three edge cases in the command that the first round missed:
+
+- `--network=` (and `--contract=` / `--plugin=`) with nothing after the equals sign parsed to an empty string, which is not `undefined`, so it became an active filter matching no record — reported as "no deployment records matching", as though the repo held none. It is now the same "needs a value" error as a trailing `--network`.
+- `runVerify({ plugins: [] })` selected no plugin rather than every plugin, so each record ran zero hooks, collected zero failures, and was reported **verified** with `ok: true` — a CI check passing without verifying anything. An empty list is now rejected. The CLI never produced one; the exported API could.
+- `store.listAll` and `store.readSources` were read into locals and called detached, so a `StoreAdapter` implemented as a class (which the docs invite) ran them with `this` unbound and crashed. They are bound to the store now.
