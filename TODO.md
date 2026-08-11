@@ -31,7 +31,7 @@ deployoor is early. This is where it's heading, grouped by area. Have a use case
 
 ## Verification
 
-- **Verify existing records** — _Planned._ Every deploy already pins its exact standard-json input to `deployments/sources/<hash>.json` (content-addressed, referenced by the record's `sourcesHash`), but nothing reads it back yet — verification still only happens through the deploy-time plugins. A `deployoor verify` command walking committed records + their pinned sources would make a transient explorer outage recoverable without redeploying, and keep a deployment verifiable long after its source tree moved on.
+- **Verify existing records** — _Done (0.7)._ `deployoor verify` walks committed records and the standard-json input each one pinned to `deployments/sources/<hash>.json` (content-addressed, referenced by the record's `sourcesHash`), and submits through each plugin's `onVerify` hook. Nothing is recompiled and no artifact directory is read, so a transient explorer outage is recoverable without redeploying and a deployment stays verifiable long after its source tree moved on. Records written before sources were pinned report `unverifiable` rather than failing the run.
 - **More explorers** — _Exploring._ Beyond Etherscan V2 (one key, all chains) and Sourcify: Blockscout-native, OKLink, and custom per-chain endpoints, with verification status recorded alongside the deployment.
 
 ## CLI & developer experience

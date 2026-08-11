@@ -51,6 +51,24 @@ export default defineConfig({
 });
 ```
 
+The split is worth internalising, because it decides whether you need a config file at all:
+
+| Path                      | Owner          | Who tells deployoor            |
+| ------------------------- | -------------- | ------------------------------ |
+| sources, artifacts, cache | your framework | nobody — it reads their config |
+| `out`, `deploymentsPath`  | deployoor      | you, here                      |
+
+[`examples/custom-paths`](https://github.com/raycashxyz/deployoor/tree/main/examples/custom-paths)
+moves all five and sets only the two deployoor owns. The other examples in that repo have **no config
+file at all**, because their paths are the defaults.
+
+:::note
+deployoor reads `paths.artifacts` by importing `hardhat.config.*`, and a config that registers a
+plugin cannot be imported outside a Hardhat run — it throws `HH5: HardhatContext is not created`. When
+that happens deployoor falls back to reading the literal `paths.artifacts` out of the file as text, so
+the common case still works. A computed path (`join(__dirname, …)`) needs `artifactsPath` set here.
+:::
+
 Toolchain detection keys on the config file (`foundry.toml`, `hardhat.config.*`). A project with
 neither, or one whose sources sit somewhere unusual, can name it outright with `framework`.
 

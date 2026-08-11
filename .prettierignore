@@ -19,6 +19,9 @@ examples/hardhat-v3/artifacts
 examples/hardhat-v3/cache
 examples/hardhat-v3/deployers
 examples/multi-chain/deployers
+examples/multi-chain/out
+examples/custom-paths/generated
+examples/custom-paths/build
 examples/tevm/deployers
 examples/tevm/.tevm
 apps/docs/dist

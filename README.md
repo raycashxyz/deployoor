@@ -297,8 +297,11 @@ Grouped **done → in progress → planned → backlog**. _In progress_ is activ
 | DX      | Flagship end-to-end example (deploy → committed record → wagmi)                        | Done    |
 | DX      | Migration guide + comparison table (hardhat-deploy, Ignition, rocketh)                 | Done    |
 | Compat  | `@deployoor/hardhat` auto-generate on Hardhat 3 (`@deployoor/hardhat/v3`)              | Done    |
-| Verify  | `deployoor verify` from committed records                                              | Planned |
-| Deploy  | Bytecode-diff redeploy (opt-in policy; today it only warns)                            | Planned |
+| Verify  | `deployoor verify` from committed records, plus the `onVerify` plugin hook             | Done    |
+| DX      | Committable `deployers/` — abi inline, the rest read from artifacts at deploy time     | Done    |
+| DX      | Zero-config `generate` — artifacts read from hardhat.config / foundry.toml             | Done    |
+| DX      | `generate` / `init` offer to remove a `.gitignore` rule hiding deployoor's output      | Done    |
+| Deploy  | Bytecode-diff redeploy — `redeploymentStrategy: 'on-change'`, now the default          | Done    |
 | Deploy  | Proxies & diamonds, deterministic addresses (CREATE2 / CREATE3), dry run               | Backlog |
 | Deploy  | Pending-transaction recovery from interrupted deploys                                  | Backlog |
 | Stores  | HTTP + browser store adapters                                                          | Backlog |
