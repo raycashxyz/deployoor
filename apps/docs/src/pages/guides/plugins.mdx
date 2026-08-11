@@ -1,14 +1,14 @@
 # Plugins
 
-Plugins are deploy-lifecycle hooks. A verifier, a Slack notification, and a gas report are all the same kind of thing — small named objects subscribed to hooks in the deploy pipeline.
+Plugins are lifecycle hooks. A verifier, a Slack notification, and a gas report are all the same kind of thing — small named objects subscribed to hooks in the deploy pipeline, and to `deployoor verify`.
 
 ## Built-in plugins
 
-| Package                | Hook   | Purpose                            |
-| ---------------------- | ------ | ---------------------------------- |
-| `@deployoor/etherscan` | verify | Etherscan V2 (one key, all chains) |
-| `@deployoor/sourcify`  | verify | Sourcify v2 (keyless)              |
-| `@deployoor/slack`     | notify | Slack webhook on deploy            |
+| Package                | Hooks                                  | Purpose                            |
+| ---------------------- | -------------------------------------- | ---------------------------------- |
+| `@deployoor/etherscan` | `onContractDeployed`, `onVerify`       | Etherscan V2 (one key, all chains) |
+| `@deployoor/sourcify`  | `onContractDeployed`, `onVerify`       | Sourcify v2 (keyless)              |
+| `@deployoor/slack`     | `onContractDeployed`, `onDeployFailed` | Slack webhook on deploy            |
 
 ```ts
 import { defineConfig } from "deployoor";
@@ -26,6 +26,58 @@ export default defineConfig({
 ```
 
 By default a failing plugin **warns** and the deploy still records (the transaction already happened). Set `onPluginError: "throw"` to fail the run.
+
+## Hooks
+
+Every hook is plain async (or sync) and receives `(ctx, deps)`, where `deps` carries `fetch`, `now` and `log` — inject them in tests instead of reaching for the globals.
+
+| Hook                 | Called by          | Context                                                             |
+| -------------------- | ------------------ | ------------------------------------------------------------------- |
+| `onContractDeployed` | a deploy           | `DeployedContext` — `deployment`, `reused`, `receipt?`, `metadata?` |
+| `onDeployFailed`     | a failed deploy    | `DeployFailedContext` — names, chain, `cause`                       |
+| `onVerify`           | `deployoor verify` | `VerifyContext` — `deployment`, `metadata`                          |
+
+### `onVerify`
+
+`deployoor verify` verifies recorded deployments after the fact, and calls **only** this hook. Two consequences worth knowing:
+
+- **A plugin that omits `onVerify` is skipped by that command.** This is how `@deployoor/slack` stays quiet on a verify run without inspecting anything. If none of your configured plugins implements it, `deployoor verify` fails rather than reporting a run that did nothing.
+- **`VerifyContext` is not `DeployedContext`.** Nothing was deployed, so there is no `receipt` and no `reused` flag to misread, and `metadata` is **required** — a record whose sources were never pinned cannot be verified from committed data, so it is reported as unverifiable and never reaches a plugin.
+
+```ts
+export interface VerifyContext<Options = unknown> {
+  readonly deployment: DeploymentRecord; // address, chain, abi, constructor args, libraries
+  readonly metadata: ContractMetadata; // pinned fqn + compiler version + standard-json
+  readonly options: Options;
+}
+```
+
+A verifier should implement both hooks over one shared body, so it works at deploy time and after the fact. Both are handed exactly a record plus a `ContractMetadata`, so there is nothing to branch on:
+
+```ts
+import {
+  definePlugin,
+  type ContractMetadata,
+  type DeploymentRecord,
+  type PluginDeps,
+} from "deployoor/plugin";
+
+const submit = async (deployment: DeploymentRecord, metadata: ContractMetadata, deps: PluginDeps) => {
+  // …one implementation: build the standard-json request, poll it to a conclusion, throw on failure
+};
+
+export const myVerifier = () =>
+  definePlugin({
+    name: "my-verifier",
+    onContractDeployed: async (ctx, deps) => {
+      if (ctx.metadata === undefined) return; // a deploy may have no compiler input to offer
+      await submit(ctx.deployment, ctx.metadata, deps);
+    },
+    onVerify: (ctx, deps) => submit(ctx.deployment, ctx.metadata, deps),
+  });
+```
+
+Throwing from `onVerify` marks that contract failed for that plugin; the run moves to the next contract and exits non-zero at the end.
 
 ## Author a plugin
 
