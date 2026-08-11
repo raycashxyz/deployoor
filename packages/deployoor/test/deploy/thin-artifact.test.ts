@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { defineDeployer } from "../../src/engine/deployer";
@@ -126,6 +126,28 @@ describe("deploying from a generated (thin) artifact", () => {
     expect(first.freshDeploy).toBe(true);
     expect(second.freshDeploy).toBe(false);
     expect(second.contract.address).toBe(first.contract.address);
+  });
+
+  it("reads artifacts and writes records against the same directory after a chdir", async () => {
+    // Both paths deployoor resolves against the working directory must read it at the same moment.
+    // Resolving the store when the deployer was defined, while artifacts resolved when it was called,
+    // meant a chdir in between sent records to one project and read artifacts from another.
+    const first = enterProject();
+    const getOrDeployCounter = defineDeployer(thin, { deploymentsPath: "./deployments" });
+
+    // Move to a second, independently compiled project *after* defining the deployer.
+    const second = enterProject();
+    const clients = await clientsWithDeployer();
+
+    const { deployment } = await getOrDeployCounter({
+      ...clients,
+      args: [7n, clients.deployer],
+    });
+
+    // The record landed under the directory in effect at call time, not definition time.
+    expect(existsSync(join(second, "deployments"))).toBe(true);
+    expect(existsSync(join(first, "deployments"))).toBe(false);
+    expect(deployment.address).toMatch(/^0x[0-9a-fA-F]{40}$/);
   });
 
   it("refuses to deploy when nothing has been compiled", async () => {

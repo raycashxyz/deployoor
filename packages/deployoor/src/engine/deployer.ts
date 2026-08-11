@@ -139,16 +139,27 @@ export interface DeployerCallOptions<A extends Abi, P extends readonly AnyDeploy
  *   // user code
  *   await deployRaycashUSD({ walletClient, publicClient, args: [owner] });
  */
+/**
+ * The store a generated deployer writes to when the caller passes none. Built per call, not per
+ * definition: every path deployoor resolves against the working directory must read it at the same
+ * time, or a `chdir` between importing a deployer and invoking it splits the project in two.
+ */
+const defaultStore = (config: Config): StoreAdapter =>
+  fsStore(resolve(config.deploymentsPath ?? "./deployments"));
+
 export const defineDeployer = <A extends Abi, const P extends readonly AnyDeployPlugin[]>(
   artifact: GeneratedArtifact<A> | TypedArtifact<A>,
   config: Config<P>,
 ) => {
-  const store = fsStore(resolve(config.deploymentsPath ?? "./deployments"));
   return async (opts: DeployerCallOptions<A, P>): Promise<DeployResult<A>> =>
     createDeployer({
       walletClient: opts.walletClient,
       publicClient: opts.publicClient,
-      store: opts.store ?? store,
+      // Resolved here rather than when the deployer was defined, so this and `resolveArtifact` below
+      // read the working directory at the same moment. Resolving the store at definition time while
+      // artifacts resolve at call time meant a `chdir` in between sent records to one project and
+      // read artifacts from another. `fsStore` only builds closures, so this costs nothing.
+      store: opts.store ?? defaultStore(config),
       plugins: config.plugins,
       onPluginError: config.onPluginError,
       redeploymentStrategy: config.redeploymentStrategy,
@@ -208,7 +219,7 @@ export const defineRegister = <const P extends readonly AnyDeployPlugin[]>(confi
     // layer — a public client alone is enough. Plugins don't run on register.
     const layer = Layer.merge(
       registerClientsLayer(opts.publicClient, opts.walletClient),
-      layerFromAdapter(opts.store ?? store),
+      layerFromAdapter(opts.store ?? defaultStore(config)),
     );
     return runProgram(
       register({ name: deploymentName, address: opts.address, abi: opts.abi }, resolveDeps()),
@@ -235,11 +246,10 @@ export interface ResetCallOptions {
  * client (no signer). Scoped to that client's chain.
  */
 export const defineReset = <const P extends readonly AnyDeployPlugin[]>(config: Config<P>) => {
-  const store = fsStore(resolve(config.deploymentsPath ?? "./deployments"));
   return async (opts: ResetCallOptions): Promise<void> => {
     const chain = opts.publicClient.chain;
     if (chain === undefined) throw new NoChainOnClient();
-    const active = opts.store ?? store;
+    const active = opts.store ?? defaultStore(config);
     const network = networkKeyForChain(chain);
     const deploymentName = opts.deploymentName ?? opts.name;
     if (deploymentName === undefined) {

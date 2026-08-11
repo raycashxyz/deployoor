@@ -3,7 +3,7 @@ import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveArtifact } from "../../src/artifacts/resolve";
-import { ContractArtifactNotFound, GeneratedArtifactStale } from "../../src/errors";
+import { ArtifactsNotFound, ContractArtifactNotFound, GeneratedArtifactStale } from "../../src/errors";
 import type { GeneratedArtifact } from "../../src/schemas";
 import { readHardhatArtifacts } from "../../src/artifacts/hardhat";
 import { counterArtifact } from "../fixtures";
@@ -124,7 +124,7 @@ describe("resolveArtifact", () => {
     cpSync(artifacts, join(saved, "artifacts"), { recursive: true });
     rmSync(artifacts, { recursive: true, force: true });
 
-    await expect(resolveArtifact(thin, { root })).rejects.toThrow(/No compiled artifacts/);
+    await expect(resolveArtifact(thin, { root })).rejects.toThrowError(ArtifactsNotFound);
 
     cpSync(join(saved, "artifacts"), artifacts, { recursive: true });
 
