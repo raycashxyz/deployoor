@@ -20,19 +20,19 @@ is what the pinned sidecar was written for, and until now nothing read it.
 **`onVerify` is a new hook on `DeployPlugin`**, and `deployoor verify` calls only that:
 
 ```ts
-readonly onVerify?: (ctx: VerifyContext<Options>, deps: PluginDeps) => Awaitable<void>;
+readonly onVerify?: (ctx: VerifyContext, deps: PluginDeps) => Awaitable<void>;
 
-interface VerifyContext<Options = unknown> {
+interface VerifyContext {
   readonly deployment: DeploymentRecord;
   readonly metadata: ContractMetadata;
-  readonly options: Options;
 }
 ```
 
-`VerifyContext` is deliberately not a `DeployedContext`. Nothing was deployed, so there is no
-`receipt` and no meaningful `reused`, and `metadata` is **required** rather than optional — a record
-whose sources were never pinned is reported unverifiable and never reaches a plugin. A verifier
-written against it needs no undefined-checks and cannot mistake a verify run for a deploy.
+`VerifyContext` is deliberately not a `DeployedContext`, and deliberately small. Nothing was deployed,
+so there is no `receipt` and no meaningful `reused`; `metadata` is **required** rather than optional,
+because a record whose sources were never pinned is reported unverifiable and never reaches a plugin;
+and there is no `options`, because a plugin instance already closes over its own configuration. A
+verifier written against it needs no undefined-checks and cannot mistake a verify run for a deploy.
 
 **Breaking for third-party verifier plugins:** a plugin that only implements `onContractDeployed`
 will not be called by `deployoor verify` — it is skipped, silently, and if no configured plugin

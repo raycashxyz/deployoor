@@ -396,7 +396,7 @@ const verifyRecord = async (
 
   // Metadata is resolved before this point precisely so `VerifyContext.metadata` can be required:
   // a record without pinned sources is reported above and never reaches a plugin.
-  const ctx: VerifyContext = { deployment: record, metadata: resolved.metadata, options: {} };
+  const ctx: VerifyContext = { deployment: record, metadata: resolved.metadata };
   const outcomes = await series(plugins, (plugin) => runHook(plugin, ctx, deps));
   const names = outcomes.map((outcome) => outcome.plugin);
   const failures = outcomes.flatMap((outcome) =>

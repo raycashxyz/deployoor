@@ -39,19 +39,22 @@ export interface DeployedContext<Options = unknown> {
  * What `deployoor verify` hands a plugin: a recorded deployment plus the verification input pinned
  * beside it, read back from `deployments/sources/<hash>.json`.
  *
- * Deliberately not a `DeployedContext`. Nothing was deployed, so there is no `receipt` and no
- * meaningful `reused`, and `metadata` is **required** rather than optional — a record whose sources
- * were never pinned cannot be verified from committed data at all, so it is reported as unverifiable
- * and never reaches a plugin. A verifier written against this context needs no undefined-checks and
- * cannot mistake a verify run for a deploy.
+ * Deliberately not a `DeployedContext`, and deliberately small. Nothing was deployed, so there is no
+ * `receipt` and no meaningful `reused`; `metadata` is **required** rather than optional, because a
+ * record whose sources were never pinned cannot be verified from committed data at all and so is
+ * reported unverifiable without ever reaching a plugin. There is no `options` either: a plugin
+ * instance already closes over its own configuration (that is what `etherscan({ apiKey })` is), and
+ * the per-deploy `PluginOverrides` mechanism has no counterpart here — an always-`{}` field would be
+ * exactly the kind of decoration this type exists to avoid.
+ *
+ * A verifier written against this context needs no undefined-checks and cannot mistake a verify run
+ * for a deploy.
  */
-export interface VerifyContext<Options = unknown> {
+export interface VerifyContext {
   /** The recorded deployment being verified — address, chain, abi, constructor args, libraries. */
   readonly deployment: DeploymentRecord;
   /** The pinned compiler input: fully-qualified name, compiler version, standard-json. */
   readonly metadata: ContractMetadata;
-  /** Config addressed to this plugin (from `plugins[name]` in deployoor.config.ts). */
-  readonly options: Options;
 }
 
 export interface DeployFailedContext<Options = unknown> {
@@ -77,7 +80,7 @@ export interface DeployPlugin<Options = unknown> {
    * Throwing marks that contract's verification as failed for this plugin; the run continues to the
    * next contract and exits non-zero at the end.
    */
-  readonly onVerify?: (ctx: VerifyContext<Options>, deps: PluginDeps) => Awaitable<void>;
+  readonly onVerify?: (ctx: VerifyContext, deps: PluginDeps) => Awaitable<void>;
 }
 
 /** Preserves the literal `name` and the `Options` type for typed per-deploy overrides. */

@@ -42,13 +42,12 @@ Every hook is plain async (or sync) and receives `(ctx, deps)`, where `deps` car
 `deployoor verify` verifies recorded deployments after the fact, and calls **only** this hook. Two consequences worth knowing:
 
 - **A plugin that omits `onVerify` is skipped by that command.** This is how `@deployoor/slack` stays quiet on a verify run without inspecting anything. If none of your configured plugins implements it, `deployoor verify` fails rather than reporting a run that did nothing.
-- **`VerifyContext` is not `DeployedContext`.** Nothing was deployed, so there is no `receipt` and no `reused` flag to misread, and `metadata` is **required** — a record whose sources were never pinned cannot be verified from committed data, so it is reported as unverifiable and never reaches a plugin.
+- **`VerifyContext` is not `DeployedContext`.** Nothing was deployed, so there is no `receipt` and no `reused` flag to misread, and `metadata` is **required** — a record whose sources were never pinned cannot be verified from committed data, so it is reported as unverifiable and never reaches a plugin. There is no `options` either: your plugin instance already closes over its own configuration, which is what `etherscan({ apiKey })` is.
 
 ```ts
-export interface VerifyContext<Options = unknown> {
+export interface VerifyContext {
   readonly deployment: DeploymentRecord; // address, chain, abi, constructor args, libraries
   readonly metadata: ContractMetadata; // pinned fqn + compiler version + standard-json
-  readonly options: Options;
 }
 ```
 

@@ -108,10 +108,9 @@ describe("runVerify", () => {
     expect(report.results).toHaveLength(1);
     expect(report.results[0]?.outcome).toEqual({ status: "verified", plugins: ["etherscan"] });
     expect(seen).toHaveBeenCalledTimes(1);
-    // the whole VerifyContext, exactly: no `reused`, no `receipt`, metadata always present
+    // the whole VerifyContext, exactly: no `reused`, no `receipt`, no `options`, metadata present
     expect(seen).toHaveBeenCalledWith({
       deployment: record(),
-      options: {},
       metadata: {
         fullyQualifiedName: "src/Counter.sol:Counter",
         compilerVersion: "0.8.35",
