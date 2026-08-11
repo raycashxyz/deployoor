@@ -117,11 +117,11 @@ Your existing records in `deployments/` are read unchanged: no field changed sha
 One case needs your attention. A record can only be verified after the fact if it has a `sourcesHash` and the blob it points at is still in the repo:
 
 ```bash
-# records with no pinned sources
-grep -L sourcesHash deployments/*/*.json | grep -v '^deployments/sources/'
+# records with no pinned sources (use your deploymentsPath if you changed it)
+grep -L sourcesHash deployments/*/*.json | grep -vE '^deployments/sources/|\.sources\.json$'
 ```
 
-The second `grep` matters. `deployments/sources/` holds the pinned blobs, which carry no `sourcesHash` of their own, so without it every one of them is listed as a record needing attention.
+The second `grep` matters, because two kinds of file live under `deployments/` without being records. `deployments/sources/` holds the pinned blobs, and older projects have per-deployment `<Name>.sources.json` sidecars from before pinning was content-addressed. Neither carries a `sourcesHash` of its own, so without the filter every one of them is listed as a deployment needing attention — and this being an upgrade guide, those are exactly the projects that have them. `fsStore` skips both when it reads records; this makes the one-liner agree with it.
 
 Anything listed there cannot be verified from committed data. It was deployed before sources were pinned, or the pinning failed at the time. Two ways forward:
 
