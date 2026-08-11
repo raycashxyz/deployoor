@@ -227,6 +227,23 @@ describe("etherscan plugin", () => {
     expect(formOf(fetch, 0).params.get("chainid")).toBe("8453");
   });
 
+  it.each([
+    ["zero", 0],
+    ["negative", -1],
+    ["fractional", 2.5],
+    ["NaN, which is what Number() of an unset env var gives", Number.NaN],
+    ["Infinity", Number.POSITIVE_INFINITY],
+  ])("rejects a maxPolls that is %s, naming the option", async (_label, maxPolls) => {
+    const { deps, fetch } = makeDeps();
+
+    await expect(run(plugin({ maxPolls }), makeCtx(), deps)).rejects.toThrow(
+      /maxPolls must be a positive integer/,
+    );
+
+    // Rejected before anything is sent, so a bad option cannot half-verify.
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("re-submits while Etherscan has not indexed the contract yet", async () => {
     // A real Sepolia deploy hit this: the submit went out right after the receipt and Etherscan
     // answered "Unable to locate ContractCode at 0x…", while the same request seconds later through

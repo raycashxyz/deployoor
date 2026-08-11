@@ -68,6 +68,24 @@ const isAlreadyVerified = (result: string): boolean => /already verified/i.test(
  */
 const isNotIndexedYet = (result: string): boolean => /unable to locate contractcode/i.test(result);
 
+/**
+ * `maxPolls`, rejected here rather than allowed to become a silent no-op.
+ *
+ * It bounds both recursions, so a fractional or non-positive value changes behaviour in ways that look
+ * like something else: `0` skips the status poll entirely and reports a timeout on a verification that
+ * may well have passed, and `NaN` — which is what `Number(process.env.X)` gives for an unset variable —
+ * fails every comparison, so the first attempt is also the last. Neither is distinguishable from a bug
+ * in the plugin at the point it surfaces, which is why this is a local error naming the option.
+ */
+const requireMaxPolls = (maxPolls: number): number => {
+  if (!Number.isInteger(maxPolls) || maxPolls < 1) {
+    throw new Error(
+      `@deployoor/etherscan: maxPolls must be a positive integer, got ${String(maxPolls)}. It bounds both the submit retry and the status poll.`,
+    );
+  }
+  return maxPolls;
+};
+
 interface VerifyRequest {
   readonly options: EtherscanOptions;
   readonly deployment: DeploymentRecord;
@@ -116,7 +134,7 @@ const verifyDeployment = async ({
   const apiKey = requireApiKey(options.apiKey);
   const base = options.apiUrl ?? ETHERSCAN_V2_URL;
   const pollIntervalMs = options.pollIntervalMs ?? 2_000;
-  const maxPolls = options.maxPolls ?? 20;
+  const maxPolls = requireMaxPolls(options.maxPolls ?? 20);
   const { address, chainId, abi, constructorArgs } = deployment;
   const { fullyQualifiedName, compilerVersion, standardJsonInput } = metadata;
 

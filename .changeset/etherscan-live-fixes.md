@@ -24,4 +24,6 @@ Unable to locate ContractCode at 0x…
 
 The chain is simply ahead of the explorer. That was a hard failure, so a fresh deploy's verification usually failed and had to be recovered with `deployoor verify` afterwards. The submit is now re-tried on that specific reply (bounded by `maxPolls`, the same budget the status poll uses), which is what hardhat-verify does. Observed live: six retries over about twelve seconds, then verified in the same run.
 
+`maxPolls` is also validated as a positive integer now. It bounds both recursions, so `0` skipped the status poll and reported a timeout on a verification that may have passed, and `NaN` — what `Number()` of an unset env var gives — failed every comparison and made the first attempt the last.
+
 Verified end to end on Sepolia — `Counter`, `Greeter` and `Vault` deployed with a Privy server wallet and confirmed verified through Etherscan's own `getsourcecode`.
