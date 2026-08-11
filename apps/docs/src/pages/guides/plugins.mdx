@@ -4,11 +4,16 @@ Plugins are lifecycle hooks. A verifier, a Slack notification, and a gas report 
 
 ## Built-in plugins
 
-| Package                | Hooks                                  | Purpose                            |
-| ---------------------- | -------------------------------------- | ---------------------------------- |
-| `@deployoor/etherscan` | `onContractDeployed`, `onVerify`       | Etherscan V2 (one key, all chains) |
-| `@deployoor/sourcify`  | `onContractDeployed`, `onVerify`       | Sourcify v2 (keyless)              |
-| `@deployoor/slack`     | `onContractDeployed`, `onDeployFailed` | Slack webhook on deploy            |
+| Package                 | Hooks                                  | Purpose                              |
+| ----------------------- | -------------------------------------- | ------------------------------------ |
+| `@deployoor/etherscan`  | `onContractDeployed`, `onVerify`       | Etherscan V2 (one key, all chains)   |
+| `@deployoor/sourcify`   | `onContractDeployed`, `onVerify`       | Sourcify v2 (keyless)                |
+| `@deployoor/blockscout` | `onContractDeployed`, `onVerify`       | Any Blockscout instance              |
+| `@deployoor/routescan`  | `onContractDeployed`, `onVerify`       | Routescan (chain id picks the index) |
+| `@deployoor/slack`      | `onContractDeployed`, `onDeployFailed` | Slack webhook on deploy              |
+
+The four verifiers are independent — run as many as you like, and see
+[Verify contracts](/guides/verify) for what each needs and how `deployoor verify` replays them.
 
 ```ts
 import { defineConfig } from "deployoor";

@@ -1,0 +1,152 @@
+# Verify contracts
+
+Verification publishes your source so an explorer can show it next to the bytecode. deployoor does it
+two ways, from the same inputs:
+
+- **At deploy time**, through a verifier plugin, in the same run that deployed.
+- **After the fact**, with `deployoor verify`, from what the deploy recorded.
+
+The second one is the reason the first one does not have to succeed.
+
+## What makes after-the-fact verification possible
+
+Every deploy pins the exact standard-json input it compiled from:
+
+```text
+deployments/11155111-sepolia/Counter.json    the record — address, abi, args, compiler, sourcesHash
+deployments/sources/0x8f3a….json             the standard-json input, content-addressed by that hash
+```
+
+An explorer needs precisely that: the sources, the settings, the compiler version, the constructor
+arguments. All of it is in those two files, so verifying later needs **no artifacts, no recompile, and
+no matching source tree**. You can verify a contract whose sources have since changed, because the
+sidecar holds the sources it was actually built from — not the ones on disk today.
+
+Sidecars are content-addressed, so two deploys of unchanged sources share one file rather than
+duplicating it.
+
+## Verifiers
+
+| Plugin                  | Key      | Notes                                                 |
+| ----------------------- | -------- | ----------------------------------------------------- |
+| `@deployoor/etherscan`  | required | Etherscan V2 — one key covers every chain it supports |
+| `@deployoor/sourcify`   | none     | Keyless, and not owned by any explorer                |
+| `@deployoor/blockscout` | optional | Per-instance, so you name the instance                |
+| `@deployoor/routescan`  | optional | mainnet/testnet derived from the chain id             |
+
+Add as many as you want — they run independently, and one failing does not stop the others.
+
+```ts
+// deployoor.config.ts
+import { defineConfig } from "deployoor";
+import { etherscan } from "@deployoor/etherscan";
+import { sourcify } from "@deployoor/sourcify";
+import { blockscout } from "@deployoor/blockscout";
+import { routescan } from "@deployoor/routescan";
+
+export default defineConfig({
+  plugins: [
+    etherscan({ apiKey: process.env.ETHERSCAN_API_KEY }),
+    sourcify(),
+    blockscout({ instanceUrl: "https://eth-sepolia.blockscout.com" }),
+    routescan(),
+  ],
+});
+```
+
+## 1. At deploy time
+
+A verifier plugin implements `onContractDeployed`, so it runs when a deploy broadcasts. Nothing else to
+call — your deploy script is unchanged:
+
+```bash
+tsx --env-file=.env scripts/deploy.ts
+```
+
+```text
+[deployoor] Deployed Counter on 11155111-sepolia at 0xeb7a…3445 — first deployment
+[etherscan] contracts/Counter.sol:Counter verified
+```
+
+By default a plugin failure **warns and the deploy still succeeds** — the deploy is the valuable part
+and it already happened, so a transient explorer outage must not fail the run. Set
+`onPluginError: "throw"` if you would rather it fail loudly.
+
+:::note
+Deploy-time verification races the explorer's indexer. Submitting immediately after the receipt often
+gets "Unable to locate ContractCode", because the chain is ahead of the explorer. The verifiers
+re-submit while that is the answer, bounded by `maxPolls`. In a live Sepolia run this took six retries
+over about twelve seconds before it went through.
+:::
+
+## 2. After the fact
+
+```bash
+npx deployoor verify
+```
+
+This walks the records, reads each one's pinned sources, and submits through every plugin that has an
+`onVerify` hook. It is the same request the deploy-time path builds.
+
+```text
+[etherscan] contracts/Ledger.sol:Ledger verified
+[sourcify] contracts/Ledger.sol:Ledger verified
+[blockscout] contracts/Ledger.sol:Ledger verified
+deployoor: checked 1 record(s) through etherscan, sourcify, blockscout
+  verified      11155111-sepolia/Ledger at 0x1a9a…88e7 (etherscan, sourcify, blockscout)
+deployoor: 1 verified
+```
+
+Use it when:
+
+- **A deploy-time verification failed** — an outage, a rate limit, a missing key at the time.
+- **You added a verifier later.** Contracts deployed before you configured Sourcify can be verified now.
+- **The sources moved on.** The pinned sidecar is what gets submitted, not your working tree.
+- **You never verified at all.** Deploy first, verify when you are ready to publish.
+
+### Narrowing the run
+
+```bash
+npx deployoor verify --network 11155111-sepolia   # one network: chain id, slug, or the full key
+npx deployoor verify --contract Counter           # one deployment name
+npx deployoor verify --plugin etherscan           # one verifier
+```
+
+`--network` takes a chain id (`11155111`), a slug (`sepolia`), or the record key
+(`11155111-sepolia`). A [store](/concepts/deployment-stores) without `listAll` can only look up an
+exact key, and says so rather than reporting no records.
+
+### Outcomes
+
+| Outcome        | Meaning                                                           |
+| -------------- | ----------------------------------------------------------------- |
+| `verified`     | At least one plugin accepted it                                   |
+| `unverifiable` | The record predates pinned sources, so there is nothing to submit |
+| `FAILED`       | A plugin was asked and refused                                    |
+
+`unverifiable` is reported, not fatal: those records were written before sources were pinned, and
+nothing you run now can recover sources that were never saved. Redeploy to get a verifiable record.
+
+## Already verified
+
+Every verifier treats "already verified" as success rather than an error, which matters more than it
+sounds:
+
+- Re-running `deployoor verify` is safe and idempotent.
+- Explorers import from each other. A contract verified on Etherscan can show up already verified on
+  Blockscout minutes later — that is a normal first run, not a repeat.
+
+## Troubleshooting
+
+**"Missing or unsupported chainid parameter"** — you are on a `@deployoor/etherscan` older than 0.4.0.
+`chainid` has to be a query parameter for Etherscan V2, and earlier versions sent it only in the body.
+
+**Routescan times out** — its queue is slower than Etherscan's. The default budget is 40 seconds
+(`maxPolls: 20` × 2 s); raise `maxPolls`.
+
+**Blockscout asks for `instanceUrl`** — there is no default, because Blockscout is software many chains
+run their own instance of rather than one service. Deriving a host from the chain id would be wrong for
+every self-hosted instance, and a wrong instance answers about a different chain.
+
+**A constructor-argument mismatch** — the record holds the args as deployed and the verifiers re-encode
+from that, so this points at a contract deployed outside deployoor, or a record edited by hand.

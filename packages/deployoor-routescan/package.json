@@ -1,0 +1,73 @@
+{
+  "name": "@deployoor/routescan",
+  "version": "0.0.0",
+  "private": false,
+  "type": "module",
+  "sideEffects": false,
+  "description": "Verify contracts on Routescan (Avalanche, Base, and every chain it indexes) when deployoor deploys them, or after the fact with `deployoor verify`.",
+  "keywords": [
+    "ethereum",
+    "evm",
+    "routescan",
+    "snowtrace",
+    "verification",
+    "deployments",
+    "smart-contracts"
+  ],
+  "license": "MIT",
+  "author": "Valerio Leo",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "deployoor": ">=0.7.0 <1.0.0",
+    "viem": "^2"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "deployoor": "workspace:*",
+    "tsdown": "^0.22.3",
+    "typescript": "catalog:",
+    "unrun": "^0.3.1",
+    "vitest": "catalog:",
+    "viem": "catalog:"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/raycashxyz/deployoor.git",
+    "directory": "packages/deployoor-routescan"
+  },
+  "homepage": "https://github.com/raycashxyz/deployoor/tree/main/packages/deployoor-routescan#readme",
+  "bugs": {
+    "url": "https://github.com/raycashxyz/deployoor/issues"
+  }
+}

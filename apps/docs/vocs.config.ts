@@ -105,6 +105,7 @@ export default defineConfig({
         { text: "Configuration", link: "/guides/configuration" },
         { text: "Testing", link: "/guides/testing" },
         { text: "Consume in your app", link: "/guides/consumption" },
+        { text: "Verify contracts", link: "/guides/verify" },
         { text: "Plugins", link: "/guides/plugins" },
         { text: "Hardhat", link: "/guides/hardhat" },
         { text: "Foundry", link: "/guides/foundry" },
