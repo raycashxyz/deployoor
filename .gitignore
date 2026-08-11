@@ -21,3 +21,6 @@ assets/brand/dist/demo.gif
 
 # Local planning artefacts (wayfinder maps, scratch notes)
 .scratch/
+
+# Conductor per-workspace collaboration dir (also in .git/info/exclude locally)
+.context/

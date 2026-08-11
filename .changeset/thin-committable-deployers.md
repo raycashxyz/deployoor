@@ -5,7 +5,7 @@
 `deployers/` is now small enough to commit, and the deploy path reads the rest from your compiled
 artifacts.
 
-**What `generate` emits changed.** A generated artifact module carried the abi *and* the bytecode,
+**What `generate` emits changed.** A generated artifact module carried the abi _and_ the bytecode,
 the compiler settings, and `standardJsonInput` — the whole compilation unit's source text, inlined
 once per contract, which is the only reason the folder was large. It now carries what cannot be
 recovered from disk:
@@ -25,7 +25,7 @@ So the emitted files only change when your interface does — a solc patch bump 
 implementation-only edit no longer touches them.
 
 **Deploying now requires compiled artifacts, and says so when they are missing.** Two new fatal
-errors: `ContractArtifactNotFound` names the contract and lists what *was* compiled, so a rename is
+errors: `ContractArtifactNotFound` names the contract and lists what _was_ compiled, so a rename is
 obvious; `GeneratedArtifactStale` fires when the committed abi no longer matches the artifact and
 prints the difference.
 
