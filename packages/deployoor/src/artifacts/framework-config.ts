@@ -58,17 +58,24 @@ export const readHardhatArtifactsPath = async (root: string): Promise<string | u
  * comments — and returns undefined on anything it does not recognise, which lands on the default.
  */
 export const readFoundryOutPath = (root: string): string | undefined => {
+  // Any Foundry config key can be set as FOUNDRY_<KEY>, and that beats the file, so an
+  // `out` in foundry.toml would be the wrong answer whenever this is set.
+  const fromEnv = process.env.FOUNDRY_OUT;
+  if (fromEnv !== undefined && fromEnv.length > 0) return fromEnv;
+
   const configPath = join(root, "foundry.toml");
   if (!existsSync(configPath)) return undefined;
 
-  const profile = process.env.FOUNDRY_PROFILE ?? "default";
   // existsSync then readFileSync is not atomic, and an unreadable or replaced file would otherwise
   // throw straight out of a function this module documents as never throwing.
   const contents = readConfig(configPath);
   if (contents === undefined) return undefined;
 
-  // Walk the lines tracking which table we are in, keeping the first `out` in the active profile.
-  const found = contents.split(/\r?\n/).reduce<{ table: string | null; out: string | undefined }>(
+  // Collect `out` for every profile table, because the active profile may not declare one:
+  // every Foundry profile inherits from `[profile.default]`, so a project that sets `out` in
+  // default and selects a narrower profile with FOUNDRY_PROFILE still builds into that directory.
+  // Keying only on the active table read it as absent and fell back to `./out`.
+  const outs = contents.split(/\r?\n/).reduce<{ table: string | null; outs: Record<string, string> }>(
     (acc, rawLine) => {
       const line = rawLine.replace(/(^|\s)#.*$/, "").trim();
       if (line.length === 0) return acc;
@@ -76,13 +83,16 @@ export const readFoundryOutPath = (root: string): string | undefined => {
       const header = /^\[\s*([^\]]+?)\s*\]$/.exec(line);
       if (header?.[1] !== undefined) return { ...acc, table: header[1] };
 
-      if (acc.out !== undefined || acc.table !== `profile.${profile}`) return acc;
+      const table = acc.table;
+      // First declaration in a table wins, matching how a TOML parser would reject a duplicate key.
+      if (table === null || !table.startsWith("profile.") || acc.outs[table] !== undefined) return acc;
 
       const entry = /^out\s*=\s*(['"])(.*?)\1/.exec(line);
-      return entry?.[2] === undefined ? acc : { ...acc, out: entry[2] };
+      return entry?.[2] === undefined ? acc : { ...acc, outs: { ...acc.outs, [table]: entry[2] } };
     },
-    { table: null, out: undefined },
-  );
+    { table: null, outs: {} },
+  ).outs;
 
-  return found.out;
+  const profile = process.env.FOUNDRY_PROFILE ?? "default";
+  return outs[`profile.${profile}`] ?? outs["profile.default"];
 };

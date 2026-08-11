@@ -33,6 +33,28 @@ describe("missingDependencies", () => {
     expect(missingDependencies(bare)).toEqual(["deployoor", "viem"]);
   });
 
+  it("counts a peerDependencies declaration", () => {
+    // A peer declaration is a deliberate statement of intent; asking the user to add a dependency
+    // they already declared is noise.
+    const peer = mkdtempSync(join(tmpdir(), "deployoor-peer-"));
+    writeFileSync(
+      join(peer, "package.json"),
+      JSON.stringify({ name: "p", peerDependencies: { deployoor: ">=0.5.0", viem: "^2" } }),
+    );
+
+    expect(missingDependencies(peer)).toEqual([]);
+  });
+
+  it("counts an optionalDependencies declaration", () => {
+    const optional = mkdtempSync(join(tmpdir(), "deployoor-optional-"));
+    writeFileSync(
+      join(optional, "package.json"),
+      JSON.stringify({ name: "o", optionalDependencies: { deployoor: "^0.6.0", viem: "^2" } }),
+    );
+
+    expect(missingDependencies(optional)).toEqual([]);
+  });
+
   it("reports nothing when they are declared but not installed yet", () => {
     const declared = mkdtempSync(join(tmpdir(), "deployoor-declared-"));
     writeFileSync(

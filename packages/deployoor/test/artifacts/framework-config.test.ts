@@ -80,6 +80,36 @@ describe("readFoundryOutPath", () => {
     expect(readFoundryOutPath(root)).toBe("single");
   });
 
+  it("inherits out from profile.default when the active profile does not set it", () => {
+    // Every Foundry profile inherits from [profile.default], so keying only on the active table
+    // read `out` as absent and fell back to ./out — the wrong directory.
+    const root = project({
+      "foundry.toml": '[profile.default]\nout = "artifacts"\n\n[profile.ci]\nverbosity = 3\n',
+    });
+    vi.stubEnv("FOUNDRY_PROFILE", "ci");
+    expect(readFoundryOutPath(root)).toBe("artifacts");
+  });
+
+  it("prefers the active profile's own out over the inherited one", () => {
+    const root = project({
+      "foundry.toml": '[profile.default]\nout = "d-out"\n[profile.ci]\nout = "ci-out"\n',
+    });
+    vi.stubEnv("FOUNDRY_PROFILE", "ci");
+    expect(readFoundryOutPath(root)).toBe("ci-out");
+  });
+
+  it("lets FOUNDRY_OUT win over the file, the way forge does", () => {
+    const root = project({ "foundry.toml": '[profile.default]\nout = "artifacts"\n' });
+    vi.stubEnv("FOUNDRY_OUT", "env-out");
+    expect(readFoundryOutPath(root)).toBe("env-out");
+  });
+
+  it("ignores an empty FOUNDRY_OUT", () => {
+    const root = project({ "foundry.toml": '[profile.default]\nout = "artifacts"\n' });
+    vi.stubEnv("FOUNDRY_OUT", "");
+    expect(readFoundryOutPath(root)).toBe("artifacts");
+  });
+
   it("returns undefined when out is absent", () => {
     expect(
       readFoundryOutPath(project({ "foundry.toml": '[profile.default]\nsrc = "src"\n' })),

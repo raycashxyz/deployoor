@@ -24,13 +24,25 @@ export const runInit = (root: string): InitResult => {
   return { configPath, created };
 };
 
-/** Whether `name` is a declared dependency of the project (not just resolvable via npx). */
+/** Every field a package.json can declare a dependency under. */
+const DEPENDENCY_FIELDS = [
+  "dependencies",
+  "devDependencies",
+  // Both count as the project having said it wants this package, which is the question here rather
+  // than whether it happens to be installed. optionalDependencies are installed by default anyway,
+  // and a peer declaration is a deliberate statement of intent — nagging either to "add a dependency
+  // you already declared" is noise.
+  "peerDependencies",
+  "optionalDependencies",
+] as const;
+
+/** Whether `name` is declared anywhere in the project's package.json. */
 export const hasDependency = (root: string, name: string): boolean => {
   const pkgPath = join(root, "package.json");
   if (!existsSync(pkgPath)) return false;
   const parsed: unknown = JSON.parse(readFileSync(pkgPath, "utf8"));
-  const deps = parsed as { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
-  return Boolean(deps.dependencies?.[name] ?? deps.devDependencies?.[name]);
+  const manifest = parsed as Partial<Record<(typeof DEPENDENCY_FIELDS)[number], Record<string, string>>>;
+  return DEPENDENCY_FIELDS.some((field) => manifest[field]?.[name] !== undefined);
 };
 
 /** What the generated deployers import, so generating without them yields a tree that cannot build. */
