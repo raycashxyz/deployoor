@@ -138,7 +138,8 @@ describe("etherscan plugin", () => {
     await run(plugin(), makeCtx(), deps);
 
     const { url, method, params } = formOf(fetch, 0);
-    expect(url).toBe("https://api.test/v2");
+    // chainid on the URL, not only in the body — V2 rejects the request without it.
+    expect(url).toBe("https://api.test/v2?chainid=8453");
     expect(method).toBe("POST");
     expect(params.get("module")).toBe("contract");
     expect(params.get("action")).toBe("verifysourcecode");
@@ -209,6 +210,61 @@ describe("etherscan plugin", () => {
     expect(expected.length).toBeGreaterThan(0);
   });
 
+  it("puts chainid on the submit URL, which is what Etherscan V2 requires", async () => {
+    // The bug a mock could never have caught, and did not: every field below was already asserted,
+    // but nothing asserted the URL, so a body-only chainid passed the suite and failed every real
+    // request with "Missing or unsupported chainid parameter (required for v2 api)".
+    const { deps, fetch } = makeDeps();
+    fetch.mockResolvedValueOnce(reply({ status: "1", message: "OK", result: "guid-1" }));
+    fetch.mockResolvedValueOnce(reply({ status: "1", message: "OK", result: "Pass - Verified" }));
+
+    await run(plugin(), makeCtx(), deps);
+
+    // Submit and poll must both name the chain, and both take it from the record.
+    expect(queryOf(fetch, 0).get("chainid")).toBe("8453");
+    expect(queryOf(fetch, 1).get("chainid")).toBe("8453");
+    // Still in the body too: Blockscout/Routescan endpoints reached via apiUrl read it from there.
+    expect(formOf(fetch, 0).params.get("chainid")).toBe("8453");
+  });
+
+  it("re-submits while Etherscan has not indexed the contract yet", async () => {
+    // A real Sepolia deploy hit this: the submit went out right after the receipt and Etherscan
+    // answered "Unable to locate ContractCode at 0x…", while the same request seconds later through
+    // `deployoor verify` succeeded. The chain was simply ahead of the explorer's indexer.
+    const { deps, fetch } = makeDeps();
+    fetch.mockResolvedValueOnce(
+      reply({
+        status: "0",
+        message: "NOTOK",
+        result: `Unable to locate ContractCode at ${deployment.address}`,
+      }),
+    );
+    fetch.mockResolvedValueOnce(reply({ status: "1", message: "OK", result: "guid-1" }));
+    fetch.mockResolvedValueOnce(reply({ status: "1", message: "OK", result: "Pass - Verified" }));
+
+    await run(plugin(), makeCtx(), deps);
+
+    // Two submits then one poll: the retry is a fresh submit, not a status check.
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(formOf(fetch, 1).params.get("action")).toBe("verifysourcecode");
+    expect(queryOf(fetch, 2).get("action")).toBe("checkverifystatus");
+  });
+
+  it("gives up on a not-indexed reply rather than retrying forever", async () => {
+    const { deps, fetch } = makeDeps();
+    // mockImplementation, not mockResolvedValue: a Response body can only be read once, so reusing
+    // one instance across calls fails with "Body is unusable" instead of exercising the retry.
+    fetch.mockImplementation(async () =>
+      reply({ status: "0", message: "NOTOK", result: "Unable to locate ContractCode at 0xabc" }),
+    );
+
+    await expect(run(plugin({ maxPolls: 3 }), makeCtx(), deps)).rejects.toThrow(
+      /Unable to locate ContractCode/,
+    );
+
+    expect(fetch).toHaveBeenCalledTimes(3);
+  });
+
   it("verifies a recorded deployment through onVerify, with no receipt and no reused flag", async () => {
     const { deps, fetch } = makeDeps();
     fetch.mockResolvedValueOnce(reply({ status: "1", result: "guid-1" }));
@@ -217,7 +273,8 @@ describe("etherscan plugin", () => {
     await runVerify(plugin(), makeVerifyCtx(), deps);
 
     const { url, params } = formOf(fetch, 0);
-    expect(url).toBe("https://api.test/v2");
+    // chainid on the URL, not only in the body — V2 rejects the request without it.
+    expect(url).toBe("https://api.test/v2?chainid=8453");
     expect(params.get("action")).toBe("verifysourcecode");
     expect(params.get("contractname")).toBe("contracts/Token.sol:Token");
     expect(params.get("constructorArguments")).toBe(encodeAbiParameters(abi[0].inputs, args).slice(2));
