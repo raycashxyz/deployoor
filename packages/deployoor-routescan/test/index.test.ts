@@ -303,6 +303,45 @@ describe("routescan plugin", () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
+  it.each([
+    ["negative", -1],
+    ["NaN", Number.NaN],
+    ["Infinity", Number.POSITIVE_INFINITY],
+    ["above the 32-bit setTimeout limit", 2_147_483_648],
+  ])("rejects a pollIntervalMs that is %s, naming the option", async (_label, pollIntervalMs) => {
+    // setTimeout clamps all of these to 1ms, so the run would burn through maxPolls in milliseconds
+    // and report a timeout on a verification the explorer was still working on.
+    const { deps, fetch } = makeDeps();
+
+    await expect(run(plugin({ pollIntervalMs }), makeCtx(), deps)).rejects.toThrow(
+      /pollIntervalMs must be between 0 and 2147483647/,
+    );
+
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("accepts a pollIntervalMs of zero, which is a valid no-wait", async () => {
+    const { deps, fetch } = makeDeps();
+    fetch.mockResolvedValueOnce(reply({ status: "1", message: "OK", result: "guid-1" }));
+    fetch.mockResolvedValueOnce(reply({ status: "1", message: "OK", result: "Pass - Verified" }));
+
+    await run(plugin({ pollIntervalMs: 0 }), makeCtx(), deps);
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("accepts a submit that answers with the verdict instead of a job id", async () => {
+    // Polling for a verdict would ask about a job that never existed and time out on a verification
+    // that passed. Blockscout had this guard and Routescan did not — an oversight, not a difference.
+    const { deps, fetch } = makeDeps();
+    fetch.mockResolvedValueOnce(reply({ status: "1", message: "OK", result: "Pass - Verified" }));
+
+    await run(plugin(), makeCtx(), deps);
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(deps.log.info).toHaveBeenCalledWith("[routescan] contracts/Token.sol:Token verified");
+  });
+
   it("rejects with the explorer's reason when verification fails", async () => {
     const { deps, fetch } = makeDeps();
     fetch.mockResolvedValueOnce(reply({ status: "1", message: "OK", result: "guid-1" }));

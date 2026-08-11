@@ -86,6 +86,23 @@ const isNotIndexedYet = (result: string): boolean =>
   /unable to locate contractcode|not found|pending in queue/i.test(result);
 
 /**
+ * `pollIntervalMs`, rejected here rather than quietly turning every wait into no wait.
+ *
+ * `setTimeout` takes a 32-bit signed delay: anything negative, non-finite, or above 2147483647 is
+ * clamped to **1 ms**. So a typo'd interval does not slow the run down or error — it spins through the
+ * whole `maxPolls` budget in milliseconds and reports a timeout on a verification the explorer was
+ * still working on, which reads as the explorer being broken.
+ */
+const requirePollIntervalMs = (pollIntervalMs: number): number => {
+  if (!Number.isFinite(pollIntervalMs) || pollIntervalMs < 0 || pollIntervalMs > 2_147_483_647) {
+    throw new Error(
+      `@deployoor/blockscout: pollIntervalMs must be between 0 and 2147483647, got ${String(pollIntervalMs)}. setTimeout clamps anything outside that to 1ms, which would exhaust maxPolls almost instantly.`,
+    );
+  }
+  return pollIntervalMs;
+};
+
+/**
  * `maxPolls`, rejected here rather than allowed to become a silent no-op.
  *
  * It bounds both recursions, so a fractional or non-positive value changes behaviour in ways that look
@@ -144,7 +161,7 @@ const verifyDeployment = async ({
   deps: { fetch, log },
 }: VerifyRequest): Promise<void> => {
   const apiUrl = requireApiUrl(options.instanceUrl);
-  const pollIntervalMs = options.pollIntervalMs ?? 2_000;
+  const pollIntervalMs = requirePollIntervalMs(options.pollIntervalMs ?? 2_000);
   const maxPolls = requireMaxPolls(options.maxPolls ?? 20);
   const { address, abi, constructorArgs } = deployment;
   const { fullyQualifiedName, compilerVersion, standardJsonInput } = metadata;

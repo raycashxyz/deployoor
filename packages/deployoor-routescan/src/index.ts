@@ -95,6 +95,23 @@ const networkForChain = (chainId: number): RoutescanNetwork => {
 };
 
 /**
+ * `pollIntervalMs`, rejected here rather than quietly turning every wait into no wait.
+ *
+ * `setTimeout` takes a 32-bit signed delay: anything negative, non-finite, or above 2147483647 is
+ * clamped to **1 ms**. So a typo'd interval does not slow the run down or error — it spins through the
+ * whole `maxPolls` budget in milliseconds and reports a timeout on a verification the explorer was
+ * still working on, which reads as the explorer being broken.
+ */
+const requirePollIntervalMs = (pollIntervalMs: number): number => {
+  if (!Number.isFinite(pollIntervalMs) || pollIntervalMs < 0 || pollIntervalMs > 2_147_483_647) {
+    throw new Error(
+      `@deployoor/routescan: pollIntervalMs must be between 0 and 2147483647, got ${String(pollIntervalMs)}. setTimeout clamps anything outside that to 1ms, which would exhaust maxPolls almost instantly.`,
+    );
+  }
+  return pollIntervalMs;
+};
+
+/**
  * `maxPolls`, rejected here rather than allowed to become a silent no-op.
  *
  * It bounds both recursions, so a fractional or non-positive value changes behaviour in ways that look
@@ -135,7 +152,7 @@ const verifyDeployment = async ({
   metadata,
   deps: { fetch, log },
 }: VerifyRequest): Promise<void> => {
-  const pollIntervalMs = options.pollIntervalMs ?? 2_000;
+  const pollIntervalMs = requirePollIntervalMs(options.pollIntervalMs ?? 2_000);
   const maxPolls = requireMaxPolls(options.maxPolls ?? 20);
   const { address, chainId, abi, constructorArgs } = deployment;
   const { fullyQualifiedName, compilerVersion, standardJsonInput } = metadata;
@@ -185,6 +202,19 @@ const verifyDeployment = async ({
   const guid = await submitVerification(0);
   // `undefined` is the already-verified case, which has nothing left to poll.
   if (guid === undefined) return;
+
+  /**
+   * A submit that answered with the verdict rather than a job id.
+   *
+   * Routescan normally returns `<chainId>#<address>` to poll, but a settled reply is possible, and
+   * polling for it would ask about a job that never existed and time out on a verification that
+   * passed. The Blockscout plugin had this guard and this one did not — the asymmetry was an
+   * oversight, not a difference between the explorers.
+   */
+  if (isSettledOk(guid)) {
+    log.info(`[routescan] ${fullyQualifiedName} verified`);
+    return;
+  }
 
   const poll = async (attempt: number): Promise<void> => {
     if (attempt >= maxPolls) {

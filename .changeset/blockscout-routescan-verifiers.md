@@ -20,6 +20,8 @@ export default defineConfig({
 
 **Routescan** puts the chain id in the URL path, not a query parameter, and keeps mainnets and testnets in separate indexes. The segment is derived from **viem's own chain metadata** (`testnet: true`), which is the maintained list we would otherwise be copying, so every chain viem ships is right with no configuration. `network` overrides it for a chain viem does not know.
 
+`maxPolls` and `pollIntervalMs` are both validated as usable numbers before any request goes out. `setTimeout` takes a 32-bit signed delay, so a negative, `NaN`, or too-large interval is clamped to **1 ms** — which does not error, it burns the whole poll budget in milliseconds and reports a timeout on a verification the explorer was still working on.
+
 Both were verified against live Sepolia rather than only mocks. What that turned up:
 
 - Blockscout treats an imported verification as "already verified" — a contract verified on Etherscan showed as already verified there minutes later, so that reply is success, not an error.
