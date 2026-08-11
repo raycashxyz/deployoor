@@ -1,5 +1,16 @@
 # @example/hardhat
 
+## 0.0.6
+
+### Patch Changes
+
+- Updated dependencies [2103372]
+- Updated dependencies [dd8cb2a]
+- Updated dependencies [197cfb9]
+- Updated dependencies [5655eb2]
+- Updated dependencies [fc43ab6]
+  - deployoor@0.7.0
+
 ## 0.0.5
 
 ### Patch Changes
