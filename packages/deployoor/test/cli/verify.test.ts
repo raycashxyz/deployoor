@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { encodeAbiParameters, keccak256, stringToBytes, type Hex } from "viem";
@@ -69,6 +69,21 @@ const seeded = async (
   const store = memoryStore([...records]);
   await Promise.all(sources.map(([hash, srcs]) => store.writeSources?.(hash, srcs)));
   return store;
+};
+
+/**
+ * A store with no `listAll` — the optional method is not part of the required `StoreAdapter`
+ * surface, so a custom backend may legitimately implement only per-network `list`.
+ */
+const listOnlyStore = async (records: ReadonlyArray<DeploymentRecord>): Promise<StoreAdapter> => {
+  const inner = await seeded(records);
+  return {
+    read: inner.read,
+    write: inner.write,
+    list: inner.list,
+    remove: inner.remove,
+    readSources: inner.readSources,
+  };
 };
 
 const run = (store: StoreAdapter, config: Config, args: VerifyArgs = {}) =>
@@ -282,20 +297,12 @@ describe("runVerify", () => {
     expect(error instanceof Error ? error.message : "").toContain("11155111-sepolia/Counter");
   });
 
-  it("rejects when a store cannot list every network and no --network narrows it", async () => {
-    const inner = await seeded([record()]);
-    // a minimal adapter: the optional listAll is not part of the required StoreAdapter surface
-    const store: StoreAdapter = {
-      read: inner.read,
-      write: inner.write,
-      list: inner.list,
-      remove: inner.remove,
-      readSources: inner.readSources,
-    };
+  it("rejects with store-cannot-list when a store cannot list every network and no --network narrows it", async () => {
+    const store = await listOnlyStore([record()]);
     const error = await run(store, { plugins: [stubVerifier("etherscan")] }).catch((cause: unknown) => cause);
 
     expect(error).toBeInstanceOf(VerifyRequestError);
-    expect(error).toMatchObject({ kind: "no-records" });
+    expect(error).toMatchObject({ kind: "store-cannot-list" });
 
     const narrowed = await run(
       store,
@@ -305,21 +312,43 @@ describe("runVerify", () => {
     expect(narrowed.results[0]?.outcome.status).toBe("verified");
   });
 
+  it.each(["sepolia", "11155111"])(
+    "rejects with store-cannot-list, not no-records, when a list-only store is given %s",
+    async (network) => {
+      const store = await listOnlyStore([record()]);
+      const error = await run(store, { plugins: [stubVerifier("etherscan")] }, { network }).catch(
+        (cause: unknown) => cause,
+      );
+
+      // the defect this guards: `list("sepolia")` finds nothing, and reporting that as "no records"
+      // blames the repo for a lookup the store never supported
+      expect(error).toBeInstanceOf(VerifyRequestError);
+      expect(error).toMatchObject({ kind: "store-cannot-list" });
+      const message = error instanceof Error ? error.message : "";
+      expect(message).toContain("cannot expand");
+      expect(message).not.toContain("no deployment records");
+    },
+  );
+
   it("hands a plugin constructor args it can re-encode after a round-trip through disk", async () => {
     const root = mkdtempSync(join(tmpdir(), "deployoor-verify-"));
-    const store = fsStore(root);
-    const args = [2n ** 200n, "0x000000000000000000000000000000000000dEaD"] as const;
-    await store.writeSources?.(sourcesHash, sidecar);
-    await store.write(record({ constructorArgs: args }));
+    try {
+      const store = fsStore(root);
+      const args = [2n ** 200n, "0x000000000000000000000000000000000000dEaD"] as const;
+      await store.writeSources?.(sourcesHash, sidecar);
+      await store.write(record({ constructorArgs: args }));
 
-    const encoded = vi.fn<(calldata: Hex) => void>();
-    const report = await run(store, {
-      plugins: [stubVerifier("etherscan", (ctx) => encoded(encodeCtorArgs(ctx.deployment)))],
-    });
+      const encoded = vi.fn<(calldata: Hex) => void>();
+      const report = await run(store, {
+        plugins: [stubVerifier("etherscan", (ctx) => encoded(encodeCtorArgs(ctx.deployment)))],
+      });
 
-    expect(report.ok).toBe(true);
-    // the store wrote 2**200 as a decimal string; viem re-encodes it to the same calldata
-    expect(encoded).toHaveBeenCalledWith(encodeCtorArgs(record({ constructorArgs: args })));
+      expect(report.ok).toBe(true);
+      // the store wrote 2**200 as a decimal string; viem re-encodes it to the same calldata
+      expect(encoded).toHaveBeenCalledWith(encodeCtorArgs(record({ constructorArgs: args })));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 

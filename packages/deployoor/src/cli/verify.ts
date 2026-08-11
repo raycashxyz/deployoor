@@ -37,6 +37,12 @@ export type VerifyRequestErrorKind =
   | "no-plugins"
   /** `--plugin` named something the config does not have, or something that cannot verify. */
   | "unknown-plugin"
+  /**
+   * The configured store cannot answer the question asked of it: it implements no `listAll`, so it
+   * can only be asked for one network, by its exact key. Distinct from `no-records`, which means the
+   * records really were read and none matched.
+   */
+  | "store-cannot-list"
   /** The filters selected no deployment records. */
   | "no-records";
 
@@ -237,6 +243,18 @@ const selectPlugins = (
   return verifiers.filter((plugin) => requested.includes(plugin.name));
 };
 
+/** A network key is always `<chainId>-<slug>` — the one form `StoreAdapter.list` can be asked for. */
+const isNetworkKey = (value: string): boolean => /^\d+-[a-z0-9-]+$/i.test(value.trim());
+
+/**
+ * Every record, or the one network asked for.
+ *
+ * A store that implements no `listAll` can only be asked one network at a time, and only by its
+ * exact key: `list` takes that key, so unlike `matchesNetwork` — which compares against a full
+ * record set — it cannot expand `sepolia` or `11155111` into one. Both shortfalls fail loudly
+ * rather than filtering an empty list, because "no records matched" would be a misleading answer
+ * to a question that was never actually asked.
+ */
 const readRecords = async (
   store: StoreAdapter,
   network: string | undefined,
@@ -245,8 +263,14 @@ const readRecords = async (
   if (listAll !== undefined) return listAll();
   if (network === undefined) {
     throw new VerifyRequestError(
-      "no-records",
-      "the configured store cannot list every network — pass `--network <chainId>-<slug>`",
+      "store-cannot-list",
+      "the configured store cannot list every network, so it cannot be verified repo-wide — pass `--network <chainId>-<slug>` to do one network at a time",
+    );
+  }
+  if (!isNetworkKey(network)) {
+    throw new VerifyRequestError(
+      "store-cannot-list",
+      `the configured store cannot expand "${network}" into a network key — it can only look up one network by its exact key, so pass that instead (e.g. \`--network 11155111-sepolia\`). A chain id or a slug works with the default fsStore.`,
     );
   }
   return store.list(network);
@@ -405,8 +429,8 @@ const listAvailable = (records: ReadonlyArray<DeploymentRecord>): string => {
  * `unverifiable` outcome so one gap never ends the run.
  */
 export const runVerify = async (opts: RunVerifyOptions): Promise<VerifyReport> => {
-  const store =
-    opts.store ?? fsStore(resolve(opts.root, opts.config.deploymentsPath ?? DEFAULT_DEPLOYMENTS_PATH));
+  const deploymentsPath = resolve(opts.root, opts.config.deploymentsPath ?? DEFAULT_DEPLOYMENTS_PATH);
+  const store = opts.store ?? fsStore(deploymentsPath);
   const plugins = selectPlugins(opts.config.plugins ?? [], opts.plugins);
   const deps = resolveDeps(opts.deps);
 
@@ -417,7 +441,7 @@ export const runVerify = async (opts: RunVerifyOptions): Promise<VerifyReport> =
   if (records.length === 0) {
     throw new VerifyRequestError(
       "no-records",
-      `no deployment records${describeFilters(opts)} under ${resolve(opts.root, opts.config.deploymentsPath ?? DEFAULT_DEPLOYMENTS_PATH)}${listAvailable(all)}`,
+      `no deployment records${describeFilters(opts)} under ${deploymentsPath}${listAvailable(all)}`,
     );
   }
 
