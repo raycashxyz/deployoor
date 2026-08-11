@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 export type Framework = "hardhat" | "foundry" | "tevm";
@@ -32,7 +32,9 @@ const containsSolidity = (dir: string): boolean =>
   readdirSync(dir).some((entry) => {
     if (entry === "node_modules") return false;
     const full = join(dir, entry);
-    return statSync(full).isDirectory() ? containsSolidity(full) : entry.endsWith(".sol");
+    // lstat, not stat: stat follows symlinks, so a link pointing at an ancestor would recurse until
+    // the stack blew. A symlinked source tree is not worth traversing for a detection heuristic.
+    return lstatSync(full).isDirectory() ? containsSolidity(full) : entry.endsWith(".sol");
   });
 
 /**

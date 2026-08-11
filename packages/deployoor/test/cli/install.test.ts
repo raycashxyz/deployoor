@@ -18,6 +18,8 @@ describe("detectPackageManager", () => {
     expect(detectPackageManager(projectWith("pnpm-lock.yaml")).command).toBe("pnpm");
     expect(detectPackageManager(projectWith("yarn.lock")).command).toBe("yarn");
     expect(detectPackageManager(projectWith("bun.lockb")).command).toBe("bun");
+    // bun switched its lockfile to text `bun.lock`; both are in the table, so both are covered.
+    expect(detectPackageManager(projectWith("bun.lock")).command).toBe("bun");
     expect(detectPackageManager(projectWith("package-lock.json")).command).toBe("npm");
   });
 

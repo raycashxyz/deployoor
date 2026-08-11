@@ -1,9 +1,14 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { cpSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readFoundryOutPath, readHardhatArtifactsPath } from "../../src/artifacts/framework-config";
 import { readArtifactsAsync } from "../../src/artifacts";
+import { ArtifactsNotFound } from "../../src/errors";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 const fixtureArtifacts = join(import.meta.dirname, "..", "fixtures", "hh", "artifacts");
 const fixtureOut = join(import.meta.dirname, "..", "fixtures", "fdry", "out");
@@ -64,7 +69,9 @@ describe("readFoundryOutPath", () => {
 
   it("honours FOUNDRY_PROFILE", () => {
     const root = project({ "foundry.toml": '[profile.default]\nout = "d"\n[profile.ci]\nout = "ci-out"\n' });
-    process.env.FOUNDRY_PROFILE = "ci";
+    // stubEnv rather than assigning process.env: the reader consults it at call time, so a value
+    // leaking out of this test would silently change what every later test resolves.
+    vi.stubEnv("FOUNDRY_PROFILE", "ci");
     expect(readFoundryOutPath(root)).toBe("ci-out");
   });
 
@@ -77,10 +84,6 @@ describe("readFoundryOutPath", () => {
     expect(
       readFoundryOutPath(project({ "foundry.toml": '[profile.default]\nsrc = "src"\n' })),
     ).toBeUndefined();
-  });
-
-  afterEach(() => {
-    delete process.env.FOUNDRY_PROFILE;
   });
 });
 
@@ -118,6 +121,9 @@ describe("readArtifactsAsync honours the framework's own config", () => {
       "hardhat.config.js": "module.exports = { paths: { artifacts: './build/arts' } };",
     });
     const error = await readArtifactsAsync(root).catch((e: unknown) => e);
+    // Pin the error itself before its prose: a different failure with a coincidentally matching
+    // message would otherwise pass, and the repo's convention is to assert specific errors.
+    expect(error).toBeInstanceOf(ArtifactsNotFound);
     const message = error instanceof Error ? error.message : String(error);
 
     // join(), not a literal "build/arts": the message carries a resolved path, so the separator is

@@ -3,6 +3,7 @@ import { cpSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readArtifactsAsync } from "../../src/artifacts";
+import { ArtifactsNotFound } from "../../src/errors";
 
 const fixtureArtifacts = join(import.meta.dirname, "..", "fixtures", "hh", "artifacts");
 
@@ -39,6 +40,9 @@ describe("artifactsPath", () => {
     writeFileSync(join(root, "hardhat.config.js"), "module.exports = { solidity: '0.8.24' };");
 
     const error = await readArtifactsAsync(root).catch((e: unknown) => e);
+    // Pin the error itself before its prose: a different failure with a coincidentally matching
+    // message would otherwise pass, and the repo's convention is to assert specific errors.
+    expect(error).toBeInstanceOf(ArtifactsNotFound);
     const message = error instanceof Error ? error.message : String(error);
 
     expect(message).toContain("This is a Hardhat project (found hardhat.config.js)");
@@ -50,10 +54,16 @@ describe("artifactsPath", () => {
     const error = await readArtifactsAsync(projectWithMovedArtifacts(), {
       artifactsPath: "./nope",
     }).catch((e: unknown) => e);
+    // Pin the error itself before its prose: a different failure with a coincidentally matching
+    // message would otherwise pass, and the repo's convention is to assert specific errors.
+    expect(error).toBeInstanceOf(ArtifactsNotFound);
     const message = error instanceof Error ? error.message : String(error);
 
     expect(message).toContain("nope");
-    expect(message).toContain("`artifactsPath` from your deployoor.config.ts");
+    // Deliberately does not name deployoor.config.ts: `artifactsPath` can also arrive through the
+    // programmatic API, and the message must not assert a source it cannot know.
+    expect(message).toContain("configured `artifactsPath`");
+    expect(message).not.toContain("deployoor.config.ts");
     // Re-suggesting the option the user already set would be noise.
     expect(message).not.toContain("export default defineConfig");
   });
@@ -61,6 +71,9 @@ describe("artifactsPath", () => {
   it("says it could not detect a toolchain, and what it looked for, in a bare directory", async () => {
     const bare = mkdtempSync(join(tmpdir(), "deployoor-bare-"));
     const error = await readArtifactsAsync(bare).catch((e: unknown) => e);
+    // Pin the error itself before its prose: a different failure with a coincidentally matching
+    // message would otherwise pass, and the repo's convention is to assert specific errors.
+    expect(error).toBeInstanceOf(ArtifactsNotFound);
     const message = error instanceof Error ? error.message : String(error);
 
     expect(message).toContain("Could not tell what this project is built with");
@@ -73,6 +86,9 @@ describe("artifactsPath", () => {
     const root = mkdtempSync(join(tmpdir(), "deployoor-foundry-"));
     writeFileSync(join(root, "foundry.toml"), '[profile.default]\nout = "artifacts"\n');
     const error = await readArtifactsAsync(root).catch((e: unknown) => e);
+    // Pin the error itself before its prose: a different failure with a coincidentally matching
+    // message would otherwise pass, and the repo's convention is to assert specific errors.
+    expect(error).toBeInstanceOf(ArtifactsNotFound);
     const message = error instanceof Error ? error.message : String(error);
 
     expect(message).toContain("This is a Foundry project (found foundry.toml)");

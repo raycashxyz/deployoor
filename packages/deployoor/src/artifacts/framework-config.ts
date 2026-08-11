@@ -12,6 +12,15 @@ import { createJiti } from "jiti";
  * load — and being unable to read it is not a reason to refuse to generate.
  */
 
+/** Reads a config file, or undefined if it cannot be read — keeps both readers total. */
+const readConfig = (path: string): string | undefined => {
+  try {
+    return readFileSync(path, "utf8");
+  } catch {
+    return undefined;
+  }
+};
+
 const HARDHAT_CONFIGS = [
   "hardhat.config.ts",
   "hardhat.config.js",
@@ -53,7 +62,10 @@ export const readFoundryOutPath = (root: string): string | undefined => {
   if (!existsSync(configPath)) return undefined;
 
   const profile = process.env.FOUNDRY_PROFILE ?? "default";
-  const contents = readFileSync(configPath, "utf8");
+  // existsSync then readFileSync is not atomic, and an unreadable or replaced file would otherwise
+  // throw straight out of a function this module documents as never throwing.
+  const contents = readConfig(configPath);
+  if (contents === undefined) return undefined;
 
   // Walk the lines tracking which table we are in, keeping the first `out` in the active profile.
   const found = contents.split(/\r?\n/).reduce<{ table: string | null; out: string | undefined }>(

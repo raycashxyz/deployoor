@@ -92,7 +92,7 @@ export class ArtifactsNotFound extends Data.TaggedError("ArtifactsNotFound")<{
       return [
         `No compiled artifacts in ${this.dir}.`,
         ``,
-        `That path is the \`artifactsPath\` from your deployoor.config.ts. Check it points at the`,
+        `That path is the configured \`artifactsPath\`. Check it points at the`,
         `directory \`${compile}\` actually writes to.`,
       ].join("\n");
     }
