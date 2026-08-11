@@ -72,6 +72,19 @@ describe("runInit + isDeployoorInstalled", () => {
     expect(contents).toContain('// artifactsPath: "artifacts",');
   });
 
+  it("has exactly one of two concurrent runs create the file", async () => {
+    // Detection is async (reading hardhat.config goes through jiti), so an existsSync guard before it
+    // leaves a real window: both calls see no file, both write, and the second truncates the first —
+    // while both report `created: true`. Exclusive creation makes the check and the claim one step.
+    const root = mkdtempSync(join(tmpdir(), "deployoor-init-race-"));
+    writeFileSync(join(root, "foundry.toml"), '[profile.default]\nout = "artifacts"\n');
+
+    const results = await Promise.all([runInit(root), runInit(root)]);
+
+    expect(results.filter((result) => result.created)).toHaveLength(1);
+    expect(readFileSync(join(root, "deployoor.config.ts"), "utf8")).toContain("defineConfig");
+  });
+
   it("says so when there is no toolchain to detect", async () => {
     const root = mkdtempSync(join(tmpdir(), "deployoor-init-bare-"));
 

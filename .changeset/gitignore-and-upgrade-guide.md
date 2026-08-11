@@ -22,3 +22,7 @@ The question goes to `git check-ignore`, not to a parser here, so nested ignore 
 Nothing here runs from `generateDeployers`, only from the CLI — a build hook like `@deployoor/hardhat` is the wrong place to ask a question or to repeat the same advice on every compile.
 
 `init` also scaffolds from the project rather than from a fixed template: the config it writes names the detected toolchain and where deployoor resolved the artifacts directory. `artifactsPath` stays commented out even when your framework's config moves it, since deployoor reads that config itself and a copy would be free to drift. `runInit` is now async as a result.
+
+Two safety details worth naming. The "is this file inside the project" test compares **canonical** paths: git does not follow a symlinked `.gitignore` but does follow one used as `core.excludesFile`, so a link inside the project can name a target outside it, and a lexical comparison would call that editable and then write through the link. And the advice for a broader pattern no longer suggests a bare negation — git does not descend into an excluded directory, so `!build/deployers/` under a `build` rule does nothing; it now says to move `out` or widen the rule to `build/*` first.
+
+`runInit` creates the config with `wx` rather than checking `existsSync` first, since detection is async and a check before it left a window in which a concurrent run's file would be truncated.

@@ -84,9 +84,17 @@ export interface InitResult {
  */
 export const runInit = async (root: string): Promise<InitResult> => {
   const configPath = join(root, "deployoor.config.ts");
-  const created = !existsSync(configPath);
-  if (created) writeFileSync(configPath, template(await detect(root)));
-  return { configPath, created };
+  // `wx` rather than an existsSync guard: detection is async, so a check before it leaves a window in
+  // which something else can create the config, and the write would then truncate whatever it wrote.
+  // Exclusive creation makes "does it exist" and "claim it" the same operation.
+  const contents = template(await detect(root));
+  try {
+    writeFileSync(configPath, contents, { flag: "wx" });
+    return { configPath, created: true };
+  } catch (cause) {
+    if ((cause as NodeJS.ErrnoException).code === "EEXIST") return { configPath, created: false };
+    throw cause;
+  }
 };
 
 /** Every field a package.json can declare a dependency under. */

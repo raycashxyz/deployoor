@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import type { Config } from "../config";
 import { confirm, loggerFor, type ConfirmDeps } from "./prompt";
@@ -112,7 +112,6 @@ const parseEntry = (
     return undefined;
 
   const source = resolve(root, sourceLabel);
-  const withinProject = relative(root, source).split(/[\\/]/);
   return {
     path: raw.slice(tab + 1),
     why,
@@ -121,8 +120,35 @@ const parseEntry = (
     line: Number(lineNumber),
     pattern,
     targeted: isTargeted(pattern, raw.slice(tab + 1)),
-    editable: withinProject[0] !== ".." && !withinProject.includes(".git"),
+    editable: isInsideProject(root, source),
   };
+};
+
+/**
+ * The path with every symlink resolved, or the path itself when it cannot be resolved.
+ *
+ * Total on purpose: `realpathSync` throws for something that does not exist, and "is this inside the
+ * project" still has a sensible lexical answer then.
+ */
+const canonical = (path: string): string => {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
+};
+
+/**
+ * Whether `source` is a file this may edit: inside `root`, and not inside `.git`.
+ *
+ * Compared on **canonical** paths, not lexical ones. Git does not follow a symlinked `.gitignore`,
+ * but it does follow one used as `core.excludesFile` — so a link sitting inside the project can name
+ * a target outside it, and a lexical comparison would call that editable and then write through the
+ * link to a file somewhere else entirely.
+ */
+const isInsideProject = (root: string, source: string): boolean => {
+  const segments = relative(canonical(root), canonical(source)).split(/[\\/]/);
+  return segments[0] !== ".." && !segments.includes(".git");
 };
 
 /** A pattern with the anchoring and directory markers taken off, so it can be compared to a path. */
@@ -223,9 +249,13 @@ const describe = (rule: IgnoredOutput): ReadonlyArray<string> => {
     return [head, `    that file is outside the project, so it is left alone — remove the rule yourself`];
   }
   if (!rule.targeted) {
+    // Not `!<path>` on its own: git does not descend into an excluded directory, so a negation for
+    // something inside one has no effect. Widening the parent to `<dir>/*` is what makes it work.
+    const parent = bare(rule.pattern);
     return [
       head,
-      `    that pattern covers more than deployoor's output, so it is left alone — add \`!${rule.path}\` below it, or point \`out\` somewhere else`,
+      `    that pattern covers more than deployoor's output, so it is left alone — point \`out\` outside \`${parent}\`,`,
+      `    or widen the rule to \`${parent}/*\` and add \`!${rule.path}\` after it (git ignores a negation inside an excluded directory)`,
     ];
   }
   return [head];

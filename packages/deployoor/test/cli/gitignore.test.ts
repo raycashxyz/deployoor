@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -126,6 +126,27 @@ describe("findIgnoredOutput", () => {
     expect(found[0]).toMatchObject({ targeted: true, editable: false });
   });
 
+  it("marks a rule reached through a symlink out of the project as not editable", () => {
+    // Git does not follow a symlinked `.gitignore`, but it does follow one used as
+    // `core.excludesFile`. A link inside the project can name a target outside it, and a lexical
+    // path comparison calls that editable — then the removal writes through the link to a file
+    // somewhere else on disk.
+    const outside = mkdtempSync(join(tmpdir(), "deployoor-outside-"));
+    const target = join(outside, "excludes");
+    writeFileSync(target, "deployers/\n");
+    const root = repo("node_modules\n", (dir) => {
+      symlinkSync(target, join(dir, ".excludes-link"));
+      spawnSync("git", ["config", "core.excludesFile", ".excludes-link"], { cwd: dir });
+    });
+
+    const found = findIgnoredOutput(root, DEFAULTS);
+
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({ targeted: true, editable: false });
+    // And the file it points at is untouched by a review that would otherwise offer to edit it.
+    expect(readFileSync(target, "utf8")).toBe("deployers/\n");
+  });
+
   it("skips an output directory outside the project", () => {
     const root = repo("deployers\n");
 
@@ -246,7 +267,13 @@ describe("reviewIgnoredOutput", () => {
 
     expect(removed).toEqual([]);
     expect(deps.ask).not.toHaveBeenCalled();
-    expect(deps.log.mock.calls.flat().join("\n")).toContain("!build/deployers/" as string);
+    const said = deps.log.mock.calls.flat().join("\n");
+    // Git does not descend into an excluded directory, so `!build/deployers/` alone does nothing —
+    // verified directly: with `build` + `!build/deployers/`, check-ignore still reports the file
+    // ignored, and only widening the parent to `build/*` re-includes it. The advice has to say that.
+    expect(said).toContain("build/*" as string);
+    expect(said).toContain("!build/deployers/" as string);
+    expect(said).toContain("point `out` outside `build`" as string);
   });
 
   it("says nothing at all when there is nothing to report", async () => {
