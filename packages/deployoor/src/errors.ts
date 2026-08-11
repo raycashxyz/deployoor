@@ -8,7 +8,28 @@ import { Data } from "effect";
  * failure surfaces at the Promise edge the real reason is visible.
  */
 
-const describe = (cause: unknown): string => (cause instanceof Error ? cause.message : String(cause));
+/**
+ * Render a cause for a message. Total by construction: `String(value)` throws on an object with no
+ * primitive conversion (a null-prototype object, or one whose `Symbol.toPrimitive` misbehaves), and an
+ * error formatter that throws replaces the real diagnosis with "Cannot convert object to primitive
+ * value" — which is exactly how it hid a genuine deploy failure once.
+ */
+const describe = (cause: unknown): string => {
+  if (cause instanceof Error) return cause.message;
+  try {
+    return String(cause);
+  } catch {
+    return safeJson(cause);
+  }
+};
+
+const safeJson = (cause: unknown): string => {
+  try {
+    return JSON.stringify(cause) ?? "unknown cause";
+  } catch {
+    return "unknown cause";
+  }
+};
 
 /**
  * A deploy transaction or its receipt failed. `cause` preserves the original
@@ -166,5 +187,56 @@ export class PluginFailed extends Data.TaggedError("PluginFailed")<{
 }> {
   override get message(): string {
     return `Plugin(s) failed: ${this.plugins.join(", ")}`;
+  }
+}
+
+/**
+ * The artifacts were readable, but none of them is the contract a generated deployer names. Its
+ * `.sol` was renamed or deleted, or an `include` filter no longer matches it.
+ */
+export class ContractArtifactNotFound extends Data.TaggedError("ContractArtifactNotFound")<{
+  readonly fullyQualifiedName: string;
+  readonly dir: string;
+  /** What was found instead, so a rename is obvious from the message. */
+  readonly available: ReadonlyArray<string>;
+}> {
+  override get message(): string {
+    const near = this.available.length === 0 ? "nothing" : this.available.slice(0, 8).join(", ");
+    const more = this.available.length > 8 ? `, … (${this.available.length} total)` : "";
+    return [
+      `No compiled artifact for ${this.fullyQualifiedName} in ${this.dir}.`,
+      ``,
+      `Compiled contracts there: ${near}${more}.`,
+      `If the contract was renamed or removed, re-run \`deployoor generate\` so the deployers match.`,
+    ].join("\n");
+  }
+}
+
+/**
+ * A generated deployer's abi no longer matches the compiled artifact's.
+ *
+ * Fatal rather than a warning, and it has to be: the deploy would encode constructor args against
+ * the stale interface and write the stale abi into the record, which is then what every consumer
+ * reads. Comparing artifact *presence* cannot catch this — only comparing content does.
+ */
+export class GeneratedArtifactStale extends Data.TaggedError("GeneratedArtifactStale")<{
+  readonly fullyQualifiedName: string;
+  /** Canonical signatures present in the artifact but not in the generated deployer. */
+  readonly added: ReadonlyArray<string>;
+  /** Canonical signatures present in the generated deployer but not in the artifact. */
+  readonly removed: ReadonlyArray<string>;
+}> {
+  override get message(): string {
+    const lines = [
+      ...this.added.map((entry) => `  + ${entry}`),
+      ...this.removed.map((entry) => `  - ${entry}`),
+    ];
+    return [
+      `${this.fullyQualifiedName}'s abi no longer matches its compiled artifact.`,
+      ``,
+      `Re-run \`deployoor generate\`, then deploy again.`,
+      ``,
+      ...lines,
+    ].join("\n");
   }
 }

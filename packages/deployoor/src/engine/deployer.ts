@@ -6,7 +6,8 @@ import { Store, layerFromAdapter } from "../services/store";
 import { getOrDeploy, register } from "./pipeline";
 import { NoChainOnClient } from "../errors";
 import type { ContractConstructorArgs } from "viem";
-import type { Libraries, TypedArtifact } from "../schemas";
+import type { GeneratedArtifact, Libraries, TypedArtifact } from "../schemas";
+import { resolveArtifact } from "../artifacts/resolve";
 import type { AnyDeployPlugin, PluginDeps, PluginOverrides } from "../plugin";
 import type { OnPluginError } from "./plugins";
 import { fsStore, networkKeyForChain, type StoreAdapter } from "../store";
@@ -139,11 +140,11 @@ export interface DeployerCallOptions<A extends Abi, P extends readonly AnyDeploy
  *   await deployRaycashUSD({ walletClient, publicClient, args: [owner] });
  */
 export const defineDeployer = <A extends Abi, const P extends readonly AnyDeployPlugin[]>(
-  artifact: TypedArtifact<A>,
+  artifact: GeneratedArtifact<A> | TypedArtifact<A>,
   config: Config<P>,
 ) => {
   const store = fsStore(resolve(config.deploymentsPath ?? "./deployments"));
-  return (opts: DeployerCallOptions<A, P>): Promise<DeployResult<A>> =>
+  return async (opts: DeployerCallOptions<A, P>): Promise<DeployResult<A>> =>
     createDeployer({
       walletClient: opts.walletClient,
       publicClient: opts.publicClient,
@@ -152,14 +153,24 @@ export const defineDeployer = <A extends Abi, const P extends readonly AnyDeploy
       onPluginError: config.onPluginError,
       redeploymentStrategy: config.redeploymentStrategy,
       redeploymentStrategyByChainId: config.redeploymentStrategyByChainId,
-    }).getOrDeploy(artifact, {
-      args: opts.args,
-      deploymentName: opts.deploymentName,
-      redeploymentStrategy: opts.redeploymentStrategy,
-      libraries: opts.libraries,
-      plugins: opts.plugins,
-      onPluginError: opts.onPluginError,
-    });
+    }).getOrDeploy(
+      // Resolved per call rather than once at definition time: `generate` runs before the deploy
+      // script does, so reading the artifact eagerly would fire at import time and fail a project
+      // that has not compiled yet even when nothing is being deployed.
+      await resolveArtifact(artifact, {
+        framework: config.framework,
+        artifactsPath: config.artifactsPath,
+        sources: config.sources,
+      }),
+      {
+        args: opts.args,
+        deploymentName: opts.deploymentName,
+        redeploymentStrategy: opts.redeploymentStrategy,
+        libraries: opts.libraries,
+        plugins: opts.plugins,
+        onPluginError: opts.onPluginError,
+      },
+    );
 };
 
 type DeploymentNameOption =

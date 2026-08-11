@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -13,8 +13,24 @@ const requireFromTest = createRequire(import.meta.url);
 const tscBin = requireFromTest.resolve("typescript/bin/tsc");
 const tsdownBin = requireFromTest.resolve("tsdown/run");
 
+/** Newest mtime under `dir`, recursively. */
+const newestMtime = (dir: string): number =>
+  readdirSync(dir, { withFileTypes: true })
+    .map((entry) =>
+      entry.isDirectory() ? newestMtime(join(dir, entry.name)) : statSync(join(dir, entry.name)).mtimeMs,
+    )
+    .reduce((newest, mtime) => Math.max(newest, mtime), 0);
+
+/**
+ * Rebuild when `dist` is missing *or* older than `src`. Existence alone is not enough: this suite
+ * type-checks emitted code against `dist/index.d.mts`, so a stale dist means it validates the
+ * generated tree against a signature the source no longer has — it passes while genuinely broken.
+ * `deployoor:test` does not depend on `deployoor:build` (turbo's `^build` covers dependencies, not
+ * the package itself), so nothing else guarantees freshness locally.
+ */
 const ensureBuilt = (): void => {
-  if (existsSync(distTypes)) return;
+  const built = existsSync(distTypes) ? statSync(distTypes).mtimeMs : 0;
+  if (built > newestMtime(join(pkgRoot, "src"))) return;
   execFileSync(process.execPath, [tsdownBin], { cwd: pkgRoot, stdio: "ignore" });
 };
 
