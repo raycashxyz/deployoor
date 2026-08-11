@@ -124,3 +124,22 @@ describe("slack plugin", () => {
     expect(postedBody(fetch).username).toBe("deployoor-bot");
   });
 });
+
+describe("slack options", () => {
+  // Same shape as the etherscan apiKey guard: the docs no longer assert the environment variable is
+  // set, so a missing webhook has to fail here rather than as a `fetch(undefined)` mid-deploy.
+  it.each([
+    ["undefined", undefined],
+    ["empty", ""],
+    ["blank", "   "],
+  ])("refuses to construct when webhook is %s, naming the variable to set", (_label, webhook) => {
+    const construct = () => slack({ webhook });
+
+    expect(construct).toThrow(/webhook is required/);
+    expect(construct).toThrow(/SLACK_WEBHOOK/);
+  });
+
+  it("constructs with a webhook, so the guard rejects nothing it should accept", () => {
+    expect(slack({ webhook: "https://hooks.slack.test/x" }).name).toBe("slack");
+  });
+});

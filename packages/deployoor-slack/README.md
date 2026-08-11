@@ -18,7 +18,7 @@ import { defineConfig } from "deployoor";
 import { slack } from "@deployoor/slack";
 
 export default defineConfig({
-  plugins: [slack({ webhook: process.env.SLACK_WEBHOOK! })],
+  plugins: [slack({ webhook: process.env.SLACK_WEBHOOK })],
 });
 ```
 

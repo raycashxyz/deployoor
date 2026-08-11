@@ -351,6 +351,87 @@ describe("runVerify", () => {
   });
 });
 
+/**
+ * A `StoreAdapter` written as a class, which the docs invite: "the store is a pluggable
+ * StoreAdapter". `fsStore` and `memoryStore` are object literals closing over captured state, so
+ * they survive having their methods detached; a class instance does not, and every method here uses
+ * `this` so that a detached call throws rather than quietly working.
+ */
+class ClassStore implements StoreAdapter {
+  readonly #inner: StoreAdapter;
+  constructor(inner: StoreAdapter) {
+    this.#inner = inner;
+  }
+  read(network: string, name: string) {
+    return this.#inner.read(network, name);
+  }
+  write(record: DeploymentRecord) {
+    return this.#inner.write(record);
+  }
+  list(network: string) {
+    return this.#inner.list(network);
+  }
+  remove(network: string, name: string) {
+    return this.#inner.remove(network, name);
+  }
+  listAll() {
+    if (this.#inner.listAll === undefined) throw new Error("inner store cannot listAll");
+    return this.#inner.listAll();
+  }
+  readSources(hash: Hex) {
+    if (this.#inner.readSources === undefined) throw new Error("inner store cannot readSources");
+    return this.#inner.readSources(hash);
+  }
+}
+
+describe("runVerify with a class-based store", () => {
+  it("verifies through a store whose methods need `this`", async () => {
+    // Reading the methods into locals and calling them detached ran them with `this` unbound, which
+    // is a hard crash rather than a reported outcome — and only for custom stores, so neither
+    // fsStore nor memoryStore could have caught it.
+    const onVerify = spy();
+    const store = new ClassStore(await seeded([record()]));
+
+    const report = await run(store, { plugins: [stubVerifier("etherscan", onVerify)] });
+
+    expect(report.ok).toBe(true);
+    expect(report.results[0]?.outcome.status).toBe("verified");
+    expect(onVerify).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads pinned sources through it too", async () => {
+    // The second detached call: `readSources` is what turns a sourcesHash into the metadata a
+    // verifier needs, so an unbound `this` here reports the record unverifiable at best.
+    const onVerify = spy();
+    const store = new ClassStore(await seeded([record()]));
+
+    await run(store, { plugins: [stubVerifier("etherscan", onVerify)] });
+
+    expect(onVerify.mock.calls[0]?.[0].metadata.fullyQualifiedName).toBe(sidecar.fullyQualifiedName);
+  });
+});
+
+describe("runVerify plugin selection", () => {
+  it("rejects an empty plugins list instead of reporting everything verified", async () => {
+    // An empty array is not `undefined`, so it used to fall through to a filter that selected
+    // nothing: zero hooks ran per record, zero failures were collected, and every record was
+    // reported verified with `ok: true` — a CI check passing without verifying anything.
+    const onVerify = spy();
+    const store = await seeded([record()]);
+
+    const failure = await run(
+      store,
+      { plugins: [stubVerifier("etherscan", onVerify)] },
+      { plugins: [] },
+    ).catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(VerifyRequestError);
+    expect((failure as VerifyRequestError).kind).toBe("unknown-plugin");
+    expect((failure as VerifyRequestError).message).toContain("empty");
+    expect(onVerify).not.toHaveBeenCalled();
+  });
+});
+
 describe("parseVerifyArgs", () => {
   it("accepts `--flag value` and `--flag=value` for every filter", () => {
     expect(parseVerifyArgs(["--network", "8453-base", "--contract=Counter"])).toEqual({
@@ -378,6 +459,15 @@ describe("parseVerifyArgs", () => {
   it("throws a bad-usage VerifyRequestError when a flag is missing its value", () => {
     expect(() => parseVerifyArgs(["--network", "--plugin", "etherscan"])).toThrow(/--network needs a value/);
   });
+
+  it.each(["--network=", "--contract=", "--plugin="])(
+    "treats %s with no value as a missing value",
+    (token) => {
+      // The equals form skipped the missing-value check, so this parsed to an empty string — an active
+      // filter matching no record, reported as though the repo held none.
+      expect(() => parseVerifyArgs([token])).toThrow(/needs a value/);
+    },
+  );
 
   it("throws a bad-usage VerifyRequestError for a stray positional argument", () => {
     const parse = () => parseVerifyArgs(["Counter"]);

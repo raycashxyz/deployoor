@@ -18,9 +18,9 @@ import { slack } from "@deployoor/slack";
 
 export default defineConfig({
   plugins: [
-    etherscan({ apiKey: process.env.ETHERSCAN_KEY! }),
+    etherscan({ apiKey: process.env.ETHERSCAN_KEY }),
     sourcify(),
-    slack({ webhook: process.env.SLACK_HOOK! }),
+    slack({ webhook: process.env.SLACK_HOOK }),
   ],
 });
 ```

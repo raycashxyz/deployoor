@@ -132,6 +132,10 @@ const valuesOf = (argv: ReadonlyArray<string>, name: string): ReadonlyArray<stri
 
 const missingValueFor = (argv: ReadonlyArray<string>, name: string): boolean =>
   argv.some((token, index) => {
+    // `--network=` names a flag and supplies nothing, which is the same mistake as a trailing
+    // `--network`. Left alone it parses to an empty string, which is not `undefined`, so it becomes
+    // an active filter that matches no record — reported as if the repo held nothing.
+    if (token === `--${name}=`) return true;
     if (token !== `--${name}`) return false;
     const value = argv[index + 1];
     return value === undefined || value.startsWith("--");
@@ -228,11 +232,20 @@ const selectPlugins = (
         "",
         "`deployoor verify` submits through a verifier plugin, so add one:",
         '  import { etherscan } from "@deployoor/etherscan";',
-        "  export default defineConfig({ plugins: [etherscan({ apiKey: process.env.ETHERSCAN_KEY! })] });",
+        "  export default defineConfig({ plugins: [etherscan({ apiKey: process.env.ETHERSCAN_KEY })] });",
       ].join("\n"),
     );
   }
   if (requested === undefined) return verifiers;
+  // An empty selection is not the same as no selection. `parseVerifyArgs` never produces one, but
+  // `runVerify` is exported, so a caller whose own filtering came up empty would otherwise run zero
+  // hooks per record, collect zero failures, and be told every record verified.
+  if (requested.length === 0) {
+    throw new VerifyRequestError(
+      "unknown-plugin",
+      `an empty \`plugins\` list selects nothing to verify with — omit it to use every verifier (${verifiers.map((plugin) => plugin.name).join(", ")})`,
+    );
+  }
   const unknown = requested.filter((name) => !verifiers.some((plugin) => plugin.name === name));
   if (unknown.length > 0) {
     throw new VerifyRequestError(
@@ -259,7 +272,9 @@ const readRecords = async (
   store: StoreAdapter,
   network: string | undefined,
 ): Promise<ReadonlyArray<DeploymentRecord>> => {
-  const listAll = store.listAll;
+  // Bound, not just narrowed: `StoreAdapter` is public API and the docs invite custom stores, so one
+  // may be a class instance. Calling a detached method would run it with `this` unbound and crash.
+  const listAll = store.listAll?.bind(store);
   if (listAll !== undefined) return listAll();
   if (network === undefined) {
     throw new VerifyRequestError(
@@ -313,7 +328,8 @@ const resolveMetadata = async (store: StoreAdapter, record: DeploymentRecord): P
         "no sourcesHash — this record's verification sources were never pinned (a v1 record, or a store that pins none), so neither the fully-qualified name nor the standard-json input is recoverable from committed data. Redeploy it (or verify from the compiled artifact with your explorer's own tooling).",
     };
   }
-  const read = store.readSources;
+  // Bound for the same reason as `listAll` above.
+  const read = store.readSources?.bind(store);
   if (read === undefined) return { ok: false, detail: "the configured store cannot read pinned sources" };
   const result = await readSidecar(read, hash);
   if (!result.ok) return result;

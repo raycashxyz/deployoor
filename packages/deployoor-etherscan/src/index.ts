@@ -8,8 +8,15 @@ import {
 import { z } from "zod";
 
 export interface EtherscanOptions {
-  /** Etherscan V2 API key — one key works across every supported chain. */
-  readonly apiKey: string;
+  /**
+   * Etherscan V2 API key — one key works across every supported chain.
+   *
+   * Typed to admit `undefined` so `process.env.ETHERSCAN_KEY` reads straight through without a
+   * non-null assertion. The key stays required, and a missing value is rejected when the plugin is
+   * constructed rather than becoming `apikey: undefined` in a request and coming back as an opaque
+   * authentication failure from the explorer.
+   */
+  readonly apiKey: string | undefined;
   /**
    * Override the API base URL. Defaults to Etherscan V2
    * (`https://api.etherscan.io/v2/api`). Point it at any Etherscan-compatible
@@ -49,8 +56,18 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 
 const isAlreadyVerified = (result: string): boolean => /already verified/i.test(result);
 
+/**
+ * `EtherscanOptions` once the factory has checked the key.
+ *
+ * The request builders take this rather than `EtherscanOptions`, so the type — not a convention —
+ * is what stops an unchecked `undefined` reaching `apikey`.
+ */
+interface CheckedOptions extends Omit<EtherscanOptions, "apiKey"> {
+  readonly apiKey: string;
+}
+
 interface VerifyRequest {
-  readonly options: EtherscanOptions;
+  readonly options: CheckedOptions;
   readonly deployment: DeploymentRecord;
   readonly metadata: ContractMetadata;
   readonly deps: PluginDeps;
@@ -147,15 +164,26 @@ const verifyDeployment = async ({
  * A verification failure throws: at deploy time that obeys the deployer's `onPluginError` policy,
  * and under `deployoor verify` it marks that contract failed and exits non-zero.
  *
+ * A missing `apiKey` is rejected here, at construction — so an unset environment variable fails while
+ * you can still see which variable it was, instead of at the end of a deploy as an authentication
+ * error from the explorer.
+ *
  * @example
  * ```ts
  * import { defineConfig } from "deployoor";
  * import { etherscan } from "@deployoor/etherscan";
- * export default defineConfig({ plugins: [etherscan({ apiKey: process.env.ETHERSCAN_KEY! })] });
+ * export default defineConfig({ plugins: [etherscan({ apiKey: process.env.ETHERSCAN_KEY })] });
  * ```
  */
-export const etherscan = (options: EtherscanOptions) =>
-  definePlugin<"etherscan", Record<string, never>>({
+export const etherscan = (rawOptions: EtherscanOptions) => {
+  const apiKey = rawOptions.apiKey;
+  if (apiKey === undefined || apiKey.trim() === "") {
+    throw new Error(
+      "@deployoor/etherscan: apiKey is required and was empty. Etherscan V2 needs one key for every chain — set it in your environment (e.g. ETHERSCAN_KEY) and pass it as `etherscan({ apiKey: process.env.ETHERSCAN_KEY })`.",
+    );
+  }
+  const options: CheckedOptions = { ...rawOptions, apiKey };
+  return definePlugin<"etherscan", Record<string, never>>({
     name: "etherscan",
     onContractDeployed: async (ctx, deps) => {
       const metadata = ctx.metadata;
@@ -166,3 +194,4 @@ export const etherscan = (options: EtherscanOptions) =>
     onVerify: (ctx, deps) =>
       verifyDeployment({ options, deployment: ctx.deployment, metadata: ctx.metadata, deps }),
   });
+};

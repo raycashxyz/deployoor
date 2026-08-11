@@ -27,7 +27,7 @@ It reads everything from the deployment and the compiler metadata deployoor capt
 Stack it with `@deployoor/etherscan` to publish to both — they're independent hooks:
 
 ```ts
-plugins: [etherscan({ apiKey: process.env.ETHERSCAN_KEY! }), sourcify()];
+plugins: [etherscan({ apiKey: process.env.ETHERSCAN_KEY }), sourcify()];
 ```
 
 ## Options
