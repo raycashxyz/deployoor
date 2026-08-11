@@ -98,7 +98,9 @@ describe("findIgnoredOutput", () => {
     const found = findIgnoredOutput(root, DEFAULTS);
 
     expect(found).toHaveLength(1);
-    expect(found[0]?.sourceLabel).toBe(join("deployers", ".gitignore"));
+    // A forward slash, not `join`: `check-ignore` reports POSIX-separated paths on every platform,
+    // including Windows, so `join` would assert a backslash git never prints.
+    expect(found[0]?.sourceLabel).toBe("deployers/.gitignore");
   });
 
   it("marks a rule broader than deployoor's output as not targeted", () => {
