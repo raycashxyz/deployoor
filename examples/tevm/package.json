@@ -3,7 +3,7 @@
   "version": "0.0.3",
   "private": true,
   "type": "module",
-  "description": "deployoor on a plain-Solidity project: deployoor generate compiles src/*.sol with tevm (no Hardhat/Foundry) → typed deployers, then deploys on an in-memory EVM.",
+  "description": "deployoor on a plain-Solidity project: deployoor generate compiles src/*.sol with tevm (no Hardhat/Foundry) \u2192 typed deployers, then deploys on an in-memory EVM.",
   "scripts": {
     "generate": "deployoor generate",
     "deploy": "tsx --env-file-if-exists=.env scripts/deploy.ts",
@@ -18,7 +18,7 @@
     "@tevm/compiler": "1.0.0-next.148",
     "@types/node": "catalog:",
     "solc": "^0.8.26",
-    "tsx": "^4.22.4",
+    "tsx": "^4.23.12",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

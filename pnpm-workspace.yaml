@@ -9,7 +9,12 @@ catalog:
   "@wagmi/cli": ^2.3.1
   effect: ^3.19.0
   typescript: ^5.9.3
-  viem: 2.44.2
+  # Capped at 2.46.0, not a whim: tevm re-exports `ekta` from `viem/chains`, and viem deleted that
+  # chain in 2.46.1 — so 2.46.1+ breaks every tevm-backed test with
+  # `SyntaxError: The requested module 'viem/chains' does not provide an export named 'ekta'`.
+  # tevm 1.0.0-next.149 (latest) declares `viem: ^2.37.9`, so its own range does not express this.
+  # Raise this only once tevm ships a build that imports no removed chain.
+  viem: 2.46.0
   vitest: ^4.0.17
 
 onlyBuiltDependencies:
