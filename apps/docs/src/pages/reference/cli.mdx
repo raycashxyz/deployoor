@@ -14,6 +14,27 @@ Scaffold `deployoor.config.ts` if absent. Does not install packages.
 npx deployoor init
 ```
 
+The scaffold is filled in from what your project looks like, so it doubles as a report of what
+deployoor resolved:
+
+```ts
+export default defineConfig({
+  // Detected: foundry, artifacts in artifacts (from foundry.toml).
+  // deployoor reads that from your framework's own config, so leave this unset unless you
+  // want to override it.
+  // artifactsPath: "artifacts",
+
+  out: "./deployers", // generated deployers — commit them
+  deploymentsPath: "./deployments", // the deployment record — commit it
+  // include: ["Token", "Vault"], // default: every contract with bytecode
+  plugins: [],
+});
+```
+
+`artifactsPath` is commented out deliberately, even when your framework's config moves the directory:
+deployoor reads that config itself, so writing the value here would copy a setting that already has an
+owner and let the copy drift from it.
+
 ### `generate`
 
 Read compiled artifacts and write typed deployers to `./deployers` (or your configured `out` path).
@@ -29,6 +50,22 @@ Output:
 ```
 deployoor: generated 3 file(s)
 ```
+
+Everything it writes is meant to be [committed](/concepts/version-control), so it also checks whether
+git is ignoring its own output, and offers to remove the rule:
+
+```
+deployoor: git is ignoring output that is meant to be committed:
+  .gitignore:4 (`deployers`) ignores deployers/ — the generated deployers, which a fresh
+  clone cannot typecheck or deploy without
+deployoor: remove line 4 of .gitignore now? [y/N]
+```
+
+Only `y` edits anything, and with no TTY it reports and changes nothing — so CI never rewrites a
+`.gitignore`. The answer comes from `git check-ignore`, so nested ignore files and a `!deployers/` you
+already added are accounted for. A rule broader than deployoor's output (`build`, when `out` is
+`./build/deployers`) or one outside the project (`.git/info/exclude`, a global `core.excludesFile`) is
+reported and left alone. See [upgrading](/guides/upgrading#3-commit-deployers).
 
 ### `verify`
 

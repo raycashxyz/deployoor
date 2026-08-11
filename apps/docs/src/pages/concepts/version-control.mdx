@@ -1,25 +1,69 @@
 # Version control
 
-`deployoor generate` produces two things with opposite answers: the `deployments/` record is the product — **commit it** — and the `deployers/` are build output — **gitignore them**.
-
-## Commit `deployments/`
+Commit everything deployoor writes. The `deployments/` record is the product, and the generated `deployers/` are what make a fresh clone typecheck and deploy without anyone knowing to run a command first.
 
 ```text
 deployments/
   8453-base/Token.json        ← commit: the record — the source of truth
   10-optimism/Token.json      ← commit
   sources/0x8f3a….json        ← commit: pinned verification input, shared by both records
+deployers/
+  Token.ts                    ← commit: the typed deployer
+  types/Token.ts              ← commit: its name + ABI
+  index.ts                    ← commit
 ```
+
+## Commit `deployments/`
 
 Each `<Name>.json` is the source of truth — address, ABI, creation bytecode, compiler, and the [history](/concepts/deployment-records#history) of every (re)deploy. It is small, vanilla JSON, read by your app, [`@wagmi/cli`](/guides/consumption), humans, and any other tool. Its `sourcesHash` points into `deployments/sources/`, which pins the exact solc standard-json input used for that deploy — see [verifying later](#verifying-later).
 
-## Gitignore `deployers/`
+## Commit `deployers/` too
 
-```text
-deployers/
+A generated deployer holds a name, a fully-qualified name, and an ABI. Everything else — creation bytecode, compiler version, the standard-json input — is read from your compiled artifacts at the moment you deploy, so none of it is copied into the file:
+
+```ts
+// deployers/types/Token.ts
+const abi = [...] as const;
+
+export const tokenArtifact = {
+  name: "Token",
+  fullyQualifiedName: "contracts/Token.sol:Token",
+  abi,
+} satisfies GeneratedArtifact<typeof abi>;
 ```
 
-The generated deployers and typed artifact modules are regenerated on every compile — the [Hardhat plugin](/guides/hardhat) does it automatically, and a Foundry prebuild step runs `deployoor generate`. They embed the full `standardJsonInput`, so they are large, and nothing reads them but your deploy script at deploy time — your app reads the [record](/concepts/deployment-records), not the deployers. Committing them adds machine output that churns on every solc bump.
+```ts
+// deployers/Token.ts
+export const getOrDeployToken = defineDeployer(tokenArtifact, config);
+```
+
+That is an ABI and four lines, so the file changes only when your contract's interface changes — which is a diff worth reading. Committing it means a clone can typecheck, run its tests, and deploy against the same interface the repo was written for.
+
+:::info
+Until 0.7 these files inlined the whole `standardJsonInput` — every source file in the compilation unit, per contract — which made them large, churn on every solc bump, and worth ignoring. That is why the old advice was the opposite. See [upgrading](/guides/upgrading).
+:::
+
+The ABI is the one thing that stays inline, and it has to: a `.json` import widens `"uint256"` to `string`, which costs you `args` typing and `contract.read.*` entirely. Because it is a copy, it is also checked — a deploy compares it against the compiled artifact and refuses to run on drift rather than encoding your constructor arguments against an interface that no longer exists.
+
+## What to ignore
+
+Your framework's build output, which it already ignores: `artifacts/` and `cache/` for Hardhat, `out/` and `cache/` for Foundry. deployoor reads those; it does not write them.
+
+If a rule in your `.gitignore` covers deployoor's output, `deployoor generate` says so and offers to remove it — see [upgrading](/guides/upgrading#3-commit-deployers).
+
+## Tell your formatter to skip them
+
+An ABI is emitted as one long line, which every formatter and most lint rules will want to change. Regenerating then undoes the change, so a repo that both commits `deployers/` and checks formatting in CI will fail on files nothing hand-edits. Exclude the directory instead:
+
+```text
+# .prettierignore
+deployers
+```
+
+```json
+// eslint.config.json / .oxlintrc.json
+{ "ignorePatterns": ["deployers"] }
+```
 
 ## Verifying later
 
@@ -29,6 +73,4 @@ They are **content-addressed**: the filename is a hash of the input, and the rec
 
 `reset` collects any pinned sources no remaining record references; blobs another chain still points at survive.
 
-:::note
-Verification runs at deploy time today, via the verifier [plugins](/guides/plugins). Verifying an _already-recorded_ deployment from its pinned sources is not wired up yet — the sources are pinned now so that it can be.
-:::
+[`deployoor verify`](/reference/cli#verify) is what reads them. It verifies a recorded deployment from its record and its pinned sources, with no recompile and no redeploy, however long after the fact — including contracts deployed before you had an API key, and contracts whose sources have since changed, because the blob that was pinned at deploy time is still the one the record points at.
