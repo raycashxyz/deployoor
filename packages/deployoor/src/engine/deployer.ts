@@ -211,7 +211,6 @@ export type RegisterCallOptions<A extends Abi> = DeploymentNameOption & {
  * several instances); `name` is accepted as a compatibility alias.
  */
 export const defineRegister = <const P extends readonly AnyDeployPlugin[]>(config: Config<P>) => {
-  const store = fsStore(resolve(config.deploymentsPath ?? "./deployments"));
   return <A extends Abi>(opts: RegisterCallOptions<A>): Promise<DeployResult<A>> => {
     const deploymentName = opts.deploymentName ?? opts.name;
     if (deploymentName === undefined) throw new Error("register requires deploymentName");

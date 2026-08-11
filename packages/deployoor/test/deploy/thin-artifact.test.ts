@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { defineDeployer } from "../../src/engine/deployer";
+import { defineDeployer, defineRegister } from "../../src/engine/deployer";
 import { memoryStore } from "../../src/store";
 import type { GeneratedArtifact, TypedArtifact } from "../../src/schemas";
 import { counterArtifact } from "../fixtures";
@@ -148,6 +148,28 @@ describe("deploying from a generated (thin) artifact", () => {
     expect(existsSync(join(second, "deployments"))).toBe(true);
     expect(existsSync(join(first, "deployments"))).toBe(false);
     expect(deployment.address).toMatch(/^0x[0-9a-fA-F]{40}$/);
+  });
+
+  it("resolves register's store at call time too", async () => {
+    // `defineRegister` had a dead `const store = fsStore(resolve(...))` left behind, so it still
+    // resolved a cwd-relative path at definition time. oxlint reports an unused variable as a
+    // *warning*, so `pnpm lint` stayed green and nothing tested the property — which is why the
+    // claim that it had been made lazy was wrong. This pins it.
+    const first = enterProject();
+    const register = defineRegister({ deploymentsPath: "./deployments" });
+
+    const second = enterProject();
+    const clients = await clientsWithDeployer();
+
+    await register({
+      name: "Existing",
+      address: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      abi: thin.abi,
+      publicClient: clients.publicClient,
+    });
+
+    expect(existsSync(join(second, "deployments"))).toBe(true);
+    expect(existsSync(join(first, "deployments"))).toBe(false);
   });
 
   it("refuses to deploy when nothing has been compiled", async () => {
