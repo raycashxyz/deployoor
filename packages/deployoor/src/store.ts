@@ -37,6 +37,13 @@ export interface StoreAdapter {
    */
   lock?: (network: string, name: string) => Awaitable<() => Awaitable<void>>;
   /**
+   * Optional: every record, across every network. `list` is per-network and the adapter is not
+   * required to expose which networks it holds, so a repo-wide command (`deployoor verify`) has no
+   * way to walk everything without this. `fsStore`/`memoryStore` implement it; a store that omits
+   * it can still be worked one network at a time.
+   */
+  listAll?: () => Awaitable<ReadonlyArray<DeploymentRecord>>;
+  /**
    * Optional content-addressed verification sources, keyed by the hash a record carries as
    * `sourcesHash`, so identical compilation input is stored once no matter how many chains or
    * contracts reference it. `fsStore`/`memoryStore` implement these; a store that omits them
@@ -94,6 +101,7 @@ export const memoryStore = (seed: ReadonlyArray<DeploymentRecord> = []): StoreAd
       map.set(key(record.networkName, record.deploymentName), record);
     },
     list: (network) => [...map.values()].filter((r) => r.networkName.toLowerCase() === network.toLowerCase()),
+    listAll: () => [...map.values()],
     remove: (network, name) => {
       map.delete(key(network, name));
     },
@@ -203,6 +211,7 @@ export const fsStore = (root: string): StoreAdapter => {
         return record === null ? [] : [record];
       });
     },
+    listAll: allRecords,
     remove: (network, name) => {
       const file = fileFor(network, name);
       if (existsSync(file)) rmSync(file);

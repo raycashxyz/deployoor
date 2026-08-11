@@ -30,6 +30,71 @@ Output:
 deployoor: generated 3 file(s)
 ```
 
+### `verify`
+
+Verify already-deployed contracts on a block explorer, reading only committed data. Nothing is
+recompiled and no artifact directory is touched: a deployment record carries the chain id, address,
+constructor args and libraries, and the pinned sources it points at (`sourcesHash` →
+`deployments/sources/<hash>.json`) carry the fully-qualified contract name, the compiler version and
+the standard-json input. That is the complete verification payload.
+
+```bash
+npx deployoor verify
+npx deployoor verify --network sepolia
+npx deployoor verify --contract Counter --plugin etherscan
+```
+
+Submission goes through the plugins in your `deployoor.config.ts`, so whatever you configured is what
+runs:
+
+```ts
+import { defineConfig } from "deployoor";
+import { etherscan } from "@deployoor/etherscan";
+
+export default defineConfig({
+  plugins: [etherscan({ apiKey: process.env.ETHERSCAN_KEY! })],
+});
+```
+
+Specifically, it calls each plugin's [`onVerify`](/guides/plugins#onverify) hook — its own hook, not
+the deploy-time one. A plugin that does not implement `onVerify` is skipped, which is why a notifier
+like `@deployoor/slack` stays quiet here with nothing to configure. If none of your plugins implements
+it, the command fails and names the ones you have.
+
+Filters (all optional; omit them to walk every record):
+
+| Flag                | Matches                                                                                  |
+| ------------------- | ---------------------------------------------------------------------------------------- |
+| `--network <key>`   | the network key (`11155111-sepolia`), its chain id (`11155111`), or its slug (`sepolia`) |
+| `--contract <name>` | a deployment name or a contract name, case-insensitive                                   |
+| `--plugin <name>`   | verify with only this plugin, when several implement `onVerify`. Repeatable              |
+
+The three `--network` forms need the whole record set to resolve against, so they assume the default
+`fsStore`. A [custom `StoreAdapter`](/concepts/deployment-stores) that implements no `listAll` can only be asked
+for one network by its exact key, and says so rather than reporting that nothing matched.
+
+Output:
+
+```
+deployoor: checked 3 record(s) through etherscan
+  verified      11155111-sepolia/Counter at 0x5FbDB…0aa3 (etherscan)
+  unverifiable  1-ethereum/OldToken at 0x6B175…1d0F
+                  no sourcesHash — this record's verification sources were never pinned …
+  skipped       1-ethereum/USDC at 0xA0b86…eB48
+                  registered external contract — deployoor did not deploy it …
+deployoor: 1 verified, 1 unverifiable, 1 skipped
+```
+
+Exit code is non-zero when any selected record failed verification **or** could not be verified at
+all, so `deployoor verify` works as a CI check. Two outcomes are not failures:
+
+- **`skipped`** — an externally `register`ed contract (USDC and friends). You did not deploy it, so
+  there are no sources to submit.
+- **`unverifiable`** — the record has no `sourcesHash`, or the blob it names is gone. The
+  fully-qualified contract name lives only in the sidecar, so there is no way back to it without
+  recompiling. Records written before deployoor pinned sources are in this bucket; redeploy to fix,
+  or verify those with your explorer's own tooling. The run reports them and keeps going.
+
 ## Flags
 
 ```
@@ -38,6 +103,12 @@ usage: deployoor <command>
 Commands:
   init       write deployoor.config.ts
   generate   read compiled artifacts and write typed deployers
+  verify     verify recorded deployments on a block explorer (no recompile)
+
+verify options:
+  --network <key>     only records on this network — `11155111-sepolia`, `11155111`, or `sepolia`
+  --contract <name>   only this deployment or contract name
+  --plugin <name>     verify with only this configured plugin (repeatable)
 
 Options:
   -h, --help     show this help

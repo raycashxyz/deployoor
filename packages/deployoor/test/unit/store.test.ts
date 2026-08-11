@@ -62,6 +62,23 @@ describe("fsStore", () => {
     expect(await store.list("42161-arbitrum-one")).toHaveLength(1);
   });
 
+  it("lists every record across networks, skipping the shared sources directory", async () => {
+    const root = mkdtempSync(join(tmpdir(), "deployoor-store-"));
+    const store = fsStore(root);
+    const { root: _root, ...deployment } = record(root);
+    await store.write(deployment);
+    await store.write({ ...deployment, chainId: 8453, networkName: "8453-base" });
+    await store.writeSources?.(`0x${"cd".repeat(32)}`, {
+      schemaVersion: 1,
+      fullyQualifiedName: "src/Counter.sol:Counter",
+      compilerVersion: "0.8.35",
+      standardJsonInput: { language: "Solidity", sources: {}, settings: {} },
+    });
+
+    const all = await store.listAll?.();
+    expect(all?.map((r) => r.networkName).sort()).toEqual(["42161-arbitrum-one", "8453-base"]);
+  });
+
   it("round-trips a v2 record's history, identityHash and codeHash (bigint args stay portable)", async () => {
     const root = mkdtempSync(join(tmpdir(), "deployoor-store-"));
     const store = fsStore(root);

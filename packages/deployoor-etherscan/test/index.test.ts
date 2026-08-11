@@ -1,6 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
 import { encodeAbiParameters, type Abi } from "viem";
-import type { ContractMetadata, DeployedContext, DeploymentRecord, PluginDeps } from "deployoor/plugin";
+import type {
+  ContractMetadata,
+  DeployedContext,
+  DeploymentRecord,
+  PluginDeps,
+  VerifyContext,
+} from "deployoor/plugin";
 import { etherscan } from "../src/index";
 
 const abi = [
@@ -81,6 +87,19 @@ const run = (
   return hook(ctx, deps);
 };
 
+const makeVerifyCtx = (over: Partial<VerifyContext> = {}): VerifyContext => ({
+  deployment,
+  metadata,
+  ...over,
+});
+
+/** Invoke the after-the-fact hook `deployoor verify` calls. */
+const runVerify = (plugin: ReturnType<typeof etherscan>, ctx: VerifyContext, deps: PluginDeps) => {
+  const hook = plugin.onVerify;
+  if (hook === undefined) throw new Error("etherscan plugin must define onVerify");
+  return hook(ctx, deps);
+};
+
 const formOf = (fetch: ReturnType<typeof makeDeps>["fetch"], index: number) => {
   const call = fetch.mock.calls.at(index);
   if (call === undefined) throw new Error(`no fetch call at index ${index}`);
@@ -93,6 +112,12 @@ const queryOf = (fetch: ReturnType<typeof makeDeps>["fetch"], index: number): UR
   const call = fetch.mock.calls.at(index);
   if (call === undefined) throw new Error(`no fetch call at index ${index}`);
   return new URL(String(call[0])).searchParams;
+};
+
+const urlOf = (fetch: ReturnType<typeof makeDeps>["fetch"], index: number): string => {
+  const call = fetch.mock.calls.at(index);
+  if (call === undefined) throw new Error(`no fetch call at index ${index}`);
+  return String(call[0]);
 };
 
 const requireParam = (params: URLSearchParams, key: string): string => {
@@ -182,5 +207,60 @@ describe("etherscan plugin", () => {
     const expected = encodeAbiParameters(abi[0].inputs, args).slice(2);
     expect(formOf(fetch, 0).params.get("constructorArguments")).toBe(expected);
     expect(expected.length).toBeGreaterThan(0);
+  });
+
+  it("verifies a recorded deployment through onVerify, with no receipt and no reused flag", async () => {
+    const { deps, fetch } = makeDeps();
+    fetch.mockResolvedValueOnce(reply({ status: "1", result: "guid-1" }));
+    fetch.mockResolvedValueOnce(reply({ status: "1", result: "Pass - Verified" }));
+
+    await runVerify(plugin(), makeVerifyCtx(), deps);
+
+    const { url, params } = formOf(fetch, 0);
+    expect(url).toBe("https://api.test/v2");
+    expect(params.get("action")).toBe("verifysourcecode");
+    expect(params.get("contractname")).toBe("contracts/Token.sol:Token");
+    expect(params.get("constructorArguments")).toBe(encodeAbiParameters(abi[0].inputs, args).slice(2));
+  });
+
+  it("sends byte-identical requests from onVerify and onContractDeployed", async () => {
+    const deployed = makeDeps();
+    const verified = makeDeps();
+    const pass = (mock: ReturnType<typeof makeDeps>["fetch"]) => {
+      mock.mockResolvedValueOnce(reply({ status: "1", result: "guid-1" }));
+      mock.mockResolvedValueOnce(reply({ status: "1", result: "Pass - Verified" }));
+    };
+    pass(deployed.fetch);
+    pass(verified.fetch);
+
+    await run(plugin(), makeCtx(), deployed.deps);
+    await runVerify(plugin(), makeVerifyCtx(), verified.deps);
+
+    // one shared submit-and-poll body, so both hooks produce the same submit form and the same poll
+    expect([...formOf(verified.fetch, 0).params.entries()].sort()).toEqual(
+      [...formOf(deployed.fetch, 0).params.entries()].sort(),
+    );
+    // both hooks submit then poll, so a missing poll fails as a missing call rather than as undefined
+    expect(verified.fetch).toHaveBeenCalledTimes(2);
+    expect(deployed.fetch).toHaveBeenCalledTimes(2);
+    expect(urlOf(verified.fetch, 1)).toBe(urlOf(deployed.fetch, 1));
+  });
+
+  it("throws out of onVerify when the explorer reports a failure", async () => {
+    const { deps, fetch } = makeDeps();
+    fetch.mockResolvedValueOnce(reply({ status: "1", result: "guid-1" }));
+    fetch.mockResolvedValueOnce(reply({ status: "0", result: "Fail - Unable to verify" }));
+
+    await expect(runVerify(plugin(), makeVerifyCtx(), deps)).rejects.toThrow(/verification failed/i);
+  });
+
+  it("treats an already-verified contract as success from onVerify too", async () => {
+    const { deps, fetch } = makeDeps();
+    fetch.mockResolvedValueOnce(
+      reply({ status: "0", message: "NOTOK", result: "Contract source code already verified" }),
+    );
+
+    await expect(runVerify(plugin(), makeVerifyCtx(), deps)).resolves.toBeUndefined();
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 });

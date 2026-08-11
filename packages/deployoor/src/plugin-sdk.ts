@@ -8,6 +8,7 @@ export type {
   DeployPlugin,
   DeployedContext,
   DeployFailedContext,
+  VerifyContext,
   PluginDeps,
   Awaitable,
   AnyDeployPlugin,
