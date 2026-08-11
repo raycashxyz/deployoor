@@ -15,6 +15,6 @@ This is a Hardhat project (found hardhat.config.js), so deployoor looked in the 
 directory. …
 ```
 
-The import is still tried first and still wins when it works, since it can resolve a computed path. When it fails, the file is now scanned for a literal `paths.artifacts`. A computed value still needs `artifactsPath` set explicitly, and both failing still lands on the framework default.
+The import is still tried first and still wins when it works, since it can resolve a computed path. When it fails, the file is now scanned for a literal `paths.artifacts` — and that scan refuses far more than it accepts, because a wrong answer sends deployoor at a directory the project does not compile into, which is a deploy of stale bytecode rather than a clean error. Comments are stripped first, so a commented-out `paths` block cannot win on position, and a second `paths:` key anywhere in the file (`networks: { local: { paths: … } }`) makes it ambiguous and the answer is refused outright. A computed value never matches either. All three cases need `artifactsPath`, and every refusal simply lands on the framework default.
 
 Found by the new `examples/custom-paths`, which moves every path in the project and so hit this immediately.

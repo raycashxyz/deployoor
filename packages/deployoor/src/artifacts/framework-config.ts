@@ -33,14 +33,43 @@ interface HardhatConfigShape {
   readonly paths?: { readonly artifacts?: unknown };
 }
 
-/**
- * A literal `paths.artifacts`, read as text.
- *
- * The fallback for a config that cannot be evaluated. `[^}]*?` keeps the match inside the `paths`
- * object, so an `artifacts` key belonging to something else is not mistaken for this one, and a
- * computed value (`join(__dirname, …)`) does not match at all — that case still needs `artifactsPath`.
- */
+/** Line and block comments. The `[^:\\]` guard keeps `https://…` inside a string from matching. */
+const COMMENTS = /\/\*[\s\S]*?\*\/|(^|[^:\\])\/\/[^\n]*/gm;
+
+/** Any `paths:` key, used to count them — more than one and the right object cannot be identified. */
+const PATHS_KEY = /\bpaths\s*:/g;
+
+/** A literal `artifacts` inside a `paths` object. `[^}]*?` keeps the match from leaving the object. */
 const PATHS_ARTIFACTS = /\bpaths\s*:\s*\{[^}]*?\bartifacts\s*:\s*(['"`])([^'"`]*)\1/s;
+
+/**
+ * A literal `paths.artifacts` read out of config *source*, or undefined when it cannot be proven.
+ *
+ * Text is a poor way to read a value out of code, so this refuses far more than it accepts. The bias
+ * is deliberate: a wrong answer here is worse than none, because deployoor would read a different
+ * directory than the one the project compiles into — and if artifacts happen to exist there, that is a
+ * deploy of stale bytecode rather than a clean "nothing compiled" error. Declining just falls back to
+ * the framework default, which the caller reports with the `artifactsPath` escape hatch.
+ *
+ * Two ways a naive scan gets it wrong, both of which it used to:
+ *
+ * 1. A **commented-out** `paths` block above the real one wins, because it comes first in the text.
+ *    So comments are stripped before anything is matched.
+ * 2. A **nested** `paths` — `networks: { local: { paths: { artifacts: "…" } } }` — also wins on
+ *    position, and telling it from the exported one needs brace matching this deliberately does not
+ *    attempt. So a second `paths:` key anywhere makes the file ambiguous and the answer is refused.
+ *
+ * A computed value (`join(__dirname, …)`) never matches either. All three cases need `artifactsPath`.
+ */
+const artifactsFromSource = (source: string): string | undefined => {
+  const stripped = source.replace(COMMENTS, (match, keep: string | undefined) =>
+    keep === undefined ? " " : keep,
+  );
+  const pathsKeys = stripped.match(PATHS_KEY) ?? [];
+  if (pathsKeys.length !== 1) return undefined;
+
+  return PATHS_ARTIFACTS.exec(stripped)?.[2];
+};
 
 /**
  * `paths.artifacts` from hardhat.config, or undefined. Hardhat 3 keeps the same `paths.artifacts`
@@ -69,7 +98,7 @@ export const readHardhatArtifactsPath = async (root: string): Promise<string | u
   if (typeof artifacts === "string") return artifacts;
 
   const contents = readConfig(configPath);
-  return contents === undefined ? undefined : PATHS_ARTIFACTS.exec(contents)?.[2];
+  return contents === undefined ? undefined : artifactsFromSource(contents);
 };
 
 /**

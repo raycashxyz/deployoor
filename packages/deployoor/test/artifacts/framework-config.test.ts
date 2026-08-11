@@ -67,6 +67,63 @@ describe("readHardhatArtifactsPath", () => {
     await expect(readHardhatArtifactsPath(root)).resolves.toBe("build/artifacts");
   });
 
+  it("ignores a commented-out paths block above the real one", async () => {
+    // Text is read in order, so the commented block used to win purely on position — and it wins
+    // silently, pointing deployoor at a directory the project stopped compiling into.
+    const root = project({
+      "hardhat.config.js": [
+        "require('a-plugin-that-is-not-installed');",
+        '// paths: { artifacts: "old/place" },',
+        "module.exports = { paths: { artifacts: 'build/artifacts' } };",
+      ].join("\n"),
+    });
+
+    await expect(readHardhatArtifactsPath(root)).resolves.toBe("build/artifacts");
+  });
+
+  it("ignores a block-commented paths block too", async () => {
+    const root = project({
+      "hardhat.config.js": [
+        "require('a-plugin-that-is-not-installed');",
+        '/* paths: { artifacts: "commented" } */',
+        "module.exports = { paths: { artifacts: 'real' } };",
+      ].join("\n"),
+    });
+
+    await expect(readHardhatArtifactsPath(root)).resolves.toBe("real");
+  });
+
+  it("refuses rather than guess when a nested paths block could be confused for the exported one", async () => {
+    // Telling `networks.local.paths` from the exported `paths` needs brace matching this does not
+    // attempt, and picking the wrong one would send a deploy at the wrong directory. Two `paths:`
+    // keys therefore make the file ambiguous, and ambiguous means undefined — the caller falls back
+    // to the framework default and names `artifactsPath`.
+    const root = project({
+      "hardhat.config.js": [
+        "require('a-plugin-that-is-not-installed');",
+        "module.exports = {",
+        "  networks: { local: { paths: { artifacts: 'decoy' } } },",
+        "  paths: { artifacts: 'build/artifacts' },",
+        "};",
+      ].join("\n"),
+    });
+
+    await expect(readHardhatArtifactsPath(root)).resolves.toBeUndefined();
+  });
+
+  it("does not treat a URL inside a string as a comment", async () => {
+    // Stripping comments must not treat the `//` in `https://…` as one. The paths block sits after the
+    // URL on the same line, so a naive strip takes it with the rest of the line and the answer is lost.
+    const root = project({
+      "hardhat.config.js": [
+        "require('a-plugin-that-is-not-installed');",
+        "module.exports = { rpc: 'https://sepolia.example.dev', paths: { artifacts: 'build/artifacts' } };",
+      ].join("\n"),
+    });
+
+    await expect(readHardhatArtifactsPath(root)).resolves.toBe("build/artifacts");
+  });
+
   it("does not mistake an artifacts key outside paths for this one", async () => {
     const root = project({
       "hardhat.config.js": [

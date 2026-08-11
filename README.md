@@ -297,7 +297,7 @@ Grouped **done → in progress → planned → backlog**. _In progress_ is activ
 | DX      | Flagship end-to-end example (deploy → committed record → wagmi)                        | Done    |
 | DX      | Migration guide + comparison table (hardhat-deploy, Ignition, rocketh)                 | Done    |
 | Compat  | `@deployoor/hardhat` auto-generate on Hardhat 3 (`@deployoor/hardhat/v3`)              | Done    |
-| Verify  | `deployoor verify` from committed records, plus the `onVerify` plugin hook             | Done    |
+| Verify  | `deployoor verify` from committed records, plus the `onVerify` plugin hook             | Done†   |
 | DX      | Committable `deployers/` — abi inline, the rest read from artifacts at deploy time     | Done    |
 | DX      | Zero-config `generate` — artifacts read from hardhat.config / foundry.toml             | Done    |
 | DX      | `generate` / `init` offer to remove a `.gitignore` rule hiding deployoor's output      | Done    |
@@ -309,6 +309,8 @@ Grouped **done → in progress → planned → backlog**. _In progress_ is activ
 | DX      | `--watch`, `deployoor list` / `status`, import records, standalone scaffold            | Backlog |
 | Plugins | `onGenerated` hook, gas report, Tenderly, Discord, IPFS, Safe                          | Backlog |
 | AI      | Upgrade-safety diff, deployments MCP, deploy-script scaffolding (separate pkg)         | Backlog |
+
+† Built and tested, but not yet run against a live explorer — every verifier test uses a mock `fetch`. The request `verify` builds is proven byte-identical to a deploy-time verification's; acceptance by a real Etherscan or Sourcify is unproven.
 
 Full detail and rationale in [TODO.md](TODO.md).
 

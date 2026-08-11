@@ -36,7 +36,7 @@ export default defineConfig({
 });
 ```
 
-That is the whole config. The other four examples in this repo have **no config file at all**,
+That is the whole config. The other five examples in this repo have **no config file at all**,
 because their paths are the defaults — see [configuration](https://deployoor.dev/guides/configuration).
 
 ## Run it
