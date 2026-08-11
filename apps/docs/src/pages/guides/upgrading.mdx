@@ -118,10 +118,10 @@ One case needs your attention. A record can only be verified after the fact if i
 
 ```bash
 # records with no pinned sources
-grep -L sourcesHash deployments/*-*/*.json
+grep -L sourcesHash deployments/*/*.json | grep -v '^deployments/sources/'
 ```
 
-The `*-*` matters: every network directory is `<chainId>-<slug>`, so it selects those and skips `deployments/sources/`, whose blobs carry no `sourcesHash` of their own and would otherwise all be listed.
+The second `grep` matters. `deployments/sources/` holds the pinned blobs, which carry no `sourcesHash` of their own, so without it every one of them is listed as a record needing attention.
 
 Anything listed there cannot be verified from committed data. It was deployed before sources were pinned, or the pinning failed at the time. Two ways forward:
 
