@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { cpSync, mkdtempSync, rmSync } from "node:fs";
+import { describe, it, expect } from "vitest";
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { clearArtifactCache, resolveArtifact } from "../../src/artifacts/resolve";
+import { resolveArtifact } from "../../src/artifacts/resolve";
 import { ContractArtifactNotFound, GeneratedArtifactStale } from "../../src/errors";
 import type { GeneratedArtifact } from "../../src/schemas";
 import { readHardhatArtifacts } from "../../src/artifacts/hardhat";
@@ -39,9 +39,8 @@ const thin: GeneratedArtifact = {
  */
 const reordered: GeneratedArtifact = { ...thin, abi: [...compiled.abi].reverse() };
 
-beforeEach(() => {
-  clearArtifactCache();
-});
+/** Valid hex, or the bytecode schema rejects the artifact and the adapter drops it entirely. */
+const RECOMPILED_BYTECODE = "0x6080deadbeef";
 
 describe("resolveArtifact", () => {
   it("returns a full artifact untouched, without reading the filesystem", async () => {
@@ -100,22 +99,35 @@ describe("resolveArtifact", () => {
     await expect(resolveArtifact(reordered, { root: project() })).resolves.toHaveProperty("bytecode");
   });
 
-  it("scans once per project, so a script deploying many contracts pays for one read", async () => {
-    // Proven behaviourally rather than with a spy: after the first resolve the artifacts are deleted,
-    // so a second resolve can only succeed from the memoised scan.
+  it("sees a recompile, rather than reusing an earlier read", async () => {
+    // The staleness a per-process cache reintroduced: only the abi is compared, so a bytecode-only
+    // change would have deployed the old code and pinned the old sources, silently.
     const root = project();
-    await resolveArtifact(thin, { root });
-    rmSync(join(root, "artifacts"), { recursive: true, force: true });
+    const first = await resolveArtifact(thin, { root });
 
-    await expect(resolveArtifact(thin, { root })).resolves.toHaveProperty("bytecode");
+    const artifactPath = join(root, "artifacts", "contracts", "Counter.sol", "Counter.json");
+    const onDisk = JSON.parse(readFileSync(artifactPath, "utf8")) as Record<string, unknown>;
+    writeFileSync(artifactPath, JSON.stringify({ ...onDisk, bytecode: RECOMPILED_BYTECODE }));
+
+    const second = await resolveArtifact(thin, { root });
+
+    expect(first.bytecode).not.toBe(RECOMPILED_BYTECODE);
+    expect(second.bytecode).toBe(RECOMPILED_BYTECODE);
   });
 
-  it("re-reads after the cache is cleared", async () => {
+  it("recovers once artifacts appear, rather than repeating an earlier failure", async () => {
+    // A cached *rejection* used to poison every later resolve in the process, so a script that
+    // resolved before compiling could never succeed afterwards.
     const root = project();
-    await resolveArtifact(thin, { root });
-    rmSync(join(root, "artifacts"), { recursive: true, force: true });
-    clearArtifactCache();
+    const artifacts = join(root, "artifacts");
+    const saved = mkdtempSync(join(tmpdir(), "deployoor-saved-"));
+    cpSync(artifacts, join(saved, "artifacts"), { recursive: true });
+    rmSync(artifacts, { recursive: true, force: true });
 
     await expect(resolveArtifact(thin, { root })).rejects.toThrow(/No compiled artifacts/);
+
+    cpSync(join(saved, "artifacts"), artifacts, { recursive: true });
+
+    await expect(resolveArtifact(thin, { root })).resolves.toHaveProperty("bytecode");
   });
 });

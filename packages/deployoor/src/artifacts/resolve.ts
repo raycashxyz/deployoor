@@ -27,43 +27,36 @@ export interface ResolveArtifactOptions {
 }
 
 /**
- * Reading artifacts means a directory scan that also parses every build-info, so a script deploying
- * twenty contracts must not pay for it twenty times. Keyed on everything that changes the answer.
+ * Read the compiled artifacts. Deliberately **not** memoised.
  *
- * The promise is cached rather than the result, so concurrent deploys in one script share a single
- * scan instead of racing to start several. A module-level `Map` mutated only by this function is the
- * same shape as `memoryStore`'s own map.
+ * An earlier version cached the scan per project for the life of the process, which turned out to
+ * cost more than it saved. It reintroduced staleness on the one path the abi check cannot see: a
+ * process that resolves, recompiles, then resolves again would deploy the *old* bytecode and pin the
+ * *old* sources, silently, because only the abi is compared and the abi had not changed. That
+ * contradicts the premise of the whole design, which is that bytecode is read fresh from disk.
+ *
+ * It also cached rejected promises, so a resolve that ran before anything was compiled poisoned every
+ * later resolve in that process even after compilation succeeded.
+ *
+ * The saving did not justify either. Measured on the test fixture, a full scan is **0.47 ms**; even a
+ * large project's parse is single-digit milliseconds, against a deploy that spends seconds on network
+ * round trips. If this ever does show up, the fix is a targeted read of one artifact by
+ * fully-qualified name rather than a cache that can go stale.
  */
-const scans = new Map<string, Promise<ReadonlyArray<Artifact>>>();
-
-const cacheKey = (root: string, opts: ResolveArtifactOptions): string =>
-  // JSON rather than a delimiter: a path may contain any character a separator might use, and two
-  // different inputs must never collapse to one key.
-  JSON.stringify([root, opts.framework, opts.artifactsPath, opts.sources]);
-
-const loadArtifacts = (root: string, opts: ResolveArtifactOptions): Promise<ReadonlyArray<Artifact>> => {
-  const key = cacheKey(root, opts);
-  const inFlight = scans.get(key);
-  if (inFlight !== undefined) return inFlight;
-
+const loadArtifacts = async (
+  root: string,
+  opts: ResolveArtifactOptions,
+): Promise<ReadonlyArray<Artifact>> => {
   // Imported dynamically so the main `deployoor` entry — which generated deployers import — does not
   // statically pull in the Node-only artifact readers (and, for tevm, a Solidity compiler). A deploy
   // that passes a full artifact never loads any of it. Same reasoning as the `deployoor/generate`
   // subpath existing at all.
-  const scan = import("./index").then((mod) =>
-    mod.readArtifactsAsync(root, {
-      framework: opts.framework,
-      artifactsPath: opts.artifactsPath,
-      sources: opts.sources,
-    }),
-  );
-  scans.set(key, scan);
-  return scan;
-};
-
-/** Drop the memoised scans. For tests, and for a long-lived process that recompiles between deploys. */
-export const clearArtifactCache = (): void => {
-  scans.clear();
+  const mod = await import("./index");
+  return mod.readArtifactsAsync(root, {
+    framework: opts.framework,
+    artifactsPath: opts.artifactsPath,
+    sources: opts.sources,
+  });
 };
 
 export const resolveArtifact = async <A extends Abi>(

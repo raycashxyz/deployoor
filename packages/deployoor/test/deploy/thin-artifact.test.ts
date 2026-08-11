@@ -4,7 +4,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { defineDeployer } from "../../src/engine/deployer";
 import { memoryStore } from "../../src/store";
-import { clearArtifactCache } from "../../src/artifacts/resolve";
 import type { GeneratedArtifact, TypedArtifact } from "../../src/schemas";
 import { counterArtifact } from "../fixtures";
 import { makeEvmClients } from "../evm-clients";
@@ -79,7 +78,6 @@ const originalCwd = process.cwd();
 
 afterEach(() => {
   process.chdir(originalCwd);
-  clearArtifactCache();
 });
 
 /** A throwaway project, entered as the working directory — the documented project root. */

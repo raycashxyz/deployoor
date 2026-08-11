@@ -45,4 +45,6 @@ what every consumer then reads. The comparison is canonical, so solc key order, 
 
 **`defineDeployer` accepts either shape.** A full `TypedArtifact` is used as-is and never touches the
 filesystem, so hand-built artifacts and in-memory compilation keep working unchanged — `TypedArtifact`
-and `Artifact` are not modified. Artifacts are read once per project per process.
+and `Artifact` are not modified. Artifacts are read fresh on every resolve, so a recompile is always
+picked up; a scan measures well under a millisecond against a deploy that spends seconds on the
+network.
