@@ -24,7 +24,7 @@ export const WORDMARKS: readonly Wordmark[] = [
 
 const ALSO = "AWS KMS, Google Cloud KMS, Fireblocks, Ledger, or any EIP-1193 provider";
 
-export function WalletStrip({ heading = "Works with any viem-compatible wallet" }: { heading?: string }) {
+export const WalletStrip = ({ heading = "Works with any viem-compatible wallet" }: { heading?: string }) => {
   return (
     <section className="wallet-strip" aria-label={heading}>
       <p className="wallet-strip-heading">{heading}</p>
@@ -38,4 +38,4 @@ export function WalletStrip({ heading = "Works with any viem-compatible wallet" 
       <p className="wallet-strip-also">also {ALSO}</p>
     </section>
   );
-}
+};

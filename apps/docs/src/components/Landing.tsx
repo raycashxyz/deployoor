@@ -66,7 +66,7 @@ const GENERATE_OPTIONS: TabOption[] = [
   { id: "generate-hardhat", label: "hardhat", code: "npx hardhat compile && npx deployoor generate" },
 ];
 
-export function Landing() {
+export const Landing = () => {
   return (
     <div className="landing">
       <div className="landing-hero">
@@ -128,4 +128,4 @@ export function Landing() {
       </nav>
     </div>
   );
-}
+};

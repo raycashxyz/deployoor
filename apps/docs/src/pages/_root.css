@@ -685,7 +685,8 @@
 
    Steps scroll on the left as plain prose; one sticky panel on the right holds the
    file list plus the current file's source, and swaps as the active step changes
-   (ProjectAnatomy.tsx drives it with an IntersectionObserver).
+   (ProjectAnatomy.tsx picks the active step from scroll position — see the comment there
+   for why an IntersectionObserver was rejected).
    --------------------------------------------------------------------------- */
 .anatomy {
   width: min(72rem, 100%);
@@ -1096,8 +1097,11 @@
   color: #0f5132;
 }
 
+/* 60%, not the 50% this started at: the tokens sit on the code panel's background (fg 5% over
+   surface), against which 50% measures 3.39:1 — under the 4.5:1 WCAG AA needs for body text. 60%
+   measures 4.64:1. 59% is still short at 4.45:1. */
 .tok-comment {
-  color: color-mix(in srgb, var(--deployoor-fg) 50%, transparent);
+  color: color-mix(in srgb, var(--deployoor-fg) 60%, transparent);
 }
 
 :root[data-vocs-theme="dark"] .tok-keyword {
@@ -1120,8 +1124,9 @@
   color: #79c0ff;
 }
 
+/* Likewise 56% here: 45% measures 3.61:1 on the dark panel, 56% measures 4.76:1. */
 :root[data-vocs-theme="dark"] .tok-comment {
-  color: color-mix(in srgb, var(--deployoor-fg) 45%, transparent);
+  color: color-mix(in srgb, var(--deployoor-fg) 56%, transparent);
 }
 
 /* The inline per-step code only exists for the one-column layout. */
@@ -1195,6 +1200,13 @@
   .anatomy-step,
   .anatomy-file {
     transition: none;
+  }
+
+  /* The dimming has to go with the transition, not just the fade. Without it, every step change
+     snaps seven steps between 32% and 100% opacity — a harder visual jump than the fade this query
+     exists to remove, and 32% body text is hard to read besides. The 900px block does the same. */
+  .anatomy[data-mounted="true"] .anatomy-step[data-active="false"] {
+    opacity: 1;
   }
 
   .anatomy[data-mounted="true"] .anatomy-file[data-state="active"] {

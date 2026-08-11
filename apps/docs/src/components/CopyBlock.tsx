@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { copyText } from "../lib/copy-text";
 
-export function CopyBlock({ code }: { code: string }) {
+export const CopyBlock = ({ code }: { code: string }) => {
   const [copied, setCopied] = useState(false);
 
   const copy = useCallback(() => {
@@ -23,4 +23,4 @@ export function CopyBlock({ code }: { code: string }) {
       <span className="landing-command-action">{copied ? "Copied" : "Copy"}</span>
     </button>
   );
-}
+};

@@ -13,9 +13,33 @@ import { WORDMARKS } from "./WalletStrip";
  * carry a right-aligned `Optional` note where a step is genuinely skippable, so the shape of the
  * project reads straight off the list.
  *
- * Progressive enhancement: prerendered and with JS off, every file is listed and step 01's code is
- * shown. Once mounted, the active step is computed from the scroll position and later files reveal.
+ * Progressive enhancement: prerendered and with JS off, every file in the project is listed and every
+ * step's prose is at full contrast — the panel shows the list without a snippet, because step 01 is
+ * the project you already have and carries none. Once mounted, the active step is computed from the
+ * scroll position, files reveal as you reach them, and the active step's code appears beneath the list.
  */
+
+/**
+ * Tools a step can cite, drawn as small logo chips.
+ *
+ * `icon: true` means a mark is vendored at `/icons/tools/<slug>.svg` (see public/icons/README.md for
+ * the viewBox convention). The rest render a monogram in the same chip, so the row looks deliberate
+ * until their marks land — add the file, flip the flag, nothing else changes.
+ */
+type Tool = { readonly label: string; readonly icon?: true };
+
+const TOOLS = {
+  hardhat: { label: "Hardhat", icon: true },
+  foundry: { label: "Foundry" },
+  viem: { label: "viem" },
+  wagmi: { label: "wagmi" },
+  tevm: { label: "tevm" },
+  vitest: { label: "Vitest" },
+  jest: { label: "Jest" },
+} satisfies Readonly<Record<string, Tool>>;
+
+/** The slugs `leverages` may name, so a typo is a build error rather than a chip that vanishes. */
+type ToolSlug = keyof typeof TOOLS;
 
 /** The only flag worth carrying here: whether you need the file at all. */
 type Note = "Optional";
@@ -26,8 +50,8 @@ type Step = {
   file: string;
   /** Supports `**bold**` and `` `code` `` — see `renderInline`. */
   blurb: string;
-  /** Tools this step leans on, drawn as small logo chips. Slugs must exist in `TOOLS`. */
-  leverages?: readonly string[];
+  /** Tools this step leans on, drawn as small logo chips. Keyed to `TOOLS`, so a typo will not build. */
+  leverages?: readonly ToolSlug[];
   /** Show the viem-wallet logo row — only the deploy-script step, where the signer is the point. */
   wallets?: boolean;
   /** A "read more" pointer into the docs. */
@@ -44,23 +68,6 @@ type FileRow = {
    *  when a step adds no file of its own (running the script highlights the script again). */
   activeAt?: readonly number[];
   note?: Note;
-};
-
-/**
- * Tools a step can cite, drawn as small logo chips.
- *
- * `icon: true` means a mark is vendored at `/icons/tools/<slug>.svg` (see public/icons/README.md for
- * the viewBox convention). The rest render a monogram in the same chip, so the row looks deliberate
- * until their marks land — add the file, flip the flag, nothing else changes.
- */
-const TOOLS: Readonly<Record<string, { label: string; icon?: true }>> = {
-  hardhat: { label: "Hardhat", icon: true },
-  foundry: { label: "Foundry" },
-  viem: { label: "viem" },
-  wagmi: { label: "wagmi" },
-  tevm: { label: "tevm" },
-  vitest: { label: "Vitest" },
-  jest: { label: "Jest" },
 };
 
 const ROOT = "my-project/";
@@ -152,19 +159,16 @@ reused 0x5FbDB2315678afecb367f032d93F642f64180aa3`,
     title: "All deployments are recorded in",
     file: "deployments/",
     blurb:
-      "One JSON file per contract per chain, with the address, abi, constructor args, tx hash and compiler. Later runs read it to know **the contract already exists**, everything downstream reads it to talk to that contract, and `deployoor verify` reads it to verify on an explorer **long after the deploy**.",
+      "One JSON file per contract per chain, with the address, abi, constructor args, tx hash and compiler. Later runs read it to know **the contract already exists**, and `constructorArgs` is how a change to them is something deployoor can notice. `sourcesHash` pins the exact sources it was compiled from, which is what lets `deployoor verify` verify it on an explorer **long after the deploy**.",
     link: { href: "/concepts/deployment-records", label: "Deployment records" },
-    code: `// deployments/11155111-sepolia/Counter.json
+    code: `deployments/11155111-sepolia/Counter.json
+
 {
   "contractName": "Counter",
   "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
   "chainId": 11155111,
-  // the args it was constructed with, so a change
-  // to them is something deployoor can notice
   "constructorArgs": ["7"],
   "transactionHash": "0x…",
-  // points at the exact sources this was compiled from,
-  // which is what makes verifying it later possible
   "sourcesHash": "0x8f3a…"
 }`,
   },
@@ -217,8 +221,10 @@ const FILES: readonly FileRow[] = [
   { path: "hardhat.config.js", appearsAt: 0 },
   { path: "contracts/Counter.sol", appearsAt: 0 },
   { path: "artifacts/", appearsAt: 0 },
+  // Deliberately one row, not the whole emit. `generate` also writes `deployers/types/<Name>.ts` and
+  // an `index.ts` barrel, but this is the first thing a visitor ever reads about deployoor and the
+  // file that matters is the deployer. The full tree is in concepts/version-control.
   { path: "deployers/Counter.ts", appearsAt: 1, activeAt: [1, 2] },
-  { path: "deployers/types/Counter.ts", appearsAt: 1, activeAt: [1, 2] },
   { path: "scripts/deploy.ts", appearsAt: 3, activeAt: [3, 4] },
   { path: "deployments/11155111-sepolia/Counter.json", appearsAt: 5 },
   { path: "test/counter.test.ts", appearsAt: 6, note: "Optional" },
@@ -244,18 +250,21 @@ const renderInline = (text: string) =>
     return part;
   });
 
-function ToolChips({ slugs }: { slugs: readonly string[] }) {
+const ToolChips = ({ slugs }: { slugs: readonly ToolSlug[] }) => {
   return (
     <div className="anatomy-tools">
       {slugs.map((slug) => {
-        const tool = TOOLS[slug];
-        if (tool === undefined) return null;
+        // Annotated `Tool` so `icon` is readable across every entry, and indexed by a key of the
+        // union so there is no missing-tool case left to drop silently.
+        const tool: Tool = TOOLS[slug];
         return (
-          <span className="tool-chip" key={slug} title={tool.label}>
+          <span className="tool-chip" key={slug}>
+            {/* Decorative: `.tool-chip-label` below already names the tool in visible text, so
+                labelling the mark too (and the wrapper via `title`) announces it three times. */}
             {tool.icon ? (
-              <span className="tool-chip-icon" data-tool={slug} role="img" aria-label={tool.label} />
+              <span className="tool-chip-icon" data-tool={slug} aria-hidden="true" />
             ) : (
-              <span className="tool-chip-mono" aria-label={tool.label} role="img">
+              <span className="tool-chip-mono" aria-hidden="true">
                 {tool.label.slice(0, 1)}
               </span>
             )}
@@ -265,9 +274,9 @@ function ToolChips({ slugs }: { slugs: readonly string[] }) {
       })}
     </div>
   );
-}
+};
 
-function Code({ code }: { code: string }) {
+const Code = ({ code }: { code: string }) => {
   return (
     <pre className="anatomy-code">
       <code>
@@ -279,9 +288,9 @@ function Code({ code }: { code: string }) {
       </code>
     </pre>
   );
-}
+};
 
-export function ProjectAnatomy() {
+export const ProjectAnatomy = () => {
   const [active, setActive] = useState(0);
   const [mounted, setMounted] = useState(false);
   const stepsRef = useRef<(HTMLElement | null)[]>([]);
@@ -297,10 +306,15 @@ export function ProjectAnatomy() {
     // direction, recomputes the same answer from scratch.
     const compute = () => {
       const line = window.innerHeight * ACTIVATION_LINE;
-      const steps = stepsRef.current.filter((step): step is HTMLElement => step !== null);
+      // Reduced over the raw refs, not a filtered copy: `index` has to be the index into `STEPS`,
+      // and filtering first makes it an index into the filtered array. Those coincide only while
+      // every step renders, so a step rendered conditionally would silently select the wrong one.
       // The last step whose top has passed the line; index 0 until the first one reaches it.
       setActive(
-        steps.reduce((found, step, index) => (step.getBoundingClientRect().top <= line ? index : found), 0),
+        stepsRef.current.reduce(
+          (found, step, index) => (step !== null && step.getBoundingClientRect().top <= line ? index : found),
+          0,
+        ),
       );
     };
 
@@ -407,4 +421,4 @@ export function ProjectAnatomy() {
       </div>
     </section>
   );
-}
+};

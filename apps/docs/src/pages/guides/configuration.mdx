@@ -28,6 +28,8 @@ export default defineConfig({
 | `out`                           | `./deployers`            | Where typed deployers are written                                           |
 | `deploymentsPath`               | `./deployments`          | Where JSON records are read/written                                         |
 | `artifactsPath`                 | framework default        | Compiled artifacts dir, if not `./artifacts` (Hardhat) or `./out` (Foundry) |
+| `framework`                     | auto-detected            | `"hardhat"` \| `"foundry"` \| `"tevm"` — set only to disambiguate           |
+| `sources`                       | `./src`                  | `tevm` only: the `.sol` directory to compile                                |
 | `plugins`                       | `[]`                     | Deploy-lifecycle hooks                                                      |
 | `onPluginError`                 | `"warn"`                 | `"throw"` fails the run on plugin error                                     |
 | `redeploymentStrategy`          | `"on-change"`            | Reuse vs redeploy when a record exists ([details](/concepts/idempotency))   |
