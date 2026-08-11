@@ -265,23 +265,42 @@ describe("etherscan plugin", () => {
   });
 });
 
-describe("etherscan options", () => {
+describe("etherscan apiKey", () => {
   // The docs used to show `apiKey: process.env.ETHERSCAN_KEY!`, which types an unset variable as a
-  // string and sends `apikey: undefined` to the explorer — surfacing as a remote authentication
-  // error at the end of a deploy rather than as a local configuration one. The assertion is gone from
-  // the docs, so the value has to be checked here instead.
+  // string and sends `apikey: undefined` to the explorer — surfacing as a remote authentication error
+  // at the end of a deploy rather than as a local configuration one.
   it.each([
     ["undefined", undefined],
     ["empty", ""],
     ["blank", "   "],
-  ])("refuses to construct when apiKey is %s, naming the variable to set", (_label, apiKey) => {
-    const construct = () => etherscan({ apiKey });
+  ])("fails the verification when apiKey is %s, naming the variable to set", async (_label, apiKey) => {
+    const { deps, fetch } = makeDeps();
 
-    expect(construct).toThrow(/apiKey is required/);
-    expect(construct).toThrow(/ETHERSCAN_KEY/);
+    // `Promise.resolve` because a hook returns `Awaitable<void>` — it may legitimately be synchronous.
+    const failure = await Promise.resolve(runVerify(etherscan({ apiKey }), makeVerifyCtx(), deps)).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+
+    expect(failure).toBeInstanceOf(Error);
+    expect((failure as Error).message).toMatch(/apiKey is required/);
+    expect((failure as Error).message).toMatch(/ETHERSCAN_KEY/);
+    // Before the request, so the failure is local rather than an auth error from the explorer.
+    expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("constructs with a key, so the guard rejects nothing it should accept", () => {
-    expect(etherscan({ apiKey: "key" }).name).toBe("etherscan");
+  it("fails a deploy-time verification the same way", async () => {
+    const { deps } = makeDeps();
+
+    await expect(run(etherscan({ apiKey: undefined }), makeCtx(), deps)).rejects.toThrow(
+      /apiKey is required/,
+    );
+  });
+
+  it("constructs without a key, so unrelated commands still load the config", () => {
+    // `deployoor.config.ts` is imported by every command. Validating in the factory made
+    // `deployoor generate` fail over a missing Etherscan key it never uses — reproduced against the
+    // built CLI in a scratch project, which is why the check lives at first use instead.
+    expect(() => etherscan({ apiKey: undefined })).not.toThrow();
   });
 });

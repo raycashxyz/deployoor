@@ -12,8 +12,8 @@ export interface EtherscanOptions {
    * Etherscan V2 API key — one key works across every supported chain.
    *
    * Typed to admit `undefined` so `process.env.ETHERSCAN_KEY` reads straight through without a
-   * non-null assertion. The key stays required, and a missing value is rejected when the plugin is
-   * constructed rather than becoming `apikey: undefined` in a request and coming back as an opaque
+   * non-null assertion. The key stays required, and a missing value is rejected when a verification
+   * starts rather than becoming `apikey: undefined` in a request and coming back as an opaque
    * authentication failure from the explorer.
    */
   readonly apiKey: string | undefined;
@@ -56,22 +56,33 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 
 const isAlreadyVerified = (result: string): boolean => /already verified/i.test(result);
 
-/**
- * `EtherscanOptions` once the factory has checked the key.
- *
- * The request builders take this rather than `EtherscanOptions`, so the type — not a convention —
- * is what stops an unchecked `undefined` reaching `apikey`.
- */
-interface CheckedOptions extends Omit<EtherscanOptions, "apiKey"> {
-  readonly apiKey: string;
-}
-
 interface VerifyRequest {
-  readonly options: CheckedOptions;
+  readonly options: EtherscanOptions;
   readonly deployment: DeploymentRecord;
   readonly metadata: ContractMetadata;
   readonly deps: PluginDeps;
 }
+
+/**
+ * The key, or a local error naming the variable to set.
+ *
+ * Checked when a verification actually starts, not when the plugin is constructed. `deployoor.config.ts`
+ * is imported by *every* command, so throwing in the factory made `deployoor generate` fail over a
+ * missing Etherscan key it never uses — which is worse than the problem being fixed, since working
+ * without an explorer key is the normal local case.
+ *
+ * Verification is the only thing that needs the key, and this runs before the first request, so the
+ * failure is still local and still says which variable is unset instead of arriving as an
+ * authentication error from the explorer.
+ */
+const requireApiKey = (apiKey: string | undefined): string => {
+  if (apiKey === undefined || apiKey.trim() === "") {
+    throw new Error(
+      "@deployoor/etherscan: apiKey is required and was empty. Etherscan V2 needs one key for every chain — set it in your environment (e.g. ETHERSCAN_KEY) and pass it as `etherscan({ apiKey: process.env.ETHERSCAN_KEY })`.",
+    );
+  }
+  return apiKey;
+};
 
 /**
  * Submit a standard-json verification and poll it to a conclusion.
@@ -90,6 +101,7 @@ const verifyDeployment = async ({
   metadata,
   deps: { fetch, log },
 }: VerifyRequest): Promise<void> => {
+  const apiKey = requireApiKey(options.apiKey);
   const base = options.apiUrl ?? ETHERSCAN_V2_URL;
   const pollIntervalMs = options.pollIntervalMs ?? 2_000;
   const maxPolls = options.maxPolls ?? 20;
@@ -97,7 +109,7 @@ const verifyDeployment = async ({
   const { fullyQualifiedName, compilerVersion, standardJsonInput } = metadata;
 
   const body = new URLSearchParams({
-    apikey: options.apiKey,
+    apikey: apiKey,
     chainid: String(chainId),
     module: "contract",
     action: "verifysourcecode",
@@ -132,7 +144,7 @@ const verifyDeployment = async ({
       throw new Error(`Etherscan verification timed out for ${fullyQualifiedName} (guid ${guid})`);
     }
     const query = new URLSearchParams({
-      apikey: options.apiKey,
+      apikey: apiKey,
       chainid: String(chainId),
       module: "contract",
       action: "checkverifystatus",
@@ -164,9 +176,9 @@ const verifyDeployment = async ({
  * A verification failure throws: at deploy time that obeys the deployer's `onPluginError` policy,
  * and under `deployoor verify` it marks that contract failed and exits non-zero.
  *
- * A missing `apiKey` is rejected here, at construction — so an unset environment variable fails while
- * you can still see which variable it was, instead of at the end of a deploy as an authentication
- * error from the explorer.
+ * A missing `apiKey` fails when a verification starts, naming the variable to set, rather than
+ * arriving as an authentication error from the explorer. Not at construction: `deployoor.config.ts`
+ * is imported by every command, so that would fail `deployoor generate` over a key it never uses.
  *
  * @example
  * ```ts
@@ -175,15 +187,8 @@ const verifyDeployment = async ({
  * export default defineConfig({ plugins: [etherscan({ apiKey: process.env.ETHERSCAN_KEY })] });
  * ```
  */
-export const etherscan = (rawOptions: EtherscanOptions) => {
-  const apiKey = rawOptions.apiKey;
-  if (apiKey === undefined || apiKey.trim() === "") {
-    throw new Error(
-      "@deployoor/etherscan: apiKey is required and was empty. Etherscan V2 needs one key for every chain — set it in your environment (e.g. ETHERSCAN_KEY) and pass it as `etherscan({ apiKey: process.env.ETHERSCAN_KEY })`.",
-    );
-  }
-  const options: CheckedOptions = { ...rawOptions, apiKey };
-  return definePlugin<"etherscan", Record<string, never>>({
+export const etherscan = (options: EtherscanOptions) =>
+  definePlugin<"etherscan", Record<string, never>>({
     name: "etherscan",
     onContractDeployed: async (ctx, deps) => {
       const metadata = ctx.metadata;
@@ -194,4 +199,3 @@ export const etherscan = (rawOptions: EtherscanOptions) => {
     onVerify: (ctx, deps) =>
       verifyDeployment({ options, deployment: ctx.deployment, metadata: ctx.metadata, deps }),
   });
-};
