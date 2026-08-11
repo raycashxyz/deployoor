@@ -33,7 +33,7 @@ export const generateDeployers = async (
   const root = resolve(opts.root ?? process.cwd());
   if (!isDeployoorInstalled(root)) {
     throw new Error(
-      "`deployoor` is not in your package.json — generated deployers import it. Add it with `pnpm add -D deployoor viem`.",
+      "cannot find `deployoor` from this project — the generated deployers import it. Declare it in package.json or install it: `pnpm add -D deployoor viem`.",
     );
   }
   const configPath =

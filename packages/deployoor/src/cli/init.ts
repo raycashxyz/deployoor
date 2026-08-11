@@ -73,12 +73,22 @@ const installedNear = (root: string, name: string): boolean =>
   ancestors(resolve(root)).some((dir) => existsSync(join(dir, "node_modules", name, "package.json")));
 
 /**
- * Which of `REQUIRED_DEPENDENCIES` the project neither declares nor has installed nearby. Declared is
- * checked first: it is one file read, and a declared-but-not-yet-installed dependency should not be
- * reported as missing either — the user's next step is `install`, not adding a dependency they have.
+ * Whether the generated deployers' import of `name` will work from `root`: the project either declared
+ * it, or it is installed somewhere the import would find it.
+ *
+ * Declared is checked first because it is one file read, and because a declared-but-not-yet-installed
+ * dependency should not be reported as missing either — the next step there is `install`, not adding a
+ * dependency the project already has.
+ *
+ * Every caller goes through this. Answering the question two different ways is what let the CLI accept
+ * a workspace-hoisted dependency while `generateDeployers` rejected the same project.
  */
-export const missingDependencies = (root: string): readonly string[] =>
-  REQUIRED_DEPENDENCIES.filter((name) => !hasDependency(root, name) && !installedNear(root, name));
+const isAvailable = (root: string, name: string): boolean =>
+  hasDependency(root, name) || installedNear(root, name);
 
-/** Whether `deployoor` is a declared dependency of the project (not just present via npx). */
-export const isDeployoorInstalled = (root: string): boolean => hasDependency(root, "deployoor");
+/** Which of `REQUIRED_DEPENDENCIES` the project can neither import nor claims to depend on. */
+export const missingDependencies = (root: string): readonly string[] =>
+  REQUIRED_DEPENDENCIES.filter((name) => !isAvailable(root, name));
+
+/** Whether the generated deployers' `import … from "deployoor"` will resolve from `root`. */
+export const isDeployoorInstalled = (root: string): boolean => isAvailable(root, "deployoor");

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { missingDependencies } from "../../src/cli/init";
+import { isDeployoorInstalled, missingDependencies } from "../../src/cli/init";
 
 /** A minimal resolvable package inside `root/node_modules`. */
 const installed = (root: string, name: string): void => {
@@ -24,6 +24,20 @@ describe("missingDependencies", () => {
     writeFileSync(join(pkg, "package.json"), JSON.stringify({ name: "app" }));
 
     expect(missingDependencies(pkg)).toEqual([]);
+  });
+
+  it("agrees with isDeployoorInstalled about a workspace-hoisted install", () => {
+    // These used to disagree: the CLI gate accepted a hoisted dependency while `generateDeployers`
+    // threw on the same project, which is the programmatic half of the original report.
+    const workspace = mkdtempSync(join(tmpdir(), "deployoor-ws-agree-"));
+    installed(workspace, "viem");
+    installed(workspace, "deployoor");
+    const pkg = join(workspace, "packages", "app");
+    mkdirSync(pkg, { recursive: true });
+    writeFileSync(join(pkg, "package.json"), JSON.stringify({ name: "app" }));
+
+    expect(missingDependencies(pkg)).toEqual([]);
+    expect(isDeployoorInstalled(pkg)).toBe(true);
   });
 
   it("reports both when neither resolves nor is declared", () => {
