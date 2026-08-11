@@ -76,6 +76,31 @@ export interface TypedArtifact<A extends Abi = Abi> {
   readonly metadata: ContractMetadata;
 }
 
+/**
+ * What `deployoor generate` emits, and the reason `deployers/` is committable.
+ *
+ * It carries only what cannot be recovered from disk: the abi, whose *literal* type is the whole
+ * point (a `resolveJsonModule` import widens `"uint256"` to `string`, so an imported abi is not
+ * assignable to `Abi` and yields no typed `args` or `contract.read.*`), plus the fully-qualified name
+ * used to find the artifact again. Bytecode, compiler settings and the standard-json input are read
+ * from the compiled artifact at deploy time, which is why this file stays small enough to commit and
+ * only changes when your interface does.
+ *
+ * `defineDeployer` accepts this or a full `TypedArtifact`. A full one is used as-is — that is how a
+ * hand-built or compiled-in-memory artifact keeps working with no filesystem at all.
+ */
+export interface GeneratedArtifact<A extends Abi = Abi> {
+  readonly name: string;
+  /** e.g. `contracts/Counter.sol:Counter` — the key used to load the compiled artifact. */
+  readonly fullyQualifiedName: string;
+  readonly abi: A;
+}
+
+/** Narrow a `GeneratedArtifact | TypedArtifact` to the full shape. */
+export const isFullArtifact = <A extends Abi>(
+  artifact: GeneratedArtifact<A> | TypedArtifact<A>,
+): artifact is TypedArtifact<A> => "bytecode" in artifact;
+
 export const Libraries = z.record(z.string(), AddressSchema);
 export type Libraries = Record<string, Address>;
 

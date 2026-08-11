@@ -30,7 +30,7 @@ export { definePlugin } from "./plugin";
 export type { DeployPlugin, DeployedContext, PluginDeps, PluginOverrides, Awaitable } from "./plugin";
 
 // Domain types
-export type { TypedArtifact } from "./schemas";
+export type { GeneratedArtifact, TypedArtifact } from "./schemas";
 export {
   AddressSchema,
   HexSchema,

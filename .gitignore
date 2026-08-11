@@ -18,3 +18,6 @@ coverage
 # demo-sm.gif that README.md embeds is committed — `pnpm demo:record` rebuilds both.
 assets/brand/dist/demo.gif
 .gstack/
+
+# Local planning artefacts (wayfinder maps, scratch notes)
+.scratch/
