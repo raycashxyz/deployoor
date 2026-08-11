@@ -1,5 +1,211 @@
 # deployoor
 
+## 0.7.0
+
+### Minor Changes
+
+- 2103372: `generate` and `init` notice a `.gitignore` rule that would keep deployoor's output out of the repo, and offer to remove it
+
+  Everything deployoor writes is now meant to be committed — `deployments/` always was, and the deployers became small enough to diff once they stopped inlining `standardJsonInput`. The docs used to say the opposite, so the projects most likely to carry a `deployers` ignore rule are the ones that followed them.
+
+  Both commands now check the configured `out` and `deploymentsPath` and report any rule covering them:
+
+  ```text
+  deployoor: git is ignoring output that is meant to be committed:
+    .gitignore:4 (`deployers`) ignores deployers/ — the generated deployers, which a fresh
+    clone cannot typecheck or deploy without
+  deployoor: remove line 4 of .gitignore now? [y/N]
+  ```
+
+  Only an explicit `y` edits a file, and with no TTY nothing is asked and nothing changes, so CI never rewrites a `.gitignore`. Accepting also removes a deployoor comment introducing the rule, rather than leaving it above nothing.
+
+  The question goes to `git check-ignore`, not to a parser here, so nested ignore files, `.git/info/exclude`, `core.excludesFile` and negations are all accounted for — a `!deployers/` you already added means you are not asked. Two cases are reported and left alone: a pattern broader than deployoor's output (`build`, when `out` is `./build/deployers`), because removing it would un-ignore everything else under it; and a rule in a file outside the project, because it is clone- or machine-wide. Outside a git repository, or with no `git` on PATH, nothing is reported rather than guessed.
+
+  Nothing here runs from `generateDeployers`, only from the CLI — a build hook like `@deployoor/hardhat` is the wrong place to ask a question or to repeat the same advice on every compile.
+
+  `init` also scaffolds from the project rather than from a fixed template: the config it writes names the detected toolchain and where deployoor resolved the artifacts directory. `artifactsPath` stays commented out even when your framework's config moves it, since deployoor reads that config itself and a copy would be free to drift. `runInit` is now async as a result.
+
+  Two safety details worth naming. The "is this file inside the project" test compares **canonical** paths: git does not follow a symlinked `.gitignore` but does follow one used as `core.excludesFile`, so a link inside the project can name a target outside it, and a lexical comparison would call that editable and then write through the link. And the advice for a broader pattern no longer suggests a bare negation — git does not descend into an excluded directory, so `!build/deployers/` under a `build` rule does nothing; it now says to move `out` or widen the rule to `build/*` first.
+
+  `runInit` creates the config with `wx` rather than checking `existsSync` first, since detection is async and a check before it left a window in which a concurrent run's file would be truncated.
+
+- 197cfb9: `deployers/` is now small enough to commit, and the deploy path reads the rest from your compiled
+  artifacts.
+
+  **What `generate` emits changed.** A generated artifact module carried the abi _and_ the bytecode,
+  the compiler settings, and `standardJsonInput` — the whole compilation unit's source text, inlined
+  once per contract, which is the only reason the folder was large. It now carries what cannot be
+  recovered from disk:
+
+  ```ts
+  export const counterArtifact = {
+    name: "Counter",
+    fullyQualifiedName: "contracts/Counter.sol:Counter",
+    abi,
+  } satisfies GeneratedArtifact<typeof abi>;
+  ```
+
+  The abi stays inlined `as const` because that literal type is the whole point: it types `args` and
+  `contract.read.*`, and a JSON import widens `"uint256"` to `string`, which abitype cannot use.
+  Everything else is loaded from the compiled artifact at deploy time, keyed by `fullyQualifiedName`.
+  So the emitted files only change when your interface does — a solc patch bump or an
+  implementation-only edit no longer touches them.
+
+  **Deploying now requires compiled artifacts, and says so when they are missing.** Two new fatal
+  errors: `ContractArtifactNotFound` names the contract and lists what _was_ compiled, so a rename is
+  obvious; `GeneratedArtifactStale` fires when the committed abi no longer matches the artifact and
+  prints the difference.
+
+  ```text
+  Counter's abi no longer matches its compiled artifact.
+
+  Re-run `deployoor generate`, then deploy again.
+
+    + function decrement() nonpayable
+    - function reset() nonpayable
+  ```
+
+  That check is what makes a committed `deployers/` safe. Without it a stale abi would encode
+  constructor args against the old interface and write the old abi into the deployment record, which is
+  what every consumer then reads. The comparison is canonical, so solc key order, abi entry order and
+  `internalType` never trigger it.
+
+  **`defineDeployer` accepts either shape.** A full `TypedArtifact` is used as-is and never touches the
+  filesystem, so hand-built artifacts and in-memory compilation keep working unchanged — `TypedArtifact`
+  and `Artifact` are not modified. Artifacts are read fresh on every resolve, so a recompile is always
+  picked up; a scan measures well under a millisecond against a deploy that spends seconds on the
+  network.
+
+- 5655eb2: New command: `deployoor verify` — verify already-deployed contracts on a block explorer after the
+  fact, from committed data alone. Plus a new plugin hook, `onVerify`, which is what it calls.
+
+  ```bash
+  npx deployoor verify
+  npx deployoor verify --network sepolia
+  npx deployoor verify --contract Counter --plugin etherscan
+  ```
+
+  Nothing is recompiled and no artifact directory is read. A deployment record already carries the
+  chain id, the address, the constructor args and the linked libraries; the sources it pins
+  (`sourcesHash` → `deployments/sources/<hash>.json`) carry the fully-qualified contract name, the
+  compiler version and the standard-json input. Together that is the whole verification payload — which
+  is what the pinned sidecar was written for, and until now nothing read it.
+
+  **`onVerify` is a new hook on `DeployPlugin`**, and `deployoor verify` calls only that:
+
+  ```ts
+  readonly onVerify?: (ctx: VerifyContext, deps: PluginDeps) => Awaitable<void>;
+
+  interface VerifyContext {
+    readonly deployment: DeploymentRecord;
+    readonly metadata: ContractMetadata;
+  }
+  ```
+
+  `VerifyContext` is deliberately not a `DeployedContext`, and deliberately small. Nothing was deployed,
+  so there is no `receipt` and no meaningful `reused`; `metadata` is **required** rather than optional,
+  because a record whose sources were never pinned is reported unverifiable and never reaches a plugin;
+  and there is no `options`, because a plugin instance already closes over its own configuration. A
+  verifier written against it needs no undefined-checks and cannot mistake a verify run for a deploy.
+
+  **Breaking for third-party verifier plugins:** a plugin that only implements `onContractDeployed`
+  will not be called by `deployoor verify` — it is skipped, silently, and if no configured plugin
+  implements `onVerify` the command fails and names the plugins you do have. Implement `onVerify` over
+  the same body as `onContractDeployed` (see the plugins guide) and it works both at deploy time and
+  after the fact. Deploy-time behaviour is untouched: `onContractDeployed` and `onDeployFailed` are
+  called exactly as before, and this is also what stops a notifier like `@deployoor/slack` from firing
+  on a verify run.
+
+  Filters: `--network` matches the network key, its chain id, or its slug; `--contract` matches a
+  deployment name or a contract name; `--plugin` narrows to one verifier when several are configured.
+  All optional.
+
+  The exit code is non-zero when any selected record failed verification or could not be verified at
+  all, so this works as a CI check. Per-record outcomes are reported and the run continues:
+
+  ```text
+  deployoor: checked 3 record(s) through etherscan
+    verified      11155111-sepolia/Counter at 0x5FbDB…0aa3 (etherscan)
+    unverifiable  1-ethereum/OldToken at 0x6B175…1d0F
+                    no sourcesHash — this record's verification sources were never pinned …
+    skipped       1-ethereum/USDC at 0xA0b86…eB48
+                    registered external contract — deployoor did not deploy it …
+  deployoor: 1 verified, 1 unverifiable, 1 skipped
+  ```
+
+  A record with **no** `sourcesHash` is `unverifiable`, not a crash: the fully-qualified name exists
+  only in the sidecar, so there is no route back to it without recompiling. That covers records written
+  before sources were pinned, and records written by a store that pins none. Externally `register`ed
+  contracts are `skipped` — you did not deploy them, so there is nothing to submit — and do not fail
+  the run.
+
+  `StoreAdapter` gains an optional `listAll()` (implemented by `fsStore` and `memoryStore`), because
+  `list` is per-network and a repo-wide walk needs the whole set. A store that omits it can still be
+  verified one `--network` at a time.
+
+  Three edge cases in the command that the first round missed:
+
+  - `--network=` (and `--contract=` / `--plugin=`) with nothing after the equals sign parsed to an empty string, which is not `undefined`, so it became an active filter matching no record — reported as "no deployment records matching", as though the repo held none. It is now the same "needs a value" error as a trailing `--network`.
+  - `runVerify({ plugins: [] })` selected no plugin rather than every plugin, so each record ran zero hooks, collected zero failures, and was reported **verified** with `ok: true` — a CI check passing without verifying anything. An empty list is now rejected. The CLI never produced one; the exported API could.
+  - `store.listAll` and `store.readSources` were read into locals and called detached, so a `StoreAdapter` implemented as a class (which the docs invite) ran them with `this` unbound and crashed. They are bound to the store now.
+
+- fc43ab6: `deployoor generate` now works on a stock project with no deployoor config at all, and figures out a
+  non-stock one by reading the framework's own config.
+
+  **`deployoor.config.ts` is optional.** `generate` used to throw `no deployoor.config found` when a
+  project had no config file. Every `Config` option already had a default, so it now generates with
+  those defaults:
+
+  ```bash
+  npx hardhat compile && npx deployoor generate
+  ```
+
+  Deployers emitted for a project with no config carry the defaults inline
+  (`defineDeployer(artifact, {} satisfies Config)`) rather than importing a config module, so the
+  emitted tree has nothing to resolve. Projects that do have a `deployoor.config.*` are unaffected: the
+  deployers still import it, and running `deployoor init` later is a type-compatible swap. `init` keeps
+  its job, which is taking control of the defaults (paths, `include`, `redeploymentStrategy`, plugins).
+
+  **The artifacts directory is read from your framework's config.** deployoor now takes
+  `paths.artifacts` from `hardhat.config.*` and `out` from the active `foundry.toml` profile, so a
+  project that keeps its build output somewhere other than `artifacts/` or `out/` needs no deployoor
+  config either. Reading hardhat.config is best-effort, since it is arbitrary user code that can import
+  plugins or fail to load; a failure falls back to the framework default rather than aborting the run.
+  `FOUNDRY_PROFILE` is honoured.
+
+  **New `artifactsPath` config option**, for the cases the above cannot cover (an output directory that
+  neither config states). It takes precedence over both.
+
+  **`ArtifactsNotFound` says what actually went wrong.** It used to always advise "Compile first",
+  which is misleading for a project that did compile and writes elsewhere, and it never said that no
+  toolchain could be detected. It now names the detected framework and the file that gave it away, and
+  distinguishes: nothing compiled yet, an output directory the framework's own config already points at
+  (so there is nothing left to configure), a wrong `artifactsPath`, and no toolchain at all, which lists
+  every marker it looked for.
+
+  **`generate` offers to install its own dependencies.** The generated deployers import `deployoor` and
+  `viem`, so generating into a project that has not declared them leaves a tree that cannot compile.
+  Instead of only naming the command, `generate` now asks, using the package manager it detects from
+  your lockfile:
+
+  ```text
+  deployoor: run `pnpm add -D deployoor viem` now? [y/N]
+  ```
+
+  Only an explicit `y` installs. Without a TTY (CI, a piped run) it never prompts and fails with the
+  command to run, so nothing is installed behind your back.
+
+### Patch Changes
+
+- dd8cb2a: Groundwork for committable `deployers/`, inert on its own.
+
+  Adds the `GeneratedArtifact<A>` type — the shape `deployoor generate` will emit once the deployers
+  carry only what cannot be recovered from a compiled artifact — and an abi canonicaliser that answers
+  "is this the same interface?" while ignoring solc key order, abi entry order and `internalType`.
+
+  Nothing emits or consumes either yet, so there is no behaviour change. The release note for the
+  feature lands with the change that wires them up.
+
 ## 0.6.0
 
 ### Minor Changes
