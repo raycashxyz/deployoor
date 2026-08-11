@@ -118,10 +118,15 @@ One case needs your attention. A record can only be verified after the fact if i
 
 ```bash
 # records with no pinned sources (use your deploymentsPath if you changed it)
-grep -L sourcesHash deployments/*/*.json | grep -vE '^deployments/sources/|\.sources\.json$'
+grep -LE '"sourcesHash"[[:space:]]*:[[:space:]]*"0x' deployments/*/*.json \
+  | grep -vE '^deployments/sources/|\.sources\.json$'
 ```
 
-The second `grep` matters, because two kinds of file live under `deployments/` without being records. `deployments/sources/` holds the pinned blobs, and older projects have per-deployment `<Name>.sources.json` sidecars from before pinning was content-addressed. Neither carries a `sourcesHash` of its own, so without the filter every one of them is listed as a deployment needing attention — and this being an upgrade guide, those are exactly the projects that have them. `fsStore` skips both when it reads records; this makes the one-liner agree with it.
+Both halves earn their keep.
+
+The pattern matches the **field**, not the word. A record whose ABI happens to contain an entry named `sourcesHash` would satisfy a bare `grep -L sourcesHash` and drop out of the list while still having no pinned sources — a silent omission from the one list where that matters.
+
+The second `grep` drops two kinds of file that live under `deployments/` without being records: the pinned blobs in `deployments/sources/`, and the per-deployment `<Name>.sources.json` sidecars older projects have from before pinning was content-addressed. Neither carries a `sourcesHash` of its own, so without it every one is listed as a deployment needing attention — and this being an upgrade guide, those are exactly the projects that have them. `fsStore` skips both when it reads records; this makes the one-liner agree with it.
 
 Anything listed there cannot be verified by `deployoor verify` at all — not "only while the source tree matches". The fully-qualified contract name and the standard-json input live solely in the sidecar, so with no `sourcesHash` there is nothing to submit, and the record is reported `unverifiable` before any plugin runs. A matching working tree does not help, because nothing reads it.
 
