@@ -120,7 +120,9 @@ describe("readArtifactsAsync honours the framework's own config", () => {
     const error = await readArtifactsAsync(root).catch((e: unknown) => e);
     const message = error instanceof Error ? error.message : String(error);
 
-    expect(message).toContain("build/arts");
+    // join(), not a literal "build/arts": the message carries a resolved path, so the separator is
+    // backslash on Windows.
+    expect(message).toContain(join("build", "arts"));
     expect(message).toContain("its own config");
     expect(message).toContain("npx hardhat compile");
     // Suggesting artifactsPath here would be wrong — the path is already correct.
