@@ -12,7 +12,8 @@
  */
 type Wordmark = { name: string; slug: string };
 
-const WORDMARKS: readonly Wordmark[] = [
+/** Exported so the landing page's deploy-script step can show the same row without a second list. */
+export const WORDMARKS: readonly Wordmark[] = [
   { name: ".env", slug: "dotenv" },
   { name: "Privy", slug: "privy" },
   { name: "Turnkey", slug: "turnkey" },
@@ -23,7 +24,7 @@ const WORDMARKS: readonly Wordmark[] = [
 
 const ALSO = "AWS KMS, Google Cloud KMS, Fireblocks, Ledger, or any EIP-1193 provider";
 
-export function WalletStrip({ heading = "Works with any viem-compatible wallet" }: { heading?: string }) {
+export const WalletStrip = ({ heading = "Works with any viem-compatible wallet" }: { heading?: string }) => {
   return (
     <section className="wallet-strip" aria-label={heading}>
       <p className="wallet-strip-heading">{heading}</p>
@@ -37,4 +38,4 @@ export function WalletStrip({ heading = "Works with any viem-compatible wallet" 
       <p className="wallet-strip-also">also {ALSO}</p>
     </section>
   );
-}
+};

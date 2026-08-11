@@ -1,6 +1,8 @@
 # Configuration
 
-Config lives in `deployoor.config.ts` at your project root. Every field is optional.
+Config lives in `deployoor.config.ts` at your project root. Every field is optional — and so is the
+file itself: `deployoor generate` works with no config at all, using the defaults below. Add one (by
+hand or with `npx deployoor init`) when you want to change something.
 
 ```ts
 import { defineConfig } from "deployoor";
@@ -20,17 +22,37 @@ export default defineConfig({
 
 ## Options
 
-| Option                          | Default                  | Description                                                               |
-| ------------------------------- | ------------------------ | ------------------------------------------------------------------------- |
-| `include`                       | all deployable contracts | Filter by contract name                                                   |
-| `out`                           | `./deployers`            | Where typed deployers are written                                         |
-| `deploymentsPath`               | `./deployments`          | Where JSON records are read/written                                       |
-| `plugins`                       | `[]`                     | Deploy-lifecycle hooks                                                    |
-| `onPluginError`                 | `"warn"`                 | `"throw"` fails the run on plugin error                                   |
-| `redeploymentStrategy`          | `"on-change"`            | Reuse vs redeploy when a record exists ([details](/concepts/idempotency)) |
-| `redeploymentStrategyByChainId` | `{}`                     | Per-chain override, keyed by chain id                                     |
+| Option                          | Default                  | Description                                                                 |
+| ------------------------------- | ------------------------ | --------------------------------------------------------------------------- |
+| `include`                       | all deployable contracts | Filter by contract name                                                     |
+| `out`                           | `./deployers`            | Where typed deployers are written                                           |
+| `deploymentsPath`               | `./deployments`          | Where JSON records are read/written                                         |
+| `artifactsPath`                 | framework default        | Compiled artifacts dir, if not `./artifacts` (Hardhat) or `./out` (Foundry) |
+| `framework`                     | auto-detected            | `"hardhat"` \| `"foundry"` \| `"tevm"` — name the toolchain outright        |
+| `sources`                       | `./src`                  | `tevm` only: the `.sol` directory to compile                                |
+| `plugins`                       | `[]`                     | Deploy-lifecycle hooks                                                      |
+| `onPluginError`                 | `"warn"`                 | `"throw"` fails the run on plugin error                                     |
+| `redeploymentStrategy`          | `"on-change"`            | Reuse vs redeploy when a record exists ([details](/concepts/idempotency))   |
+| `redeploymentStrategyByChainId` | `{}`                     | Per-chain override, keyed by chain id                                       |
 
 `defineConfig` is typed via `import { defineConfig } from "deployoor"`. If a name in `include` matches nothing after compile, `deployoor generate` warns (typo or missing artifact).
+
+### A non-default project layout
+
+Usually nothing to do. deployoor reads `paths.artifacts` from your `hardhat.config.*` and `out` from
+the active `foundry.toml` profile, so moving your build output needs no deployoor config.
+
+`artifactsPath` is for the case neither config states: an output directory produced some other way.
+It wins over both.
+
+```ts
+export default defineConfig({
+  artifactsPath: "./build/artifacts",
+});
+```
+
+Toolchain detection keys on the config file (`foundry.toml`, `hardhat.config.*`). A project with
+neither, or one whose sources sit somewhere unusual, can name it outright with `framework`.
 
 ## Generated output
 

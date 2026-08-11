@@ -17,7 +17,7 @@ deployoor auto-detects Hardhat (`artifacts/`) or Foundry (`out/` + `out/build-in
 npx deployoor generate
 ```
 
-This writes `./deployers/`, one typed `getOrDeploy<Name>` per deployable contract.
+This writes `./deployers/`, one typed `getOrDeploy<Name>` per deployable contract. [Commit them](/concepts/version-control) — they hold a name and an abi, and read everything else from your artifacts at deploy time, so they are small and a fresh clone typechecks without running `generate` first.
 
 ```ts
 // deployers/Counter.ts, generated; do not edit by hand

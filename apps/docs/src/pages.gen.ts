@@ -15,6 +15,7 @@ type Page =
   | { path: '/concepts/deployment-records'; render: 'static' }
   | { path: '/concepts/deployment-stores'; render: 'static' }
   | { path: '/concepts/idempotency'; render: 'static' }
+  | { path: '/concepts/version-control'; render: 'static' }
   | { path: '/getting-started'; render: 'static' }
   | { path: '/getting-started/installation'; render: 'static' }
   | { path: '/getting-started/quickstart'; render: 'static' }

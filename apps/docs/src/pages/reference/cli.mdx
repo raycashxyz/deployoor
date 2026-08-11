@@ -14,6 +14,10 @@ Scaffold `deployoor.config.ts` if absent. Does not install packages.
 npx deployoor init
 ```
 
+**Optional.** Every config option has a default, so `generate` works with no config file at all — the
+generated deployers carry the defaults inline. Run `init` when you want to change something: a
+different `out` or `deploymentsPath`, an `include` filter, a `redeploymentStrategy`, or plugins.
+
 The scaffold is filled in from what your project looks like, so it doubles as a report of what
 deployoor resolved:
 
@@ -50,6 +54,19 @@ Output:
 ```
 deployoor: generated 3 file(s)
 ```
+
+Artifact paths come from your framework's own config (`paths.artifacts` in `hardhat.config.*`, `out`
+in `foundry.toml`), so a moved build directory needs no deployoor config. Override with
+[`artifactsPath`](/guides/configuration) when neither states it.
+
+If `deployoor` and `viem` are not in your `package.json`, the generated deployers would not compile,
+so `generate` offers to add them with the package manager it detects from your lockfile:
+
+```text
+deployoor: run `pnpm add -D deployoor viem` now? [y/N]
+```
+
+Only `y` installs. With no TTY (CI, a piped run) it never asks and exits with the command instead.
 
 Everything it writes is meant to be [committed](/concepts/version-control), so it also checks whether
 git is ignoring its own output, and offers to remove the rule:
@@ -138,7 +155,7 @@ all, so `deployoor verify` works as a CI check. Two outcomes are not failures:
 usage: deployoor <command>
 
 Commands:
-  init       write deployoor.config.ts
+  init       write deployoor.config.ts (optional — generate defaults without one)
   generate   read compiled artifacts and write typed deployers
   verify     verify recorded deployments on a block explorer (no recompile)
 
