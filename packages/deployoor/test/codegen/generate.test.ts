@@ -26,12 +26,27 @@ describe("generate (codegen)", () => {
     expect(existsSync(join(outDir, "index.ts"))).toBe(true);
   });
 
-  it("emits a self-contained artifact module (abi as const, type-only deployoor import)", () => {
+  it("emits the abi as a const literal, which is what types args and read/write", () => {
     const mod = readFileSync(join(run(), "types", "Counter.ts"), "utf8");
-    expect(mod).toContain('import type { TypedArtifact } from "deployoor"');
+    expect(mod).toContain('import type { GeneratedArtifact } from "deployoor"');
     expect(mod).toContain("as const");
-    expect(mod).toContain("satisfies TypedArtifact<typeof abi>");
+    expect(mod).toContain("satisfies GeneratedArtifact<typeof abi>");
     expect(mod).toContain('"increment"'); // the real abi was serialized in
+  });
+
+  it("carries the fully-qualified name, which is how the artifact is found again", () => {
+    const mod = readFileSync(join(run(), "types", "Counter.ts"), "utf8");
+    expect(mod).toContain('fullyQualifiedName: "src/Counter.sol:Counter"');
+  });
+
+  it("leaves bytecode and the standard-json input out, so the file is committable", () => {
+    // These are read from the compiled artifact at deploy time. `standardJsonInput` is the whole
+    // compilation unit's source text, and inlining it per contract is what made `deployers/` large.
+    const mod = readFileSync(join(run(), "types", "Counter.ts"), "utf8");
+    expect(mod).not.toContain("bytecode");
+    expect(mod).not.toContain("deployedBytecode");
+    expect(mod).not.toContain("standardJsonInput");
+    expect(mod).not.toContain("compilerVersion");
   });
 
   it("emits a deployer that wires defineDeployer with the config and artifact", () => {
