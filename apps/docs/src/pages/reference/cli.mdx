@@ -69,6 +69,10 @@ Filters (all optional; omit them to walk every record):
 | `--contract <name>` | a deployment name or a contract name, case-insensitive                                   |
 | `--plugin <name>`   | verify with only this plugin, when several implement `onVerify`. Repeatable              |
 
+The three `--network` forms need the whole record set to resolve against, so they assume the default
+`fsStore`. A [custom `StoreAdapter`](/concepts/deployment-stores) that implements no `listAll` can only be asked
+for one network by its exact key, and says so rather than reporting that nothing matched.
+
 Output:
 
 ```

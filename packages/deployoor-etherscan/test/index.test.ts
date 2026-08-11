@@ -87,16 +87,14 @@ const run = (
   return hook(ctx, deps);
 };
 
-const makeVerifyCtx = (
-  over: Partial<VerifyContext<Record<string, never>>> = {},
-): VerifyContext<Record<string, never>> => ({ deployment, options: {}, metadata, ...over });
+const makeVerifyCtx = (over: Partial<VerifyContext> = {}): VerifyContext => ({
+  deployment,
+  metadata,
+  ...over,
+});
 
 /** Invoke the after-the-fact hook `deployoor verify` calls. */
-const runVerify = (
-  plugin: ReturnType<typeof etherscan>,
-  ctx: VerifyContext<Record<string, never>>,
-  deps: PluginDeps,
-) => {
+const runVerify = (plugin: ReturnType<typeof etherscan>, ctx: VerifyContext, deps: PluginDeps) => {
   const hook = plugin.onVerify;
   if (hook === undefined) throw new Error("etherscan plugin must define onVerify");
   return hook(ctx, deps);
@@ -114,6 +112,12 @@ const queryOf = (fetch: ReturnType<typeof makeDeps>["fetch"], index: number): UR
   const call = fetch.mock.calls.at(index);
   if (call === undefined) throw new Error(`no fetch call at index ${index}`);
   return new URL(String(call[0])).searchParams;
+};
+
+const urlOf = (fetch: ReturnType<typeof makeDeps>["fetch"], index: number): string => {
+  const call = fetch.mock.calls.at(index);
+  if (call === undefined) throw new Error(`no fetch call at index ${index}`);
+  return String(call[0]);
 };
 
 const requireParam = (params: URLSearchParams, key: string): string => {
@@ -236,7 +240,10 @@ describe("etherscan plugin", () => {
     expect([...formOf(verified.fetch, 0).params.entries()].sort()).toEqual(
       [...formOf(deployed.fetch, 0).params.entries()].sort(),
     );
-    expect(String(verified.fetch.mock.calls.at(1)?.[0])).toBe(String(deployed.fetch.mock.calls.at(1)?.[0]));
+    // both hooks submit then poll, so a missing poll fails as a missing call rather than as undefined
+    expect(verified.fetch).toHaveBeenCalledTimes(2);
+    expect(deployed.fetch).toHaveBeenCalledTimes(2);
+    expect(urlOf(verified.fetch, 1)).toBe(urlOf(deployed.fetch, 1));
   });
 
   it("throws out of onVerify when the explorer reports a failure", async () => {

@@ -66,16 +66,14 @@ const run = (
   return hook(ctx, deps);
 };
 
-const makeVerifyCtx = (
-  over: Partial<VerifyContext<Record<string, never>>> = {},
-): VerifyContext<Record<string, never>> => ({ deployment, options: {}, metadata, ...over });
+const makeVerifyCtx = (over: Partial<VerifyContext> = {}): VerifyContext => ({
+  deployment,
+  metadata,
+  ...over,
+});
 
 /** Invoke the after-the-fact hook `deployoor verify` calls. */
-const runVerify = (
-  plugin: ReturnType<typeof sourcify>,
-  ctx: VerifyContext<Record<string, never>>,
-  deps: PluginDeps,
-) => {
+const runVerify = (plugin: ReturnType<typeof sourcify>, ctx: VerifyContext, deps: PluginDeps) => {
   const hook = plugin.onVerify;
   if (hook === undefined) throw new Error("sourcify plugin must define onVerify");
   return hook(ctx, deps);
@@ -213,6 +211,8 @@ describe("sourcify plugin", () => {
     await runVerify(plugin(), makeVerifyCtx(), verified.deps);
 
     // one shared submit-and-poll body, so both hooks produce the same submit and the same poll
+    expect(verified.fetch).toHaveBeenCalledTimes(2);
+    expect(deployed.fetch).toHaveBeenCalledTimes(2);
     expect(callOf(verified.fetch, 0)).toEqual(callOf(deployed.fetch, 0));
     expect(callOf(verified.fetch, 1).url).toBe(callOf(deployed.fetch, 1).url);
   });

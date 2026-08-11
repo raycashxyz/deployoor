@@ -49,6 +49,13 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 
 const isAlreadyVerified = (result: string): boolean => /already verified/i.test(result);
 
+interface VerifyRequest {
+  readonly options: EtherscanOptions;
+  readonly deployment: DeploymentRecord;
+  readonly metadata: ContractMetadata;
+  readonly deps: PluginDeps;
+}
+
 /**
  * Submit a standard-json verification and poll it to a conclusion.
  *
@@ -56,13 +63,16 @@ const isAlreadyVerified = (result: string): boolean => /already verified/i.test(
  * freshly compiled artifact's metadata) and `onVerify` (after the fact, with the metadata read back
  * from the pinned sources sidecar). Both have exactly the same inputs — a record plus a
  * `ContractMetadata` — so neither hook does anything but supply them.
+ *
+ * Named parameters rather than positional: `deployment` and `metadata` are adjacent objects, so a
+ * positional call could swap them and still typecheck at neither call site's expense.
  */
-const verifyDeployment = async (
-  options: EtherscanOptions,
-  deployment: DeploymentRecord,
-  metadata: ContractMetadata,
-  { fetch, log }: PluginDeps,
-): Promise<void> => {
+const verifyDeployment = async ({
+  options,
+  deployment,
+  metadata,
+  deps: { fetch, log },
+}: VerifyRequest): Promise<void> => {
   const base = options.apiUrl ?? ETHERSCAN_V2_URL;
   const pollIntervalMs = options.pollIntervalMs ?? 2_000;
   const maxPolls = options.maxPolls ?? 20;
@@ -148,9 +158,11 @@ export const etherscan = (options: EtherscanOptions) =>
   definePlugin<"etherscan", Record<string, never>>({
     name: "etherscan",
     onContractDeployed: async (ctx, deps) => {
-      if (ctx.metadata === undefined) return; // no compiler input available to verify
-      await verifyDeployment(options, ctx.deployment, ctx.metadata, deps);
+      const metadata = ctx.metadata;
+      if (metadata === undefined) return; // no compiler input available to verify
+      await verifyDeployment({ options, deployment: ctx.deployment, metadata, deps });
     },
     // `VerifyContext.metadata` is required — a record with no pinned sources never gets here.
-    onVerify: (ctx, deps) => verifyDeployment(options, ctx.deployment, ctx.metadata, deps),
+    onVerify: (ctx, deps) =>
+      verifyDeployment({ options, deployment: ctx.deployment, metadata: ctx.metadata, deps }),
   });

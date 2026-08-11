@@ -11,4 +11,5 @@ after-the-fact verification cannot drift: they send the same standard-json reque
 replies. `onContractDeployed` behaves exactly as before, including skipping when a deploy offers no
 compiler input.
 
-Requires `deployoor` ≥ the release that adds `onVerify`.
+The `deployoor` peer range rises to `>=0.7.0 <1.0.0`, since `onVerify` and `VerifyContext` are
+what these now compile against.
