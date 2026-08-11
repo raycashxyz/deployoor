@@ -34,8 +34,28 @@ interface HardhatConfigShape {
 }
 
 /**
+ * A literal `paths.artifacts`, read as text.
+ *
+ * The fallback for a config that cannot be evaluated. `[^}]*?` keeps the match inside the `paths`
+ * object, so an `artifacts` key belonging to something else is not mistaken for this one, and a
+ * computed value (`join(__dirname, …)`) does not match at all — that case still needs `artifactsPath`.
+ */
+const PATHS_ARTIFACTS = /\bpaths\s*:\s*\{[^}]*?\bartifacts\s*:\s*(['"`])([^'"`]*)\1/s;
+
+/**
  * `paths.artifacts` from hardhat.config, or undefined. Hardhat 3 keeps the same `paths.artifacts`
  * key, so one reader covers both majors.
+ *
+ * Two attempts, because evaluating the config is the accurate answer but frequently impossible.
+ * hardhat.config is arbitrary code, and one that registers a plugin — `require("@deployoor/hardhat")`,
+ * or any of the plugins a real project uses — throws `HH5: HardhatContext is not created` when it is
+ * imported outside a Hardhat run. That is the common shape of a Hardhat project, not an edge case, so
+ * treating the failure as "no `paths.artifacts`" meant most projects with a moved artifacts directory
+ * were told to configure something deployoor was supposed to read for them. Worse, it failed at
+ * *deploy* time while `generate` succeeded, because the Hardhat plugin passes the path in directly.
+ *
+ * So the import is tried first and wins when it works, and the text scan covers the configs it cannot
+ * load. Still best-effort: both failing lands on the framework default, and the caller reports that.
  */
 export const readHardhatArtifactsPath = async (root: string): Promise<string | undefined> => {
   const configPath = HARDHAT_CONFIGS.map((name) => join(root, name)).find((p) => existsSync(p));
@@ -46,7 +66,10 @@ export const readHardhatArtifactsPath = async (root: string): Promise<string | u
     .catch(() => undefined);
 
   const artifacts = (loaded as HardhatConfigShape | undefined)?.paths?.artifacts;
-  return typeof artifacts === "string" ? artifacts : undefined;
+  if (typeof artifacts === "string") return artifacts;
+
+  const contents = readConfig(configPath);
+  return contents === undefined ? undefined : PATHS_ARTIFACTS.exec(contents)?.[2];
 };
 
 /**
