@@ -124,3 +124,33 @@ describe("slack plugin", () => {
     expect(postedBody(fetch).username).toBe("deployoor-bot");
   });
 });
+
+describe("slack webhook", () => {
+  // Same shape as the etherscan apiKey guard: the docs no longer assert the environment variable is
+  // set, so a missing webhook has to fail locally rather than as a `fetch(undefined)`.
+  it.each([
+    ["undefined", undefined],
+    ["empty", ""],
+    ["blank", "   "],
+  ])("fails the notification when webhook is %s, naming the variable to set", async (_label, webhook) => {
+    const fetch = vi.fn();
+    const deps: PluginDeps = { fetch, now: () => 0, log: { info: vi.fn(), warn: vi.fn() } };
+    const hook = slack({ webhook }).onContractDeployed;
+    if (hook === undefined) throw new Error("slack plugin must define onContractDeployed");
+
+    // `Promise.resolve` because a hook returns `Awaitable<void>` — it may legitimately be synchronous.
+    const failure = await Promise.resolve(hook({ deployment, reused: false, options: {} }, deps)).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+
+    expect(failure).toBeInstanceOf(Error);
+    expect((failure as Error).message).toMatch(/webhook is required/);
+    expect((failure as Error).message).toMatch(/SLACK_WEBHOOK/);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("constructs without a webhook, so unrelated commands still load the config", () => {
+    expect(() => slack({ webhook: undefined })).not.toThrow();
+  });
+});

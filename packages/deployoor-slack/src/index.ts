@@ -1,8 +1,14 @@
 import { definePlugin, type DeploymentRecord } from "deployoor/plugin";
 
 export interface SlackOptions {
-  /** Slack Incoming Webhook URL. */
-  readonly webhook: string;
+  /**
+   * Slack Incoming Webhook URL.
+   *
+   * Typed to admit `undefined` so `process.env.SLACK_WEBHOOK` reads straight through without a
+   * non-null assertion. It stays required, and a missing value is rejected when a notification is
+   * about to be sent rather than becoming a `fetch(undefined)`.
+   */
+  readonly webhook: string | undefined;
   /** Bot username shown in Slack (optional). */
   readonly username?: string;
   /** Build the message text from the deployment record. Defaults to a one-line summary. */
@@ -29,16 +35,36 @@ const defaultFormat = (d: DeploymentRecord): string =>
 const describe = (cause: unknown): string => (cause instanceof Error ? cause.message : String(cause));
 
 /**
+ * The webhook, or a local error naming the variable to set.
+ *
+ * Checked when a message is about to be sent, not when the plugin is constructed: `deployoor.config.ts`
+ * is imported by every command, so throwing in the factory would fail `deployoor generate` over a
+ * webhook it never uses.
+ */
+const requireWebhook = (webhook: string | undefined): string => {
+  if (webhook === undefined || webhook.trim() === "") {
+    throw new Error(
+      "@deployoor/slack: webhook is required and was empty. Set your Slack Incoming Webhook URL in the environment (e.g. SLACK_WEBHOOK) and pass it as `slack({ webhook: process.env.SLACK_WEBHOOK })`.",
+    );
+  }
+  return webhook;
+};
+
+/**
  * Notify a Slack channel when a contract is deployed. A deployoor plugin is just a
  * deploy-lifecycle hook — the same shape a verifier uses. Reused deployments (no
  * transaction) are skipped; a non-2xx webhook response throws so the deployer's
  * `onPluginError` policy applies (warn by default, or fail the run with "throw").
  *
+ * A missing `webhook` fails when a notification is about to be sent, naming the variable to set. Not
+ * at construction: `deployoor.config.ts` is imported by every command, so that would fail
+ * `deployoor generate` over a webhook it never uses.
+ *
  * @example
  * ```ts
  * import { defineConfig } from "deployoor";
  * import { slack } from "@deployoor/slack";
- * export default defineConfig({ plugins: [slack({ webhook: process.env.SLACK_WEBHOOK! })] });
+ * export default defineConfig({ plugins: [slack({ webhook: process.env.SLACK_WEBHOOK })] });
  * ```
  */
 export const slack = (options: SlackOptions) =>
@@ -47,7 +73,7 @@ export const slack = (options: SlackOptions) =>
     onContractDeployed: async (ctx, { fetch }) => {
       if (ctx.reused) return; // no transaction happened — nothing to announce
       const text = ctx.options.text ?? (options.format ?? defaultFormat)(ctx.deployment);
-      const response = await fetch(options.webhook, {
+      const response = await fetch(requireWebhook(options.webhook), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(
@@ -62,7 +88,7 @@ export const slack = (options: SlackOptions) =>
       const text =
         options.formatFailed?.(ctx) ??
         `*${ctx.contractName}* failed to deploy on ${ctx.networkName} (chain ${ctx.chainId})\n${describe(ctx.cause)}`;
-      const response = await fetch(options.webhook, {
+      const response = await fetch(requireWebhook(options.webhook), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(

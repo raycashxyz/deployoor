@@ -1,10 +1,22 @@
 import { encodeAbiParameters, type Abi } from "viem";
-import { definePlugin } from "deployoor/plugin";
+import {
+  definePlugin,
+  type ContractMetadata,
+  type DeploymentRecord,
+  type PluginDeps,
+} from "deployoor/plugin";
 import { z } from "zod";
 
 export interface EtherscanOptions {
-  /** Etherscan V2 API key — one key works across every supported chain. */
-  readonly apiKey: string;
+  /**
+   * Etherscan V2 API key — one key works across every supported chain.
+   *
+   * Typed to admit `undefined` so `process.env.ETHERSCAN_KEY` reads straight through without a
+   * non-null assertion. The key stays required, and a missing value is rejected when a verification
+   * starts rather than becoming `apikey: undefined` in a request and coming back as an opaque
+   * authentication failure from the explorer.
+   */
+  readonly apiKey: string | undefined;
   /**
    * Override the API base URL. Defaults to Etherscan V2
    * (`https://api.etherscan.io/v2/api`). Point it at any Etherscan-compatible
@@ -44,85 +56,146 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 
 const isAlreadyVerified = (result: string): boolean => /already verified/i.test(result);
 
+interface VerifyRequest {
+  readonly options: EtherscanOptions;
+  readonly deployment: DeploymentRecord;
+  readonly metadata: ContractMetadata;
+  readonly deps: PluginDeps;
+}
+
 /**
- * Verify deployed contracts on Etherscan V2 via standard-json-input. When a
- * reused deployment still has artifact metadata, this hook can retry verification
- * without forcing a redeploy; otherwise it skips.
- * A verification failure throws, so it obeys the deployer's `onPluginError` policy.
+ * The key, or a local error naming the variable to set.
+ *
+ * Checked when a verification actually starts, not when the plugin is constructed. `deployoor.config.ts`
+ * is imported by *every* command, so throwing in the factory made `deployoor generate` fail over a
+ * missing Etherscan key it never uses — which is worse than the problem being fixed, since working
+ * without an explorer key is the normal local case.
+ *
+ * Verification is the only thing that needs the key, and this runs before the first request, so the
+ * failure is still local and still says which variable is unset instead of arriving as an
+ * authentication error from the explorer.
+ */
+const requireApiKey = (apiKey: string | undefined): string => {
+  if (apiKey === undefined || apiKey.trim() === "") {
+    throw new Error(
+      "@deployoor/etherscan: apiKey is required and was empty. Etherscan V2 needs one key for every chain — set it in your environment (e.g. ETHERSCAN_KEY) and pass it as `etherscan({ apiKey: process.env.ETHERSCAN_KEY })`.",
+    );
+  }
+  return apiKey;
+};
+
+/**
+ * Submit a standard-json verification and poll it to a conclusion.
+ *
+ * The single implementation behind both hooks: `onContractDeployed` (at deploy time, with the
+ * freshly compiled artifact's metadata) and `onVerify` (after the fact, with the metadata read back
+ * from the pinned sources sidecar). Both have exactly the same inputs — a record plus a
+ * `ContractMetadata` — so neither hook does anything but supply them.
+ *
+ * Named parameters rather than positional: `deployment` and `metadata` are adjacent objects, so a
+ * positional call could swap them and still typecheck at neither call site's expense.
+ */
+const verifyDeployment = async ({
+  options,
+  deployment,
+  metadata,
+  deps: { fetch, log },
+}: VerifyRequest): Promise<void> => {
+  const apiKey = requireApiKey(options.apiKey);
+  const base = options.apiUrl ?? ETHERSCAN_V2_URL;
+  const pollIntervalMs = options.pollIntervalMs ?? 2_000;
+  const maxPolls = options.maxPolls ?? 20;
+  const { address, chainId, abi, constructorArgs } = deployment;
+  const { fullyQualifiedName, compilerVersion, standardJsonInput } = metadata;
+
+  const body = new URLSearchParams({
+    apikey: apiKey,
+    chainid: String(chainId),
+    module: "contract",
+    action: "verifysourcecode",
+    codeformat: "solidity-standard-json-input",
+    contractaddress: address,
+    contractname: fullyQualifiedName,
+    compilerversion: withVPrefix(compilerVersion),
+    sourceCode: JSON.stringify(standardJsonInput),
+  });
+  const constructorArguments = encodeConstructorArgs(abi, constructorArgs);
+  if (constructorArguments.length > 0) body.set("constructorArguments", constructorArguments);
+
+  const submitRes = await fetch(base, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  const submit = Reply.parse(await submitRes.json());
+  if (submit.status !== "1") {
+    if (isAlreadyVerified(submit.result)) {
+      log.info(`[etherscan] ${fullyQualifiedName} already verified`);
+      return;
+    }
+    throw new Error(`Etherscan verification request failed: ${submit.result}`);
+  }
+  const guid = submit.result;
+
+  // Etherscan returns "Pending in queue" (with status "0") until it settles, so
+  // branch on the result text, not the status code.
+  const poll = async (attempt: number): Promise<void> => {
+    if (attempt >= maxPolls) {
+      throw new Error(`Etherscan verification timed out for ${fullyQualifiedName} (guid ${guid})`);
+    }
+    const query = new URLSearchParams({
+      apikey: apiKey,
+      chainid: String(chainId),
+      module: "contract",
+      action: "checkverifystatus",
+      guid,
+    });
+    const statusRes = await fetch(`${base}?${query}`);
+    const { result } = Reply.parse(await statusRes.json());
+    if (result === "Pass - Verified" || isAlreadyVerified(result)) {
+      log.info(`[etherscan] ${fullyQualifiedName} verified`);
+      return;
+    }
+    if (/^fail/i.test(result)) {
+      throw new Error(`Etherscan verification failed for ${fullyQualifiedName}: ${result}`);
+    }
+    await sleep(pollIntervalMs);
+    return poll(attempt + 1);
+  };
+  await poll(0);
+};
+
+/**
+ * Verify deployed contracts on Etherscan V2 via standard-json-input.
+ *
+ * `onContractDeployed` runs at deploy time. When a reused deployment still has artifact metadata it
+ * can retry verification without forcing a redeploy; otherwise it skips. `onVerify` is what
+ * `deployoor verify` calls to verify a recorded deployment after the fact, from the sources pinned
+ * beside it — no recompile. Both share one implementation.
+ *
+ * A verification failure throws: at deploy time that obeys the deployer's `onPluginError` policy,
+ * and under `deployoor verify` it marks that contract failed and exits non-zero.
+ *
+ * A missing `apiKey` fails when a verification starts, naming the variable to set, rather than
+ * arriving as an authentication error from the explorer. Not at construction: `deployoor.config.ts`
+ * is imported by every command, so that would fail `deployoor generate` over a key it never uses.
  *
  * @example
  * ```ts
  * import { defineConfig } from "deployoor";
  * import { etherscan } from "@deployoor/etherscan";
- * export default defineConfig({ plugins: [etherscan({ apiKey: process.env.ETHERSCAN_KEY! })] });
+ * export default defineConfig({ plugins: [etherscan({ apiKey: process.env.ETHERSCAN_KEY })] });
  * ```
  */
 export const etherscan = (options: EtherscanOptions) =>
   definePlugin<"etherscan", Record<string, never>>({
     name: "etherscan",
-    onContractDeployed: async (ctx, { fetch, log }) => {
-      if (ctx.metadata === undefined) return; // no compiler input available to verify
-
-      const base = options.apiUrl ?? ETHERSCAN_V2_URL;
-      const pollIntervalMs = options.pollIntervalMs ?? 2_000;
-      const maxPolls = options.maxPolls ?? 20;
-      const { address, chainId, abi, constructorArgs } = ctx.deployment;
-      const { fullyQualifiedName, compilerVersion, standardJsonInput } = ctx.metadata;
-
-      const body = new URLSearchParams({
-        apikey: options.apiKey,
-        chainid: String(chainId),
-        module: "contract",
-        action: "verifysourcecode",
-        codeformat: "solidity-standard-json-input",
-        contractaddress: address,
-        contractname: fullyQualifiedName,
-        compilerversion: withVPrefix(compilerVersion),
-        sourceCode: JSON.stringify(standardJsonInput),
-      });
-      const constructorArguments = encodeConstructorArgs(abi, constructorArgs);
-      if (constructorArguments.length > 0) body.set("constructorArguments", constructorArguments);
-
-      const submitRes = await fetch(base, {
-        method: "POST",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
-        body,
-      });
-      const submit = Reply.parse(await submitRes.json());
-      if (submit.status !== "1") {
-        if (isAlreadyVerified(submit.result)) {
-          log.info(`[etherscan] ${fullyQualifiedName} already verified`);
-          return;
-        }
-        throw new Error(`Etherscan verification request failed: ${submit.result}`);
-      }
-      const guid = submit.result;
-
-      // Etherscan returns "Pending in queue" (with status "0") until it settles, so
-      // branch on the result text, not the status code.
-      const poll = async (attempt: number): Promise<void> => {
-        if (attempt >= maxPolls) {
-          throw new Error(`Etherscan verification timed out for ${fullyQualifiedName} (guid ${guid})`);
-        }
-        const query = new URLSearchParams({
-          apikey: options.apiKey,
-          chainid: String(chainId),
-          module: "contract",
-          action: "checkverifystatus",
-          guid,
-        });
-        const statusRes = await fetch(`${base}?${query}`);
-        const { result } = Reply.parse(await statusRes.json());
-        if (result === "Pass - Verified" || isAlreadyVerified(result)) {
-          log.info(`[etherscan] ${fullyQualifiedName} verified`);
-          return;
-        }
-        if (/^fail/i.test(result)) {
-          throw new Error(`Etherscan verification failed for ${fullyQualifiedName}: ${result}`);
-        }
-        await sleep(pollIntervalMs);
-        return poll(attempt + 1);
-      };
-      await poll(0);
+    onContractDeployed: async (ctx, deps) => {
+      const metadata = ctx.metadata;
+      if (metadata === undefined) return; // no compiler input available to verify
+      await verifyDeployment({ options, deployment: ctx.deployment, metadata, deps });
     },
+    // `VerifyContext.metadata` is required — a record with no pinned sources never gets here.
+    onVerify: (ctx, deps) =>
+      verifyDeployment({ options, deployment: ctx.deployment, metadata: ctx.metadata, deps }),
   });

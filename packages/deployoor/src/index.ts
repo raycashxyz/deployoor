@@ -27,7 +27,14 @@ export type { DeployResult } from "./services/clients";
 
 // Plugin SDK
 export { definePlugin } from "./plugin";
-export type { DeployPlugin, DeployedContext, PluginDeps, PluginOverrides, Awaitable } from "./plugin";
+export type {
+  DeployPlugin,
+  DeployedContext,
+  VerifyContext,
+  PluginDeps,
+  PluginOverrides,
+  Awaitable,
+} from "./plugin";
 
 // Domain types
 export type { GeneratedArtifact, TypedArtifact } from "./schemas";
