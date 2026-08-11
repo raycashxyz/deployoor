@@ -5,7 +5,9 @@ import type { ContractMetadata, DeploymentRecord } from "./schemas";
  * Plugin SDK surface. Hooks are plain async (or sync) — the engine lifts them
  * into Effect and runs them best-effort. Plugin authors never touch Effect.
  *
- * Hooks are added only when the engine wires them (no dangling, unwired surface).
+ * Hooks are added only when something calls them (no dangling, unwired surface).
+ * `onContractDeployed` / `onDeployFailed` are the deploy pipeline's; `onVerify` is
+ * `deployoor verify`'s.
  */
 
 export type Awaitable<T> = T | Promise<T>;
@@ -23,9 +25,32 @@ export interface DeployedContext<Options = unknown> {
   readonly reused: boolean;
   /** Present only on a fresh deploy. */
   readonly receipt?: TransactionReceipt;
-  /** Compiler inputs for verification; present only on a fresh deploy. */
+  /**
+   * Compiler inputs for verification, from the artifact the deploy resolved — present on a fresh
+   * deploy and on a reused one, so a verifier can retry without forcing a redeploy. Absent when the
+   * deploy had none to offer.
+   */
   readonly metadata?: ContractMetadata;
   /** Per-deploy config addressed to this plugin (merged from `plugins[name]`). */
+  readonly options: Options;
+}
+
+/**
+ * What `deployoor verify` hands a plugin: a recorded deployment plus the verification input pinned
+ * beside it, read back from `deployments/sources/<hash>.json`.
+ *
+ * Deliberately not a `DeployedContext`. Nothing was deployed, so there is no `receipt` and no
+ * meaningful `reused`, and `metadata` is **required** rather than optional — a record whose sources
+ * were never pinned cannot be verified from committed data at all, so it is reported as unverifiable
+ * and never reaches a plugin. A verifier written against this context needs no undefined-checks and
+ * cannot mistake a verify run for a deploy.
+ */
+export interface VerifyContext<Options = unknown> {
+  /** The recorded deployment being verified — address, chain, abi, constructor args, libraries. */
+  readonly deployment: DeploymentRecord;
+  /** The pinned compiler input: fully-qualified name, compiler version, standard-json. */
+  readonly metadata: ContractMetadata;
+  /** Config addressed to this plugin (from `plugins[name]` in deployoor.config.ts). */
   readonly options: Options;
 }
 
@@ -43,6 +68,16 @@ export interface DeployPlugin<Options = unknown> {
   readonly name: string;
   readonly onContractDeployed?: (ctx: DeployedContext<Options>, deps: PluginDeps) => Awaitable<void>;
   readonly onDeployFailed?: (ctx: DeployFailedContext<Options>, deps: PluginDeps) => Awaitable<void>;
+  /**
+   * Verify an already-recorded deployment. Called only by `deployoor verify`, never by a deploy, and
+   * a plugin that omits it is skipped by that command — which is how a notifier stays quiet on a
+   * verify run without having to inspect anything. A verifier should implement both this and
+   * `onContractDeployed` (sharing one body), so it works at deploy time and after the fact.
+   *
+   * Throwing marks that contract's verification as failed for this plugin; the run continues to the
+   * next contract and exits non-zero at the end.
+   */
+  readonly onVerify?: (ctx: VerifyContext<Options>, deps: PluginDeps) => Awaitable<void>;
 }
 
 /** Preserves the literal `name` and the `Options` type for typed per-deploy overrides. */
