@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
 import { generateDeployers } from "./generate";
+import { loadConfig } from "./cli/config-file";
 import { runInit, isDeployoorInstalled, missingDependencies } from "./cli/init";
 import { detectPackageManager, installCommandLine, offerInstall } from "./cli/install";
+import { parseVerifyArgs, runVerify, VERIFY_FLAG_HELP, VERIFY_USAGE, type VerifyResult } from "./cli/verify";
 
 const fail = (message: string): never => {
   console.error(`deployoor: ${message}`);
@@ -14,6 +16,10 @@ const usage = `usage: deployoor <command>
 Commands:
   init       write deployoor.config.ts (optional — generate defaults without one)
   generate   read compiled artifacts and write typed deployers
+  verify     verify recorded deployments on a block explorer (no recompile)
+
+verify options:
+${VERIFY_FLAG_HELP}
 
 Options:
   -h, --help     show this help
@@ -51,6 +57,55 @@ const generate = async (root: string): Promise<void> => {
   console.log(`deployoor: generated ${files.length} file(s)`);
 };
 
+/**
+ * One indented block per record: the status, where it is, and — for anything that is not a clean
+ * pass — why. The plugins stream their own progress lines as they go (`[etherscan] … verified`);
+ * this is the authoritative summary printed once the run is over.
+ */
+const verifyLines = (result: VerifyResult): ReadonlyArray<string> => {
+  const where = `${result.networkName}/${result.deploymentName} at ${result.address}`;
+  const outcome = result.outcome;
+  if (outcome.status === "verified") {
+    return [`  verified      ${where} (${outcome.plugins.join(", ")})`];
+  }
+  if (outcome.status === "failed") {
+    return [
+      `  FAILED        ${where}`,
+      ...outcome.failures.map((failure) => `                  ${failure.plugin}: ${failure.error}`),
+    ];
+  }
+  const label = outcome.status === "unverifiable" ? "unverifiable" : "skipped     ";
+  return [`  ${label}  ${where}`, `                  ${outcome.detail}`];
+};
+
+const countOf = (results: ReadonlyArray<VerifyResult>, status: VerifyResult["outcome"]["status"]): number =>
+  results.filter((result) => result.outcome.status === status).length;
+
+const verify = async (root: string, argv: ReadonlyArray<string>): Promise<void> => {
+  if (argv.includes("-h") || argv.includes("--help")) {
+    console.log(VERIFY_USAGE);
+    return;
+  }
+  const args = parseVerifyArgs(argv);
+  const { config } = await loadConfig(root);
+  const report = await runVerify({ root, config, ...args });
+
+  console.log(`deployoor: checked ${report.results.length} record(s) through ${report.plugins.join(", ")}`);
+  report.results.flatMap(verifyLines).forEach((line) => console.log(line));
+
+  const counts = [
+    `${countOf(report.results, "verified")} verified`,
+    ...(countOf(report.results, "failed") === 0 ? [] : [`${countOf(report.results, "failed")} failed`]),
+    ...(countOf(report.results, "unverifiable") === 0
+      ? []
+      : [`${countOf(report.results, "unverifiable")} unverifiable`]),
+    ...(countOf(report.results, "skipped") === 0 ? [] : [`${countOf(report.results, "skipped")} skipped`]),
+  ];
+  console.log(`deployoor: ${counts.join(", ")}`);
+  // Already reported per record, so this exits non-zero without a second error message.
+  if (!report.ok) process.exitCode = 1;
+};
+
 const init = (root: string): void => {
   const { configPath, created } = runInit(root);
   console.log(created ? `deployoor: created ${configPath}` : `deployoor: ${configPath} already exists`);
@@ -73,6 +128,7 @@ const main = async (): Promise<void> => {
   }
   if (command === "generate") return generate(root);
   if (command === "init") return init(root);
+  if (command === "verify") return verify(root, process.argv.slice(3));
   fail(`unknown command "${command}"\n${usage}`);
 };
 
