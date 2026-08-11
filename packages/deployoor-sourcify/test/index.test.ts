@@ -1,5 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
-import type { ContractMetadata, DeployedContext, DeploymentRecord, PluginDeps } from "deployoor/plugin";
+import type {
+  ContractMetadata,
+  DeployedContext,
+  DeploymentRecord,
+  PluginDeps,
+  VerifyContext,
+} from "deployoor/plugin";
 import { sourcify, type SourcifyOptions } from "../src/index";
 
 const deployment: DeploymentRecord = {
@@ -57,6 +63,21 @@ const run = (
 ) => {
   const hook = plugin.onContractDeployed;
   if (hook === undefined) throw new Error("sourcify plugin must define onContractDeployed");
+  return hook(ctx, deps);
+};
+
+const makeVerifyCtx = (
+  over: Partial<VerifyContext<Record<string, never>>> = {},
+): VerifyContext<Record<string, never>> => ({ deployment, options: {}, metadata, ...over });
+
+/** Invoke the after-the-fact hook `deployoor verify` calls. */
+const runVerify = (
+  plugin: ReturnType<typeof sourcify>,
+  ctx: VerifyContext<Record<string, never>>,
+  deps: PluginDeps,
+) => {
+  const hook = plugin.onVerify;
+  if (hook === undefined) throw new Error("sourcify plugin must define onVerify");
   return hook(ctx, deps);
 };
 
@@ -162,5 +183,53 @@ describe("sourcify plugin", () => {
     const { deps, fetch } = makeDeps();
     await run(plugin(), makeCtx({ reused: true, metadata: undefined }), deps);
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("verifies a recorded deployment through onVerify, with no receipt and no reused flag", async () => {
+    const { deps, fetch } = makeDeps();
+    fetch.mockResolvedValueOnce(reply({ verificationId: "v1" }, 202));
+    fetch.mockResolvedValueOnce(reply({ isJobCompleted: true, contract: { match: "exact_match" } }));
+
+    await runVerify(plugin(), makeVerifyCtx(), deps);
+
+    const submit = callOf(fetch, 0);
+    expect(submit.url).toBe(`https://srv.test/server/v2/verify/8453/${deployment.address}`);
+    expect(submit.body.contractIdentifier).toBe("contracts/Token.sol:Token");
+    // the record's creation tx is what Sourcify matches against, and a record always has it
+    expect(submit.body.creationTransactionHash).toBe(deployment.transactionHash);
+  });
+
+  it("sends byte-identical requests from onVerify and onContractDeployed", async () => {
+    const deployed = makeDeps();
+    const verified = makeDeps();
+    const pass = (mock: ReturnType<typeof makeDeps>["fetch"]) => {
+      mock.mockResolvedValueOnce(reply({ verificationId: "v1" }, 202));
+      mock.mockResolvedValueOnce(reply({ isJobCompleted: true, contract: { match: "match" } }));
+    };
+    pass(deployed.fetch);
+    pass(verified.fetch);
+
+    await run(plugin(), makeCtx(), deployed.deps);
+    await runVerify(plugin(), makeVerifyCtx(), verified.deps);
+
+    // one shared submit-and-poll body, so both hooks produce the same submit and the same poll
+    expect(callOf(verified.fetch, 0)).toEqual(callOf(deployed.fetch, 0));
+    expect(callOf(verified.fetch, 1).url).toBe(callOf(deployed.fetch, 1).url);
+  });
+
+  it("throws out of onVerify when the job finishes without a match", async () => {
+    const { deps, fetch } = makeDeps();
+    fetch.mockResolvedValueOnce(reply({ verificationId: "v1" }, 202));
+    fetch.mockResolvedValueOnce(reply({ isJobCompleted: true, contract: { match: null } }));
+
+    await expect(runVerify(plugin(), makeVerifyCtx(), deps)).rejects.toThrow(/without a match/i);
+  });
+
+  it("treats an already-verified contract as success from onVerify too", async () => {
+    const { deps, fetch } = makeDeps();
+    fetch.mockResolvedValueOnce(reply({ message: "already verified" }, 409));
+
+    await expect(runVerify(plugin(), makeVerifyCtx(), deps)).resolves.toBeUndefined();
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 });
