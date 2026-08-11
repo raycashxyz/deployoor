@@ -49,12 +49,35 @@ describe("runGenerate", () => {
 });
 
 describe("runInit + isDeployoorInstalled", () => {
-  it("scaffolds deployoor.config.ts when absent", () => {
+  it("scaffolds deployoor.config.ts when absent", async () => {
     const root = mkdtempSync(join(tmpdir(), "deployoor-init-"));
-    const first = runInit(root);
+    const first = await runInit(root);
     expect(first.created).toBe(true);
     expect(readFileSync(first.configPath, "utf8")).toContain("defineConfig");
-    expect(runInit(root).created).toBe(false); // idempotent
+    expect((await runInit(root)).created).toBe(false); // idempotent
+  });
+
+  it("names the detected toolchain and where its artifacts are", async () => {
+    // The scaffold's job beyond the defaults: confirm what deployoor resolved, so a project whose
+    // build output moved can see that deployoor already found it.
+    const root = mkdtempSync(join(tmpdir(), "deployoor-init-foundry-"));
+    writeFileSync(join(root, "foundry.toml"), '[profile.default]\nout = "artifacts"\n');
+
+    const { configPath } = await runInit(root);
+    const contents = readFileSync(configPath, "utf8");
+
+    expect(contents).toContain("Detected: foundry, artifacts in artifacts (from foundry.toml)");
+    // Commented out on purpose: foundry.toml already owns this value, and copying it here creates a
+    // second source of truth free to drift from the first.
+    expect(contents).toContain('// artifactsPath: "artifacts",');
+  });
+
+  it("says so when there is no toolchain to detect", async () => {
+    const root = mkdtempSync(join(tmpdir(), "deployoor-init-bare-"));
+
+    const contents = readFileSync((await runInit(root)).configPath, "utf8");
+
+    expect(contents).toContain("No Foundry, Hardhat or Solidity sources detected");
   });
 
   it("detects whether deployoor is a declared dependency", () => {
