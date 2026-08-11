@@ -264,3 +264,24 @@ describe("etherscan plugin", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("etherscan options", () => {
+  // The docs used to show `apiKey: process.env.ETHERSCAN_KEY!`, which types an unset variable as a
+  // string and sends `apikey: undefined` to the explorer — surfacing as a remote authentication
+  // error at the end of a deploy rather than as a local configuration one. The assertion is gone from
+  // the docs, so the value has to be checked here instead.
+  it.each([
+    ["undefined", undefined],
+    ["empty", ""],
+    ["blank", "   "],
+  ])("refuses to construct when apiKey is %s, naming the variable to set", (_label, apiKey) => {
+    const construct = () => etherscan({ apiKey });
+
+    expect(construct).toThrow(/apiKey is required/);
+    expect(construct).toThrow(/ETHERSCAN_KEY/);
+  });
+
+  it("constructs with a key, so the guard rejects nothing it should accept", () => {
+    expect(etherscan({ apiKey: "key" }).name).toBe("etherscan");
+  });
+});

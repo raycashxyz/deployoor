@@ -18,7 +18,7 @@ import { defineConfig } from "deployoor";
 import { etherscan } from "@deployoor/etherscan";
 
 export default defineConfig({
-  plugins: [etherscan({ apiKey: process.env.ETHERSCAN_KEY! })],
+  plugins: [etherscan({ apiKey: process.env.ETHERSCAN_KEY })],
 });
 ```
 

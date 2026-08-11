@@ -11,7 +11,7 @@ export default defineConfig({
   include: ["Token", "Vault"], // default: every contract with bytecode
   out: "./deployers", // generated deployers output
   deploymentsPath: "./deployments", // deployment records
-  plugins: [etherscan({ apiKey: process.env.ETHERSCAN_KEY! }), slack({ webhook: process.env.SLACK_HOOK! })],
+  plugins: [etherscan({ apiKey: process.env.ETHERSCAN_KEY }), slack({ webhook: process.env.SLACK_HOOK })],
   onPluginError: "warn", // "warn" (default) or "throw"
   redeploymentStrategy: "on-change", // "on-change" (default) | "never" | "always"
   redeploymentStrategyByChainId: { 1: "never" }, // pin mainnet to reuse-only
