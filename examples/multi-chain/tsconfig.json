@@ -7,5 +7,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["scripts", "deployers", "deployoor.config.ts"]
+  "include": ["scripts", "deployers"]
 }

@@ -51,6 +51,34 @@ describe("readHardhatArtifactsPath", () => {
     await expect(readHardhatArtifactsPath(root)).resolves.toBeUndefined();
   });
 
+  it("prefers the evaluated config over the text scan when both could answer", async () => {
+    // An importable config is authoritative: it can compute a path the text cannot see.
+    const root = project({
+      "hardhat.config.js": [
+        "const dir = 'from-code';",
+        "module.exports = { paths: { artifacts: dir } };",
+      ].join("\n"),
+    });
+
+    await expect(readHardhatArtifactsPath(root)).resolves.toBe("from-code");
+  });
+
+  it("returns undefined for a config it cannot evaluate, rather than reading it as text", async () => {
+    // A plugin-bearing config throws outside a Hardhat run (the real message is
+    // `HH5: HardhatContext is not created`), and a literal `paths.artifacts` is deliberately *not*
+    // read out of the source. Four review rounds found four shapes where a text scan returned the
+    // wrong directory, and a wrong artifacts directory holding stale artifacts deploys old bytecode
+    // silently. The caller falls back to the framework default and names `artifactsPath`.
+    const root = project({
+      "hardhat.config.js": [
+        "require('a-plugin-that-is-not-installed');",
+        "module.exports = { paths: { artifacts: 'build/artifacts' } };",
+      ].join("\n"),
+    });
+
+    await expect(readHardhatArtifactsPath(root)).resolves.toBeUndefined();
+  });
+
   it("returns undefined when there is no hardhat config at all", async () => {
     await expect(readHardhatArtifactsPath(project({}))).resolves.toBeUndefined();
   });

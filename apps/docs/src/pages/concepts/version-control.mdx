@@ -53,7 +53,7 @@ If a rule in your `.gitignore` covers deployoor's output, both `deployoor genera
 
 ## Tell your formatter to skip them
 
-An ABI is emitted as one long line, which every formatter and most lint rules will want to change. Regenerating then undoes the change, so a repo that both commits `deployers/` and checks formatting in CI will fail on files nothing hand-edits. Exclude the directory instead:
+An ABI is emitted as one long line — 532 characters for a four-function contract, and it grows with the interface — so past a certain size every formatter wants to rewrite it, and regenerating then undoes the rewrite. A repo that both commits `deployers/` and checks formatting in CI then fails on files nothing hand-edits. Exclude the directory instead:
 
 ```text
 # .prettierignore

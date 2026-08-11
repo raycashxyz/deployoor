@@ -36,6 +36,24 @@ interface HardhatConfigShape {
 /**
  * `paths.artifacts` from hardhat.config, or undefined. Hardhat 3 keeps the same `paths.artifacts`
  * key, so one reader covers both majors.
+ *
+ * Undefined covers two different situations and deliberately does not distinguish them: the config
+ * genuinely sets no artifacts path, or it could not be evaluated at all. hardhat.config is arbitrary
+ * code, and one that registers a plugin — `require("@deployoor/hardhat")`, or any plugin a real
+ * project uses — throws `HH5: HardhatContext is not created` when imported outside a Hardhat run.
+ *
+ * There was a text fallback here that read a literal `paths.artifacts` out of the source when the
+ * import failed. It is gone. Four rounds of review found four more shapes where it returned the
+ * *wrong* directory — a `paths` that is not an object followed by a sibling with an `artifacts` key, an
+ * export through an identifier, a later top-level object, a commented-out block — and a wrong artifacts
+ * directory is the one failure worth avoiding above all others here: if stale artifacts happen to sit
+ * there, it deploys old bytecode and says nothing. Reading a value out of arbitrary JavaScript needs a
+ * parser, and a parser is too much machinery to carry for a fallback whose alternative is one line of
+ * config.
+ *
+ * So a config that will not evaluate falls back to the framework default, and the caller's error names
+ * `artifactsPath`. The durable fix is for `deployoor generate` to record the path it resolved — it
+ * already gets the right one from the Hardhat plugin — so a deploy never has to re-derive it.
  */
 export const readHardhatArtifactsPath = async (root: string): Promise<string | undefined> => {
   const configPath = HARDHAT_CONFIGS.map((name) => join(root, name)).find((p) => existsSync(p));
@@ -46,7 +64,9 @@ export const readHardhatArtifactsPath = async (root: string): Promise<string | u
     .catch(() => undefined);
 
   const artifacts = (loaded as HardhatConfigShape | undefined)?.paths?.artifacts;
-  return typeof artifacts === "string" ? artifacts : undefined;
+  if (typeof artifacts === "string") return artifacts;
+
+  return undefined;
 };
 
 /**

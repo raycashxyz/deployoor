@@ -7,7 +7,7 @@ contracts/Counter.sol                     the contract
         │  hardhat compile   (Hardhat 3 → artifacts/ + build-info/<id>.json)
         │  → @deployoor/hardhat/v3 plugin runs generate
         ▼
-deployers/Counter.ts                      typed getOrDeployCounter (generated, gitignored)
+deployers/Counter.ts                      typed getOrDeployCounter (generated, committed)
         │  scripts/deploy.ts
         ▼
 deployments/<chainId>-<network>/Counter.json   the source of truth — committed to the repo

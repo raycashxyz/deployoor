@@ -56,6 +56,36 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 
 const isAlreadyVerified = (result: string): boolean => /already verified/i.test(result);
 
+/**
+ * Etherscan has not indexed the contract yet.
+ *
+ * Deploy-time verification loses this race routinely — the receipt is in hand, but Etherscan's own
+ * indexer has not caught up, so it answers "Unable to locate ContractCode at 0x…". Observed on a real
+ * Sepolia deploy: the submit went out immediately after the receipt and failed, while the identical
+ * request through `deployoor verify` seconds later succeeded. Waiting and re-submitting is the fix
+ * (hardhat-verify does the same), because the request itself is fine — the chain is just ahead of the
+ * explorer.
+ */
+const isNotIndexedYet = (result: string): boolean => /unable to locate contractcode/i.test(result);
+
+/**
+ * `maxPolls`, rejected here rather than allowed to become a silent no-op.
+ *
+ * It bounds both recursions, so a fractional or non-positive value changes behaviour in ways that look
+ * like something else: `0` skips the status poll entirely and reports a timeout on a verification that
+ * may well have passed, and `NaN` — which is what `Number(process.env.X)` gives for an unset variable —
+ * fails every comparison, so the first attempt is also the last. Neither is distinguishable from a bug
+ * in the plugin at the point it surfaces, which is why this is a local error naming the option.
+ */
+const requireMaxPolls = (maxPolls: number): number => {
+  if (!Number.isInteger(maxPolls) || maxPolls < 1) {
+    throw new Error(
+      `@deployoor/etherscan: maxPolls must be a positive integer, got ${String(maxPolls)}. It bounds both the submit retry and the status poll.`,
+    );
+  }
+  return maxPolls;
+};
+
 interface VerifyRequest {
   readonly options: EtherscanOptions;
   readonly deployment: DeploymentRecord;
@@ -104,7 +134,7 @@ const verifyDeployment = async ({
   const apiKey = requireApiKey(options.apiKey);
   const base = options.apiUrl ?? ETHERSCAN_V2_URL;
   const pollIntervalMs = options.pollIntervalMs ?? 2_000;
-  const maxPolls = options.maxPolls ?? 20;
+  const maxPolls = requireMaxPolls(options.maxPolls ?? 20);
   const { address, chainId, abi, constructorArgs } = deployment;
   const { fullyQualifiedName, compilerVersion, standardJsonInput } = metadata;
 
@@ -122,20 +152,37 @@ const verifyDeployment = async ({
   const constructorArguments = encodeConstructorArgs(abi, constructorArgs);
   if (constructorArguments.length > 0) body.set("constructorArguments", constructorArguments);
 
-  const submitRes = await fetch(base, {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body,
-  });
-  const submit = Reply.parse(await submitRes.json());
-  if (submit.status !== "1") {
-    if (isAlreadyVerified(submit.result)) {
+  // `chainid` has to be on the URL, not only in the form body. V2 rejects a body-only chainid with
+  // "Missing or unsupported chainid parameter (required for v2 api)" — which no mock fetch could ever
+  // have caught, and which made live verification fail every time. It stays in the body too, since
+  // Blockscout/Routescan endpoints reached via `apiUrl` read it from there.
+  const submitUrl = `${base}?${new URLSearchParams({ chainid: String(chainId) })}`;
+
+  /** Submit, re-trying only while the explorer has yet to index the contract. */
+  const submitVerification = async (attempt: number): Promise<string | undefined> => {
+    const res = await fetch(submitUrl, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body,
+    });
+    const reply = Reply.parse(await res.json());
+    if (reply.status === "1") return reply.result;
+
+    if (isAlreadyVerified(reply.result)) {
       log.info(`[etherscan] ${fullyQualifiedName} already verified`);
-      return;
+      return undefined;
     }
-    throw new Error(`Etherscan verification request failed: ${submit.result}`);
-  }
-  const guid = submit.result;
+    if (isNotIndexedYet(reply.result) && attempt + 1 < maxPolls) {
+      log.info(`[etherscan] ${fullyQualifiedName} not indexed yet, retrying`);
+      await sleep(pollIntervalMs);
+      return submitVerification(attempt + 1);
+    }
+    throw new Error(`Etherscan verification request failed: ${reply.result}`);
+  };
+
+  const guid = await submitVerification(0);
+  // `undefined` is the already-verified case, which has nothing left to poll.
+  if (guid === undefined) return;
 
   // Etherscan returns "Pending in queue" (with status "0") until it settles, so
   // branch on the result text, not the status code.

@@ -51,6 +51,28 @@ export default defineConfig({
 });
 ```
 
+The split is worth internalising, because it decides whether you need a config file at all:
+
+| Path                      | Owner          | Who tells deployoor            |
+| ------------------------- | -------------- | ------------------------------ |
+| sources, artifacts, cache | your framework | nobody — it reads their config |
+| `out`, `deploymentsPath`  | deployoor      | you, here                      |
+
+[`examples/custom-paths`](https://github.com/raycashxyz/deployoor/tree/main/examples/custom-paths)
+moves all five and sets only the two deployoor owns. The other examples in that repo have **no config
+file at all**, because their paths are the defaults.
+
+:::warning
+deployoor reads `paths.artifacts` by **importing** `hardhat.config.*`, and a config that registers a
+plugin cannot be imported outside a Hardhat run — it throws `HH5: HardhatContext is not created`. That
+covers most real Hardhat projects, so if yours registers anything **and** moves its artifacts
+directory, set `artifactsPath` here.
+
+The symptom is confusing on its own: `deployoor generate` works, because
+[`@deployoor/hardhat`](/guides/hardhat) hands the resolved path over directly — but a deploy or a test
+reads the config itself, so it looks in the default `./artifacts` and reports nothing compiled.
+:::
+
 Toolchain detection keys on the config file (`foundry.toml`, `hardhat.config.*`). A project with
 neither, or one whose sources sit somewhere unusual, can name it outright with `framework`.
 

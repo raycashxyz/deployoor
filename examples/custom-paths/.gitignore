@@ -1,0 +1,5 @@
+node_modules
+build
+.env
+# NOTE: generated/deployers/ and records/ are both intentionally committed — see
+# examples/hardhat/.gitignore. Only `build/` (Hardhat's artifacts + cache) is build output.

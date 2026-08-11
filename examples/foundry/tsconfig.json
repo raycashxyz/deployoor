@@ -9,5 +9,5 @@
     "esModuleInterop": true,
     "types": ["node"]
   },
-  "include": ["test", "deployers", "deployoor.config.ts"]
+  "include": ["test", "deployers"]
 }

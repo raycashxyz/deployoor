@@ -6,7 +6,7 @@ The full journey on a normal Hardhat (v2) project: **compile → generate → de
 contracts/Counter.sol                     the contract
         │  hardhat compile  (@deployoor/hardhat auto-runs generate)
         ▼
-deployers/Counter.ts                      typed getOrDeployCounter (generated, gitignored)
+deployers/Counter.ts                      typed getOrDeployCounter (generated, committed)
         │  scripts/deploy.ts
         ▼
 deployments/31337-foundry/Counter.json    the source of truth — committed to the repo
