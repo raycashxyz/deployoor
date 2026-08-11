@@ -12,7 +12,8 @@
  */
 type Wordmark = { name: string; slug: string };
 
-const WORDMARKS: readonly Wordmark[] = [
+/** Exported so the landing page's deploy-script step can show the same row without a second list. */
+export const WORDMARKS: readonly Wordmark[] = [
   { name: ".env", slug: "dotenv" },
   { name: "Privy", slug: "privy" },
   { name: "Turnkey", slug: "turnkey" },

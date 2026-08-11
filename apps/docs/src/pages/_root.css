@@ -79,11 +79,32 @@
 
 .landing-lead {
   max-width: 36rem;
-  margin: 0 0 2rem;
+  margin: 0 0 1.75rem;
   font-size: 1.125rem;
   line-height: 1.6;
   color: var(--deployoor-fg);
   opacity: 0.92;
+}
+
+/* Hero command: the one line to run first, styled as a terminal prompt (viem/eve-style focal CTA). */
+.landing-hero-command {
+  width: min(30rem, 100%);
+}
+
+.landing-hero-command .landing-command-row {
+  padding: 1rem 1.25rem;
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--deployoor-fg) 8%, var(--deployoor-bg));
+}
+
+.landing-hero-command .landing-command-row code {
+  font-size: 1rem;
+  white-space: nowrap;
+}
+
+.landing-hero-command .landing-command-row code::before {
+  content: "$ ";
+  opacity: 0.45;
 }
 
 .landing-commands {
@@ -657,4 +678,526 @@
   width: calc(var(--wordmark-height) * 5.452);
   -webkit-mask-image: url("/icons/wordmarks/openfort.svg");
   mask-image: url("/icons/wordmarks/openfort.svg");
+}
+
+/* ---------------------------------------------------------------------------
+   Project anatomy — a scroll-driven tour of the files a deployoor project holds.
+
+   Steps scroll on the left as plain prose; one sticky panel on the right holds the
+   file list plus the current file's source, and swaps as the active step changes
+   (ProjectAnatomy.tsx drives it with an IntersectionObserver).
+   --------------------------------------------------------------------------- */
+.anatomy {
+  width: min(72rem, 100%);
+  margin: 4rem 0 2rem;
+  text-align: left;
+}
+
+.anatomy-head {
+  margin-bottom: 3rem;
+  text-align: center;
+}
+
+.anatomy-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.875rem;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  color: var(--deployoor-fg);
+}
+
+.anatomy-sub {
+  margin: 0;
+  font-size: 1.0625rem;
+  color: var(--vocs-color-text2);
+}
+
+.anatomy-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 4rem;
+  align-items: start;
+}
+
+/* Left column: the steps. Deliberately unboxed — the eye should follow the prose,
+   with the panel on the right carrying all the chrome. */
+.anatomy-steps {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+/* Each step is a viewport-ish tall block, so exactly one is near the centre band
+   at a time and the panel has room to feel like it is keeping pace. */
+.anatomy-step {
+  min-height: 62vh;
+  padding-bottom: 4rem;
+  transition: opacity 0.4s ease;
+}
+
+.anatomy[data-mounted="true"] .anatomy-step[data-active="false"] {
+  opacity: 0.32;
+}
+
+.anatomy-step-num {
+  display: block;
+  margin-bottom: 0.85rem;
+  font-family: var(--vocs-font-family-mono, ui-monospace, monospace);
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: color-mix(in srgb, var(--deployoor-fg) 45%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+
+.anatomy-step-title {
+  display: block;
+  margin: 0 0 0.85rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+  color: var(--deployoor-fg);
+}
+
+/* The filename chip in the heading, matching the rows in the panel. */
+.anatomy-step-title code {
+  display: inline-block;
+  padding: 0.1em 0.45em;
+  border: 1px solid var(--deployoor-border);
+  border-radius: 0.4rem;
+  background: color-mix(in srgb, var(--deployoor-fg) 7%, var(--deployoor-bg));
+  font-family: var(--vocs-font-family-mono, ui-monospace, monospace);
+  font-size: 0.72em;
+  font-weight: 500;
+  vertical-align: 0.08em;
+  white-space: nowrap;
+}
+
+.anatomy-step-blurb {
+  max-width: 32rem;
+  margin: 0;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: var(--vocs-color-text2);
+}
+
+/* Inline emphasis inside a blurb. Bold carries the one claim that matters; code marks a
+   filename or command. Both stay close to body weight so a blurb still reads as prose. */
+.anatomy-step-blurb strong {
+  font-weight: 650;
+  color: var(--deployoor-fg);
+}
+
+.anatomy-step-blurb code {
+  padding: 0.1em 0.3em;
+  border-radius: 0.3rem;
+  background: color-mix(in srgb, var(--deployoor-fg) 8%, transparent);
+  font-family: var(--vocs-font-family-mono, ui-monospace, monospace);
+  font-size: 0.86em;
+}
+
+/* Tool chips: a small rounded square per tool, with its name alongside. */
+.anatomy-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.tool-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.55rem 0.25rem 0.3rem;
+  border: 1px solid var(--deployoor-border);
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--deployoor-fg) 4%, transparent);
+}
+
+/* One square slot whether the chip holds a vendored mark or a monogram, so a row of
+   chips lines up while some logos are still missing. */
+.tool-chip-icon,
+.tool-chip-mono {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 0.25rem;
+  background: color-mix(in srgb, var(--deployoor-fg) 10%, transparent);
+}
+
+.tool-chip-mono {
+  font-family: var(--vocs-font-family-mono, ui-monospace, monospace);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+  color: color-mix(in srgb, var(--deployoor-fg) 70%, transparent);
+  text-transform: uppercase;
+}
+
+/* Vendored marks are masks in currentColor, like every other logo here. */
+.tool-chip-icon {
+  position: relative;
+}
+
+.tool-chip-icon::before {
+  width: 0.75rem;
+  height: 0.75rem;
+  content: "";
+  background-color: currentColor;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+.tool-chip-icon[data-tool="hardhat"]::before {
+  -webkit-mask-image: url("/icons/tools/hardhat.svg");
+  mask-image: url("/icons/tools/hardhat.svg");
+}
+
+.tool-chip-icon[data-tool="foundry"]::before {
+  -webkit-mask-image: url("/icons/tools/foundry.svg");
+  mask-image: url("/icons/tools/foundry.svg");
+}
+
+.tool-chip-icon[data-tool="viem"]::before {
+  -webkit-mask-image: url("/icons/tools/viem.svg");
+  mask-image: url("/icons/tools/viem.svg");
+}
+
+.tool-chip-icon[data-tool="wagmi"]::before {
+  -webkit-mask-image: url("/icons/tools/wagmi.svg");
+  mask-image: url("/icons/tools/wagmi.svg");
+}
+
+.tool-chip-icon[data-tool="tevm"]::before {
+  -webkit-mask-image: url("/icons/tools/tevm.svg");
+  mask-image: url("/icons/tools/tevm.svg");
+}
+
+.tool-chip-icon[data-tool="vitest"]::before {
+  -webkit-mask-image: url("/icons/tools/vitest.svg");
+  mask-image: url("/icons/tools/vitest.svg");
+}
+
+.tool-chip-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--vocs-color-text2);
+}
+
+/* "Read more" pointer into the docs. */
+/* The anchor itself is undecorated. text-decoration propagates to every descendant and
+   cannot be switched off further down, so underlining the anchor also underlines the flex
+   gap and the arrow, which reads as a broken rule with a gap in it. */
+.anatomy-step-link {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3em;
+  margin-top: 1.1rem;
+  font-size: 0.875rem;
+  font-weight: 550;
+  color: var(--deployoor-fg);
+  text-decoration: none;
+}
+
+.anatomy-step-link > span {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, var(--deployoor-fg) 35%, transparent);
+}
+
+.anatomy-step-link::after {
+  content: "→";
+  font-weight: 400;
+}
+
+.anatomy-step-link:hover > span {
+  text-decoration-color: currentColor;
+}
+
+.anatomy-step-wallets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1.1rem;
+  margin-top: 1.4rem;
+}
+
+/* Forces the row below it: the caption takes the full width of the wrapping flex line. */
+.anatomy-step-wallets-caption {
+  flex: 0 0 100%;
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--vocs-color-text3);
+}
+
+/* Much smaller than the hero strip: here the logos are evidence for a sentence, so they
+   should read as a quiet row. Each keeps its own measured ratio via --wordmark-height. */
+.anatomy-step-wallets .wordmark {
+  --wordmark-height: 0.82rem;
+
+  opacity: 0.6;
+}
+
+/* Right column: one sticky panel, file list over source. */
+.anatomy-panel {
+  /* The longest file path is one unbreakable run, so without this the panel refuses to
+     shrink below its min-content width and overflows the column. */
+  min-width: 0;
+  position: sticky;
+  top: 8vh;
+  /* Never taller than what is on screen. The panel is pinned, so anything past the fold
+     would simply be invisible — the longest snippets used to be cut off. The file list
+     keeps its full height and the code area takes the remainder. */
+  max-height: calc(100vh - 10vh);
+  display: flex;
+  flex-direction: column;
+  align-self: start;
+  overflow: hidden;
+  border: 1px solid var(--deployoor-border);
+  border-radius: 0.9rem;
+  background: var(--deployoor-surface);
+}
+
+.anatomy-files {
+  flex: none;
+  padding: 1.1rem 0 0.65rem;
+  font-family: var(--vocs-font-family-mono, ui-monospace, monospace);
+  font-size: 0.8125rem;
+}
+
+.anatomy-files-root {
+  margin: 0 0 0.5rem;
+  padding: 0 1.25rem;
+  color: var(--vocs-color-text2);
+}
+
+.anatomy-files-list {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+/* Rows span the full panel width so the active highlight reads as a band, the way
+   a selected row does in an editor's file tree. */
+.anatomy-file {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 0.45rem 1.25rem 0.45rem 2rem;
+  color: var(--deployoor-fg);
+  transition:
+    background 0.3s ease,
+    opacity 0.3s ease;
+}
+
+/* min-width: 0 is what actually lets the ellipsis happen: a flex item defaults to
+   min-width: auto and so refuses to shrink below its content, and the longest path here
+   (deployments/<chainId>-<network>/Counter.json) is one unbreakable run. */
+.anatomy-file-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.anatomy-file-note {
+  flex: none;
+  font-size: 0.75rem;
+  color: var(--vocs-color-text3);
+}
+
+/* Unmounted (prerender, JS off): every row listed, none dimmed. Once mounted the
+   list accumulates — rows past the active step are not there yet. */
+.anatomy[data-mounted="true"] .anatomy-file[data-state="ahead"] {
+  display: none;
+}
+
+.anatomy-file[data-state="active"] {
+  background: color-mix(in srgb, var(--deployoor-fg) 8%, transparent);
+}
+
+.anatomy[data-mounted="true"] .anatomy-file[data-state="active"] {
+  animation: anatomy-file-in 0.35s ease;
+}
+
+@keyframes anatomy-file-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.25rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.anatomy-code {
+  margin: 0;
+  padding: 1.25rem;
+  /* min-height: 0 so this flex child may shrink below its content and scroll instead of
+     forcing the panel taller than the viewport. */
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  border-top: 1px solid var(--deployoor-border);
+  /* Mixed against the panel's own surface rather than the page background, so the
+     code area reads as a slightly deeper shade of the panel in both themes instead
+     of jumping to the page's green in light mode. */
+  background: color-mix(in srgb, var(--deployoor-fg) 5%, var(--deployoor-surface));
+}
+
+/* Vocs styles inline <code> with horizontal padding and a background. Both have to go
+   here: the element is `display: inline` with `white-space: pre`, so that padding lands
+   on the first line only and reads as a phantom indent on line 1 of every snippet. */
+.anatomy-code code {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--vocs-font-family-mono, ui-monospace, monospace);
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  color: var(--deployoor-fg);
+  white-space: pre;
+}
+
+/* Token colours (see src/lib/highlight.ts). Light theme leans on dark, saturated
+   hues because the page background is a light green — bright syntax colours that
+   work on a dark editor background wash out on it. */
+.tok-keyword {
+  color: #b3242f;
+}
+
+.tok-string {
+  color: #0a3069;
+}
+
+.tok-number {
+  color: #0550ae;
+}
+
+.tok-fn {
+  color: #7a3ec8;
+}
+
+.tok-property {
+  color: #0f5132;
+}
+
+.tok-comment {
+  color: color-mix(in srgb, var(--deployoor-fg) 50%, transparent);
+}
+
+:root[data-vocs-theme="dark"] .tok-keyword {
+  color: #ff7b9c;
+}
+
+:root[data-vocs-theme="dark"] .tok-string {
+  color: #9ae88a;
+}
+
+:root[data-vocs-theme="dark"] .tok-number {
+  color: #ffab70;
+}
+
+:root[data-vocs-theme="dark"] .tok-fn {
+  color: #c8a2ff;
+}
+
+:root[data-vocs-theme="dark"] .tok-property {
+  color: #79c0ff;
+}
+
+:root[data-vocs-theme="dark"] .tok-comment {
+  color: color-mix(in srgb, var(--deployoor-fg) 45%, transparent);
+}
+
+/* The inline per-step code only exists for the one-column layout. */
+.anatomy-step-code {
+  display: none;
+}
+
+/* One column. The panel cannot follow the reader here — Vocs applies overflow-x to its
+   content wrapper below md, and an ancestor with a non-visible overflow disables sticky
+   positioning — so nothing is pinned. Instead the panel becomes a static map of the whole
+   project at the top (every file listed, nothing to reveal), and each step carries its own
+   code inline. Same material, no scroll choreography to depend on. */
+@media (max-width: 900px) {
+  .anatomy-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    /* The base rule's `start` would size each item to its own content in a column flex
+       container, letting the panel's longest path set the width for the whole section. */
+    align-items: stretch;
+  }
+
+  .anatomy-panel {
+    position: static;
+    order: -1;
+    /* The base rule sets `start` so the grid layout keeps the panel content-height for
+       sticky to travel; here it would instead size the panel to its widest path. */
+    align-self: stretch;
+  }
+
+  .anatomy-panel .anatomy-code {
+    display: none;
+  }
+
+  /* Show the full list: with no active step to track, a partial list would just look truncated. */
+  .anatomy[data-mounted="true"] .anatomy-file[data-state="ahead"] {
+    display: flex;
+  }
+
+  .anatomy-file[data-state="active"] {
+    background: none;
+  }
+
+  .anatomy[data-mounted="true"] .anatomy-file[data-state="active"] {
+    animation: none;
+  }
+
+  .anatomy-step {
+    min-height: 0;
+    padding-bottom: 3rem;
+  }
+
+  .anatomy[data-mounted="true"] .anatomy-step[data-active="false"] {
+    opacity: 1;
+  }
+
+  .anatomy-step-code {
+    display: block;
+    margin-top: 1.5rem;
+    overflow: hidden;
+    border: 1px solid var(--deployoor-border);
+    border-radius: 0.6rem;
+  }
+
+  .anatomy-step-code .anatomy-code {
+    border-top: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anatomy-step,
+  .anatomy-file {
+    transition: none;
+  }
+
+  .anatomy[data-mounted="true"] .anatomy-file[data-state="active"] {
+    animation: none;
+  }
 }

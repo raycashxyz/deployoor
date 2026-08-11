@@ -1,5 +1,6 @@
 import { CopyBlock } from "./CopyBlock";
 import { WalletStrip } from "./WalletStrip";
+import { ProjectAnatomy } from "./ProjectAnatomy";
 import { Link } from "vocs";
 
 type TabOption = {
@@ -78,14 +79,16 @@ export function Landing() {
         a viem client, so your scripts, tests, and app share the same typed objects.
       </p>
 
+      <div className="landing-hero-command">
+        <CopyBlock code="npx deployoor generate" />
+      </div>
+
       <WalletStrip />
+
+      <ProjectAnatomy />
 
       <div className="landing-commands">
         <TabbedCommands name="install" label="Install" options={INSTALL_OPTIONS} />
-        <div className="landing-command">
-          <span className="landing-command-label">Init</span>
-          <CopyBlock code="npx deployoor init" />
-        </div>
         <TabbedCommands name="generate" label="Generate" options={GENERATE_OPTIONS} />
       </div>
 
