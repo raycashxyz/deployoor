@@ -215,6 +215,38 @@ export default defineConfig({
   ],
 });`,
   },
+  {
+    title: "And when you want to change something, there's",
+    file: "deployoor.config.ts",
+    blurb:
+      "Only if you need it — every option has a default, which is why it has not appeared until now. It is where you move folders, and where you add **plugins**: verifiers that publish your source to an explorer, and notifiers that tell your team a deploy happened.",
+    link: { href: "/guides/verify", label: "Verify contracts" },
+    code: `import { defineConfig } from "deployoor";
+import { etherscan } from "@deployoor/etherscan";
+import { sourcify } from "@deployoor/sourcify";
+import { blockscout } from "@deployoor/blockscout";
+import { routescan } from "@deployoor/routescan";
+import { slack } from "@deployoor/slack";
+
+export default defineConfig({
+  // folders, only if yours are not the defaults
+  out: "./generated/deployers",
+  deploymentsPath: "./records",
+
+  plugins: [
+    // one Etherscan key covers every chain it supports
+    etherscan({ apiKey: process.env.ETHERSCAN_API_KEY }),
+    // keyless, and not owned by any explorer
+    sourcify(),
+    // Blockscout runs per chain, so name the instance
+    blockscout({ instanceUrl: "https://eth-sepolia.blockscout.com" }),
+    // mainnet vs testnet is worked out from the chain id
+    routescan(),
+    // and tell the team it happened
+    slack({ webhook: process.env.SLACK_WEBHOOK }),
+  ],
+});`,
+  },
 ];
 
 const FILES: readonly FileRow[] = [
@@ -229,6 +261,7 @@ const FILES: readonly FileRow[] = [
   { path: "deployments/11155111-sepolia/Counter.json", appearsAt: 5 },
   { path: "test/counter.test.ts", appearsAt: 6, note: "Optional" },
   { path: "wagmi.config.ts", appearsAt: 7, note: "Optional" },
+  { path: "deployoor.config.ts", appearsAt: 8, note: "Optional" },
 ];
 
 const fileState = (file: FileRow, active: number): "active" | "seen" | "ahead" => {
