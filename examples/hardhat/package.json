@@ -1,8 +1,8 @@
 {
   "name": "@example/hardhat",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "private": true,
-  "description": "deployoor on a Hardhat project: compile \u2192 auto-generate typed deployers \u2192 deploy, recorded to deployments/, then consumed as typed contracts via @wagmi/cli. Also tests on an in-memory EVM.",
+  "description": "deployoor on a Hardhat project: compile → auto-generate typed deployers → deploy, recorded to deployments/, then consumed as typed contracts via @wagmi/cli. Also tests on an in-memory EVM.",
   "scripts": {
     "generate": "hardhat compile",
     "deploy": "tsx --env-file-if-exists=.env scripts/deploy.ts",
