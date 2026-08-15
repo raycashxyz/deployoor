@@ -34,10 +34,17 @@ nothing is clipped. Re-measure after replacing any file; several vendor exports 
 
 ## Tools
 
-| File                | Source                                                                                        | Licence / notes                                                                             |
-| ------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `tools/hardhat.svg` | [vscode-icons](https://github.com/vscode-icons/vscode-icons) `file-type-hardhat`, via iconify | MIT, author Roberto Huertas (attribution kept inside the file). Cropped to ink.             |
-| `tools/rocketh.svg` | <https://rocketh.dev/logo.svg>                                                                | rocketh project asset. Inkscape editor metadata stripped, viewBox widened to stop clipping. |
+| File                | Source                                                                                        | Licence / notes                                                                                                                                                                                           |
+| ------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tools/hardhat.svg` | [vscode-icons](https://github.com/vscode-icons/vscode-icons) `file-type-hardhat`, via iconify | MIT, author Roberto Huertas (attribution kept inside the file). Cropped to ink. The Ethereum diamond is a **full** alpha knockout — see the comment in the file for why partial alpha looked rasterised.  |
+| `tools/rocketh.svg` | <https://rocketh.dev/logo.svg>                                                                | rocketh project asset. Inkscape editor metadata stripped, viewBox widened to stop clipping.                                                                                                               |
+| `tools/vitest.svg`  | <https://vitest.dev/assets/vitest-light.BeSPX0d3.svg>                                         | Vitest project asset. Decorative blurred-gradient group removed (invisible as a silhouette), fills → `currentColor`, frame squared around the ink.                                                        |
+| `tools/jest.svg`    | The jestjs.io mark                                                                            | Jest project asset, fill → `currentColor`.                                                                                                                                                                |
+| `tools/wagmi.svg`   | <https://wagmi.sh/favicon.svg>                                                                | wagmi project asset. Favicon padding replaced with a square viewBox centred on the ink, fill → `currentColor`.                                                                                            |
+| `tools/foundry.png` | <https://www.getfoundry.sh/foundry-logo.png>                                                  | No SVG published. Trimmed, squared, downscaled to 96px (it renders at ~12px), and the opaque white **inside** the emblem made transparent — a mask reads alpha, so opaque white rendered as a solid disc. |
+| `tools/viem.png`    | <https://viem.sh/icon-light.png>                                                              | No SVG published. Trimmed to ink, squared, and downscaled to 96px (it renders at ~12px).                                                                                                                  |
+
+The two PNGs work because a CSS mask reads only the alpha channel; their own colours never render.
 
 Hardhat's mark covers both the Hardhat and Hardhat Ignition comparison pages.
 

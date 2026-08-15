@@ -27,7 +27,7 @@ const ALSO = "AWS KMS, Google Cloud KMS, Fireblocks, Ledger, or any EIP-1193 pro
 export const WalletStrip = ({ heading = "Works with any viem-compatible wallet" }: { heading?: string }) => {
   return (
     <section className="wallet-strip" aria-label={heading}>
-      <p className="wallet-strip-heading">{heading}</p>
+      <p className="wallet-strip-heading hairline-label">{heading}</p>
       <ul className="wallet-strip-list">
         {WORDMARKS.map((wordmark) => (
           <li key={wordmark.slug} className="wallet-strip-item">

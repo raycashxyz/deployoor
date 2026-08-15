@@ -7,13 +7,20 @@
   --deployoor-surface: #ffffff;
   --deployoor-border: color-mix(in srgb, var(--deployoor-fg) 12%, transparent);
 
+  /* One curve for every reveal and nudge. Expo-out settles fast then eases the last few
+     pixels, which is what keeps small motion from reading as animation. */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
   --vocs-color-accent: var(--deployoor-fg);
   --vocs-color-background: var(--deployoor-bg);
   --vocs-color-background-primary: var(--deployoor-bg);
   --vocs-color-background2: var(--deployoor-bg-muted);
   --vocs-color-text: var(--deployoor-fg);
   --vocs-color-text2: color-mix(in srgb, var(--deployoor-fg) 72%, transparent);
-  --vocs-color-text3: color-mix(in srgb, var(--deployoor-fg) 55%, transparent);
+  /* 62%, not 55%: on the mint page background 55% measures 3.84:1 — under the 4.5:1 WCAG AA
+     needs for small text (the topbar nav, hairline labels, and colophon all sit on it). 62%
+     measures 4.74:1. The dark theme's 58% already measures 5.5:1 on ink, so it stays. */
+  --vocs-color-text3: color-mix(in srgb, var(--deployoor-fg) 62%, transparent);
   --vocs-color-heading: var(--deployoor-fg);
   --vocs-color-border: var(--deployoor-border);
 }
@@ -36,6 +43,13 @@
   --vocs-color-border: var(--deployoor-border);
 }
 
+/* Selecting text swaps the site's two colours — the whole palette is that pair, so the
+   selection needs no third colour to stay on brand in either theme. */
+::selection {
+  background: var(--deployoor-fg);
+  color: var(--deployoor-bg);
+}
+
 /* Landing page (viem-style minimal home) */
 
 .landing {
@@ -49,41 +63,220 @@
   background: var(--deployoor-bg);
 }
 
-.landing-hero {
-  width: min(720px, 100%);
-  margin: 1rem 0 1.5rem;
+/* Whisper-header: the layout hides Vocs' top nav, so this is the only path to the docs
+   above the fold. Mono and muted so it reads as chrome, not content. Deliberately not part
+   of the enter stagger — navigation that fades in is navigation you cannot click yet. */
+.landing-topbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  align-items: center;
+  justify-content: space-between;
+  width: min(72rem, 100%);
+  font-family: var(--vocs-font-family-mono, ui-monospace, monospace);
+  font-size: 0.8125rem;
 }
 
-.landing-hero-img {
+.landing-topbar-brand {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--deployoor-fg);
+  text-decoration: none;
+}
+
+.landing-topbar-logo {
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 0.3rem;
+}
+
+/* Theme-paired images: each theme shows its own file, nothing is recoloured. */
+.landing-logo-light {
+  display: block;
+}
+
+.landing-logo-dark {
+  display: none;
+}
+
+:root[data-vocs-theme="dark"] .landing-logo-light {
+  display: none;
+}
+
+:root[data-vocs-theme="dark"] .landing-logo-dark {
+  display: block;
+}
+
+.landing-topbar-nav {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.landing-topbar-nav a {
+  color: var(--vocs-color-text3);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.landing-topbar-nav a:hover {
+  color: var(--deployoor-fg);
+}
+
+.landing-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(52rem, 100%);
+  padding: 1.5rem 0 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Visually hidden, still read: the h1 for readers and crawlers the hero art cannot reach. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The brand art. Relative so the stars can sit on its dot matrix. */
+.landing-hero-visual {
+  position: relative;
+  width: min(680px, 100%);
+  margin-bottom: 1.5rem;
+}
+
+/* No `display` here — the .landing-logo-light/-dark pair owns it, and a compound selector
+   (0-1-1) would silently outrank the swap classes (0-1-0) and show both themes' art. */
+.landing-hero-visual img {
   width: 100%;
   height: auto;
-  display: block;
   border-radius: 0.75rem;
 }
 
-.landing-hero-light {
-  display: block;
-}
-
-.landing-hero-dark {
+/* Four brighter dots over the art's matrix that only exist at night — the dark-mode-stars
+   trick. Hidden in light, twinkling on offset phases in dark. Positioned over the corner
+   matrix fields of the artwork so they read as part of it. */
+.landing-star {
   display: none;
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--deployoor-fg);
 }
 
-:root[data-vocs-theme="dark"] .landing-hero-light {
-  display: none;
-}
-
-:root[data-vocs-theme="dark"] .landing-hero-dark {
+:root[data-vocs-theme="dark"] .landing-star {
   display: block;
+  animation: star-twinkle 5.5s ease-in-out infinite;
+}
+
+.landing-star:nth-of-type(1) {
+  top: 18%;
+  left: 6%;
+  animation-delay: 1.2s;
+}
+
+.landing-star:nth-of-type(2) {
+  top: 68%;
+  left: 11%;
+  animation-delay: 3.1s;
+}
+
+.landing-star:nth-of-type(3) {
+  top: 26%;
+  right: 7%;
+  animation-delay: 4.3s;
+}
+
+.landing-star:nth-of-type(4) {
+  top: 60%;
+  right: 12%;
+  animation-delay: 2.2s;
+}
+
+@keyframes star-twinkle {
+  0%,
+  100% {
+    opacity: 0.95;
+  }
+
+  50% {
+    opacity: 0.2;
+  }
+}
+
+/* Above-the-fold blocks rise in once, 60ms apart. Only opacity and transform, so nothing
+   reflows; `both` holds the pre-delay frames at opacity 0 so the stagger never flashes.
+   No `to` frame on purpose: the animation lands on each element's own computed style, so
+   the lead settles at its resting 0.92 opacity instead of a hard-coded 1. Scoped to
+   .landing — the wallet strip also appears on docs pages, where entering content should
+   just be there. */
+@keyframes landing-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.landing-hero-visual,
+.landing-lead,
+.landing-hero-command,
+.landing-compat,
+.landing-hero-links,
+.landing .wallet-strip {
+  animation: landing-rise 0.5s var(--ease-out-expo) both;
 }
 
 .landing-lead {
-  max-width: 36rem;
+  animation-delay: 60ms;
+}
+
+.landing-hero-command {
+  animation-delay: 120ms;
+}
+
+.landing-compat {
+  animation-delay: 150ms;
+}
+
+.landing-hero-links {
+  animation-delay: 190ms;
+}
+
+.landing .wallet-strip {
+  animation-delay: 240ms;
+}
+
+.landing-lead {
+  max-width: 38rem;
   margin: 0 0 1.75rem;
   font-size: 1.125rem;
   line-height: 1.6;
   color: var(--deployoor-fg);
   opacity: 0.92;
+  text-wrap: balance;
+}
+
+/* The stack answer, straight under the command: mono, quiet, scannable. */
+.landing-compat {
+  margin: 0.85rem 0 0;
+  font-family: var(--vocs-font-family-mono, ui-monospace, monospace);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  color: var(--vocs-color-text3);
+}
+
+.landing-hero-links {
+  margin-top: 1.6rem;
 }
 
 /* Hero command: the one line to run first, styled as a terminal prompt (viem/eve-style focal CTA). */
@@ -105,6 +298,27 @@
 .landing-hero-command .landing-command-row code::before {
   content: "$ ";
   opacity: 0.45;
+}
+
+/* A block caret after the command, blinking like the prompt it is. `step-end` snaps
+   between on and off — a terminal caret does not fade, and easing it would make this
+   read as web animation instead of a cursor. Pseudo-element, so the copied text stays
+   exactly the command. */
+.landing-hero-command .landing-command-row code::after {
+  content: "";
+  display: inline-block;
+  width: 0.55ch;
+  height: 1.05em;
+  margin-left: 0.2ch;
+  vertical-align: text-bottom;
+  background: currentColor;
+  animation: caret-blink 1.2s step-end infinite;
+}
+
+@keyframes caret-blink {
+  50% {
+    opacity: 0;
+  }
 }
 
 .landing-commands {
@@ -292,11 +506,41 @@
   overflow-x: auto;
 }
 
+/* The social links have a focus ring; the button people actually tab to needs one too. */
+.landing-command-row:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+/* Multi-line variant for the outro quickstart: the snippet keeps its line breaks and the
+   Copy affordance rides the first line instead of centring against three. */
+.landing-command-multi {
+  align-items: flex-start;
+}
+
+.landing-command-multi code {
+  white-space: pre;
+  text-align: left;
+  line-height: 1.75;
+}
+
 .landing-command-action {
   flex-shrink: 0;
   font-size: 0.75rem;
   font-weight: 600;
   opacity: 0.65;
+}
+
+/* One small settle when the copy lands — confirmation you feel more than see. */
+.landing-command-row[data-copied="true"] .landing-command-action {
+  animation: action-pop 0.3s var(--ease-out-expo);
+}
+
+@keyframes action-pop {
+  from {
+    opacity: 0.3;
+    transform: scale(0.85);
+  }
 }
 
 .landing-links {
@@ -393,6 +637,95 @@
 
 .landing-link:hover {
   opacity: 1;
+}
+
+/* Closing beat: mirrors the hero — a claim, the quickstart, a way in — so the tour ends
+   on a next step instead of a bare button. */
+.landing-outro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(46rem, 100%);
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.landing-outro-kicker {
+  width: min(24rem, 100%);
+  margin: 0 auto 1.1rem;
+}
+
+.landing-outro-title {
+  margin: 0 0 1.6rem;
+  font-size: 1.875rem;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  color: var(--deployoor-fg);
+  text-wrap: balance;
+}
+
+.landing-outro-command {
+  width: min(30rem, 100%);
+  margin-bottom: 1.75rem;
+}
+
+/* Quiet secondary next to the solid CTA — the anatomy-step-link pattern at CTA size. */
+.landing-ghost-link {
+  display: inline-flex;
+  gap: 0.3em;
+  align-items: baseline;
+  font-size: 0.9375rem;
+  font-weight: 550;
+  color: var(--deployoor-fg);
+  text-decoration: none;
+}
+
+.landing-ghost-link > span {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, var(--deployoor-fg) 35%, transparent);
+}
+
+.landing-ghost-link::after {
+  content: "→";
+  font-weight: 400;
+  transition: transform 0.25s var(--ease-out-expo);
+}
+
+.landing-ghost-link:hover > span {
+  text-decoration-color: currentColor;
+}
+
+.landing-ghost-link:hover::after {
+  transform: translateX(0.15em);
+}
+
+/* Colophon: one dashed hairline and one mono whisper to end the page. Dashed needs a few
+   more percent than the solid borders — the gaps thin it out optically. */
+.landing-colophon {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 2rem;
+  align-items: baseline;
+  justify-content: space-between;
+  width: min(72rem, 100%);
+  margin-top: 4.5rem;
+  padding-top: 1.35rem;
+  border-top: 1px dashed color-mix(in srgb, var(--deployoor-fg) 22%, transparent);
+  font-family: var(--vocs-font-family-mono, ui-monospace, monospace);
+  font-size: 0.75rem;
+  color: var(--vocs-color-text3);
+}
+
+@media (max-width: 640px) {
+  .landing-hero {
+    padding-top: 0.75rem;
+  }
+
+  .landing-colophon {
+    justify-content: center;
+    text-align: center;
+  }
 }
 
 /* Blank layout: full-bleed landing background */
@@ -558,13 +891,33 @@
   margin: 2rem 0 2.5rem;
 }
 
-.wallet-strip-heading {
-  margin: 0;
-  font-size: 0.8125rem;
+/* A section's voice: a small tracked-out mono label between two hairlines that take up
+   the slack. The rules are flex items with a zero basis, so on narrow screens they give
+   way before the words do and simply vanish when there is no room. */
+.hairline-label {
+  display: flex;
+  gap: 1.25rem;
+  align-items: center;
+  font-family: var(--vocs-font-family-mono, ui-monospace, monospace);
+  font-size: 0.6875rem;
   font-weight: 500;
   color: var(--vocs-color-text3);
   text-align: center;
-  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.hairline-label::before,
+.hairline-label::after {
+  content: "";
+  flex: 1 1 0;
+  height: 1px;
+  background: var(--deployoor-border);
+}
+
+.wallet-strip-heading {
+  width: min(38rem, 100%);
+  margin: 0;
 }
 
 .wallet-strip-list {
@@ -583,13 +936,14 @@
   align-items: center;
 }
 
+/* No extra opacity on top of text3 — that stacked to ~50% of the foreground, which fails
+   the 4.5:1 the token was just raised to clear. */
 .wallet-strip-also {
   max-width: 30rem;
   margin: 0;
   font-size: 0.75rem;
   color: var(--vocs-color-text3);
   text-align: center;
-  opacity: 0.8;
 }
 
 /* Each logo carries its own height, because matching bounding boxes does not
@@ -705,12 +1059,14 @@
   font-weight: 650;
   letter-spacing: -0.015em;
   color: var(--deployoor-fg);
+  text-wrap: balance;
 }
 
 .anatomy-sub {
   margin: 0;
   font-size: 1.0625rem;
   color: var(--vocs-color-text2);
+  text-wrap: balance;
 }
 
 .anatomy-grid {
@@ -748,7 +1104,9 @@
   font-family: var(--vocs-font-family-mono, ui-monospace, monospace);
   font-size: 1.5rem;
   font-weight: 400;
-  color: color-mix(in srgb, var(--deployoor-fg) 45%, transparent);
+  /* 52%, not 45%: at 24px this is WCAG "large text" needing 3:1 — 45% measures 2.85:1 on the
+     mint background, 52% measures 3.50:1. */
+  color: color-mix(in srgb, var(--deployoor-fg) 52%, transparent);
   font-variant-numeric: tabular-nums;
 }
 
@@ -782,6 +1140,7 @@
   font-size: 1.0625rem;
   line-height: 1.6;
   color: var(--vocs-color-text2);
+  text-wrap: pretty;
 }
 
 /* Inline emphasis inside a blurb. Bold carries the one claim that matters; code marks a
@@ -864,14 +1223,16 @@
   mask-image: url("/icons/tools/hardhat.svg");
 }
 
+/* Foundry and viem ship no usable SVG mark, so these two masks are trimmed PNGs — a mask
+   only reads the alpha channel, so the raster's own colours are irrelevant. */
 .tool-chip-icon[data-tool="foundry"]::before {
-  -webkit-mask-image: url("/icons/tools/foundry.svg");
-  mask-image: url("/icons/tools/foundry.svg");
+  -webkit-mask-image: url("/icons/tools/foundry.png");
+  mask-image: url("/icons/tools/foundry.png");
 }
 
 .tool-chip-icon[data-tool="viem"]::before {
-  -webkit-mask-image: url("/icons/tools/viem.svg");
-  mask-image: url("/icons/tools/viem.svg");
+  -webkit-mask-image: url("/icons/tools/viem.png");
+  mask-image: url("/icons/tools/viem.png");
 }
 
 .tool-chip-icon[data-tool="wagmi"]::before {
@@ -889,10 +1250,45 @@
   mask-image: url("/icons/tools/vitest.svg");
 }
 
+.tool-chip-icon[data-tool="jest"]::before {
+  -webkit-mask-image: url("/icons/tools/jest.svg");
+  mask-image: url("/icons/tools/jest.svg");
+}
+
 .tool-chip-label {
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--vocs-color-text2);
+}
+
+/* Step 01's chips are a control, not a citation: radio buttons in the same chip anatomy,
+   with a filled active state so the selected toolchain reads at a glance. */
+.tool-chip-switch {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.tool-chip-switch:hover {
+  border-color: color-mix(in srgb, var(--deployoor-fg) 28%, transparent);
+}
+
+.tool-chip-switch:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.tool-chip-switch[data-active="true"] {
+  background: color-mix(in srgb, var(--deployoor-fg) 10%, transparent);
+  border-color: color-mix(in srgb, var(--deployoor-fg) 30%, transparent);
+}
+
+.tool-chip-switch[data-active="true"] .tool-chip-label {
+  font-weight: 600;
+  color: var(--deployoor-fg);
 }
 
 /* "Read more" pointer into the docs. */
@@ -919,10 +1315,15 @@
 .anatomy-step-link::after {
   content: "→";
   font-weight: 400;
+  transition: transform 0.25s var(--ease-out-expo);
 }
 
 .anatomy-step-link:hover > span {
   text-decoration-color: currentColor;
+}
+
+.anatomy-step-link:hover::after {
+  transform: translateX(0.15em);
 }
 
 .anatomy-step-wallets {
@@ -1029,7 +1430,7 @@
 }
 
 .anatomy[data-mounted="true"] .anatomy-file[data-state="active"] {
-  animation: anatomy-file-in 0.35s ease;
+  animation: anatomy-file-in 0.45s var(--ease-out-expo);
 }
 
 @keyframes anatomy-file-in {
@@ -1197,6 +1598,31 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .landing-hero-visual,
+  .landing-lead,
+  .landing-hero-command,
+  .landing-compat,
+  .landing-hero-links,
+  .landing .wallet-strip,
+  .landing-command-row[data-copied="true"] .landing-command-action {
+    animation: none;
+  }
+
+  /* The stars stay lit rather than twinkling — presence without motion. */
+  :root[data-vocs-theme="dark"] .landing-star {
+    animation: none;
+  }
+
+  /* The caret stays — solid. It is the blink that is motion, not the cursor. */
+  .landing-hero-command .landing-command-row code::after {
+    animation: none;
+  }
+
+  .anatomy-step-link::after,
+  .landing-ghost-link::after {
+    transition: none;
+  }
+
   .anatomy-step,
   .anatomy-file {
     transition: none;

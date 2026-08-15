@@ -6,7 +6,8 @@ import { Link } from "vocs";
 import { WORDMARKS } from "./WalletStrip";
 
 /**
- * Scroll-driven tour of a deployoor project, in the order you add the files.
+ * Scroll-driven tour of deployoor plugged into the project you already have, in the order the
+ * files arrive.
  *
  * The steps scroll on the left as plain prose; one sticky panel on the right holds a file list that
  * accumulates as you go, with the current file highlighted and its source shown underneath. Files
@@ -30,16 +31,19 @@ type Tool = { readonly label: string; readonly icon?: true };
 
 const TOOLS = {
   hardhat: { label: "Hardhat", icon: true },
-  foundry: { label: "Foundry" },
-  viem: { label: "viem" },
-  wagmi: { label: "wagmi" },
+  foundry: { label: "Foundry", icon: true },
+  viem: { label: "viem", icon: true },
+  wagmi: { label: "wagmi", icon: true },
   tevm: { label: "tevm" },
-  vitest: { label: "Vitest" },
-  jest: { label: "Jest" },
+  vitest: { label: "Vitest", icon: true },
+  jest: { label: "Jest", icon: true },
 } satisfies Readonly<Record<string, Tool>>;
 
 /** The slugs `leverages` may name, so a typo is a build error rather than a chip that vanishes. */
 type ToolSlug = keyof typeof TOOLS;
+
+/** The starting project step 01 lets you pick; the tour's toolchain-specific bits follow it. */
+type Toolchain = "hardhat" | "foundry";
 
 /** The only flag worth carrying here: whether you need the file at all. */
 type Note = "Optional";
@@ -47,7 +51,9 @@ type Note = "Optional";
 type Step = {
   /** Heading prefix; `file` is appended as an inline code chip, matching "Choose your model in …". */
   title: string;
-  file: string;
+  /** `null` when the step is not about one file — the title then renders with no chip, so it
+   *  must read as a complete phrase on its own. */
+  file: string | null;
   /** Supports `**bold**` and `` `code` `` — see `renderInline`. */
   blurb: string;
   /** Tools this step leans on, drawn as small logo chips. Keyed to `TOOLS`, so a typo will not build. */
@@ -58,6 +64,8 @@ type Step = {
   link?: { readonly href: string; readonly label: string };
   /** Omitted when the panel should show only the file list (step 1 has no source worth reading). */
   code?: string;
+  /** Render the Hardhat/Foundry switch under this step — its chips are the control. */
+  toolchainSwitch?: true;
 };
 
 type FileRow = {
@@ -79,21 +87,35 @@ const ROOT = "my-project/";
  */
 const ACTIVATION_LINE = 0.4;
 
-const STEPS: readonly Step[] = [
+/**
+ * The tour follows the toolchain picked in step 01. Only the starting files and the compile
+ * command differ between the two — everything deployoor adds is byte-identical, which is
+ * rather the point.
+ */
+const stepsFor = (toolchain: Toolchain): readonly Step[] => [
   {
     title: "Start with the project you have:",
-    file: "hardhat",
+    file: toolchain,
     blurb:
-      "Contracts in `contracts/`, config in `hardhat.config.js`, and the `artifacts/` that `hardhat compile` writes. **Nothing here changes.** A Foundry project works the same way from `out/`.",
-    leverages: ["hardhat", "foundry"],
+      toolchain === "hardhat"
+        ? "Contracts in `contracts/`, config in `hardhat.config.js`, and the `artifacts/` that `hardhat compile` writes. **Nothing here changes.**"
+        : "Contracts in `src/`, config in `foundry.toml`, and the `out/` that `forge build` writes. **Nothing here changes.**",
+    toolchainSwitch: true,
   },
   {
     title: "Run one command:",
     file: "deployoor generate",
     blurb:
       "It scans your repo and finds your compiled artifacts by reading your **Hardhat or Foundry config**, then writes one typed deployer per contract. Wherever your build output goes, it looks there.",
-    code: `# artifacts/ (or out/, or wherever your config points)
+    code:
+      toolchain === "hardhat"
+        ? `# artifacts/ — the path comes from your hardhat.config
 npx hardhat compile
+
+# → deployers/, one getOrDeploy per contract
+npx deployoor generate`
+        : `# out/ — the path comes from your foundry.toml
+forge build
 
 # → deployers/, one getOrDeploy per contract
 npx deployoor generate`,
@@ -135,12 +157,12 @@ const { contract, freshDeploy } = await getOrDeployCounter({
   args: [7n], // typed from the constructor
 });
 
-// contract is a viem contract: .read.* and .write.* now work.
-console.log(await contract.read.number()); // 7n
+// Say what happened: freshDeploy is true only when this
+// run actually broadcast a deploy transaction.
+console.log(freshDeploy ? "deployed" : "reused", contract.address);
 
-// true only when this call actually broadcast a deploy tx,
-// so one-time setup runs once and not on every run.
-if (freshDeploy) await contract.write.increment();`,
+// contract is a viem contract: .read.* and .write.* work.
+console.log(await contract.read.number()); // 7n`,
   },
   {
     title: "Run it like any other script:",
@@ -150,16 +172,18 @@ if (freshDeploy) await contract.write.increment();`,
     code: `# First run: deploys, then writes the record.
 $ npx tsx scripts/deploy.ts
 deployed 0x5FbDB2315678afecb367f032d93F642f64180aa3
+7n
 
 # Second run: reads the record, sends nothing.
 $ npx tsx scripts/deploy.ts
-reused 0x5FbDB2315678afecb367f032d93F642f64180aa3`,
+reused 0x5FbDB2315678afecb367f032d93F642f64180aa3
+7n`,
   },
   {
     title: "All deployments are recorded in",
     file: "deployments/",
     blurb:
-      "One JSON file per contract per chain, with the address, abi, constructor args, tx hash and compiler. Later runs read it to know **the contract already exists**, and `constructorArgs` is how a change to them is something deployoor can notice. `sourcesHash` pins the exact sources it was compiled from, which is what lets `deployoor verify` verify it on an explorer **long after the deploy**.",
+      "One JSON file per contract per chain — the **permanent record** of what is deployed where. It is how later runs find the contract, how your app talks to it, and how `deployoor verify` proves it on an explorer **long after the deploy**.",
     link: { href: "/concepts/deployment-records", label: "Deployment records" },
     code: `deployments/11155111-sepolia/Counter.json
 
@@ -173,10 +197,10 @@ reused 0x5FbDB2315678afecb367f032d93F642f64180aa3`,
 }`,
   },
   {
-    title: "Testing is the same call in",
-    file: "test/",
+    title: "Your tests can run standalone too",
+    file: null,
     blurb:
-      "The deployer is a plain function over viem clients, so it runs under **any test runner**: Vitest, Jest, `node:test`, or `bun test`. You do not boot a Hardhat or Foundry test environment, and an in-memory EVM means you do not start a node either.",
+      "`@deployoor/testing` bundles an **in-memory EVM** (tevm) exposed as plain viem clients, so tests run with no Hardhat test environment and no node to start — under **any runner**: Vitest, Jest, `node:test`, `bun test`.",
     leverages: ["vitest", "jest"],
     link: { href: "/guides/testing", label: "Testing guide" },
     code: `import { createTestClients } from "@deployoor/testing";
@@ -195,8 +219,8 @@ it("deploys with its constructor args", async () => {
 });`,
   },
   {
-    title: "And you can consume it anywhere, from",
-    file: "wagmi.config.ts",
+    title: "Consume it anywhere, via the wagmi plugin",
+    file: null,
     blurb:
       "Your frontend reads **the same records** your deploy script wrote, through `@wagmi/cli`. Nothing is copied by hand, so an address cannot go stale in one repo while it is correct in the other.",
     leverages: ["wagmi", "viem"],
@@ -219,7 +243,7 @@ export default defineConfig({
     title: "And when you want to change something, there's",
     file: "deployoor.config.ts",
     blurb:
-      "Only if you need it — every option has a default, which is why it has not appeared until now. It is where you move folders, and where you add **plugins**: verifiers that publish your source to an explorer, and notifiers that tell your team a deploy happened.",
+      "Every option has good defaults, but if you need custom configs or want to extend functionality via plugins, the `deployoor.config.ts` file is your friend.",
     link: { href: "/guides/verify", label: "Verify contracts" },
     code: `import { defineConfig } from "deployoor";
 import { etherscan } from "@deployoor/etherscan";
@@ -249,10 +273,10 @@ export default defineConfig({
   },
 ];
 
-const FILES: readonly FileRow[] = [
-  { path: "hardhat.config.js", appearsAt: 0 },
-  { path: "contracts/Counter.sol", appearsAt: 0 },
-  { path: "artifacts/", appearsAt: 0 },
+const filesFor = (toolchain: Toolchain): readonly FileRow[] => [
+  { path: toolchain === "hardhat" ? "hardhat.config.js" : "foundry.toml", appearsAt: 0 },
+  { path: toolchain === "hardhat" ? "contracts/Counter.sol" : "src/Counter.sol", appearsAt: 0 },
+  { path: toolchain === "hardhat" ? "artifacts/" : "out/", appearsAt: 0 },
   // Deliberately one row, not the whole emit. `generate` also writes `deployers/types/<Name>.ts` and
   // an `index.ts` barrel, but this is the first thing a visitor ever reads about deployoor and the
   // file that matters is the deployer. The full tree is in concepts/version-control.
@@ -309,6 +333,32 @@ const ToolChips = ({ slugs }: { slugs: readonly ToolSlug[] }) => {
   );
 };
 
+/**
+ * Step 01's chips double as the toolchain control: same anatomy as the passive chips, but
+ * as radio buttons, so picking Foundry re-flavours the starting files and the compile
+ * command while everything deployoor adds stays identical.
+ */
+const ToolchainSwitch = ({ value, onChange }: { value: Toolchain; onChange: (next: Toolchain) => void }) => {
+  return (
+    <div className="anatomy-tools" role="radiogroup" aria-label="Project toolchain">
+      {(["hardhat", "foundry"] as const).map((slug) => (
+        <button
+          key={slug}
+          type="button"
+          role="radio"
+          aria-checked={value === slug}
+          className="tool-chip tool-chip-switch"
+          data-active={value === slug ? "true" : "false"}
+          onClick={() => onChange(slug)}
+        >
+          <span className="tool-chip-icon" data-tool={slug} aria-hidden="true" />
+          <span className="tool-chip-label">{TOOLS[slug].label}</span>
+        </button>
+      ))}
+    </div>
+  );
+};
+
 const Code = ({ code }: { code: string }) => {
   return (
     <pre className="anatomy-code">
@@ -326,6 +376,7 @@ const Code = ({ code }: { code: string }) => {
 export const ProjectAnatomy = () => {
   const [active, setActive] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const [toolchain, setToolchain] = useState<Toolchain>("hardhat");
   const stepsRef = useRef<(HTMLElement | null)[]>([]);
 
   useEffect(() => {
@@ -339,8 +390,8 @@ export const ProjectAnatomy = () => {
     // direction, recomputes the same answer from scratch.
     const compute = () => {
       const line = window.innerHeight * ACTIVATION_LINE;
-      // Reduced over the raw refs, not a filtered copy: `index` has to be the index into `STEPS`,
-      // and filtering first makes it an index into the filtered array. Those coincide only while
+      // Reduced over the raw refs, not a filtered copy: `index` has to be the index into the
+      // steps array, and filtering first makes it an index into the filtered array. Those coincide only while
       // every step renders, so a step rendered conditionally would silently select the wrong one.
       // The last step whose top has passed the line; index 0 until the first one reaches it.
       setActive(
@@ -373,24 +424,27 @@ export const ProjectAnatomy = () => {
     };
   }, []);
 
-  const step = STEPS[active] ?? STEPS[0];
+  const steps = stepsFor(toolchain);
+  const files = filesFor(toolchain);
+  const step = steps[active] ?? steps[0];
 
   return (
     <section
       className="anatomy"
-      aria-label="Anatomy of a deployoor project"
+      aria-label="Your project, with deployoor plugged in"
       data-mounted={mounted ? "true" : "false"}
     >
       <header className="anatomy-head">
-        <h2 className="anatomy-title">Anatomy of a deployoor project</h2>
+        <h2 className="anatomy-title">Your project, with deployoor plugged in</h2>
         <p className="anatomy-sub">From the project you already have to a typed, committed deployment.</p>
       </header>
 
       <div className="anatomy-grid">
         <ol className="anatomy-steps">
-          {STEPS.map((entry, index) => (
+          {steps.map((entry, index) => (
             <li
-              key={entry.file}
+              // Not keyed by `file` — that is null for steps that are not about one file.
+              key={entry.title}
               className="anatomy-step"
               data-index={index}
               data-active={index === active ? "true" : "false"}
@@ -400,7 +454,13 @@ export const ProjectAnatomy = () => {
             >
               <span className="anatomy-step-num">{String(index + 1).padStart(2, "0")}</span>
               <h3 className="anatomy-step-title">
-                {entry.title} <code>{entry.file}</code>
+                {entry.file === null ? (
+                  entry.title
+                ) : (
+                  <>
+                    {entry.title} <code>{entry.file}</code>
+                  </>
+                )}
               </h3>
               <p className="anatomy-step-blurb">{renderInline(entry.blurb)}</p>
               {entry.wallets ? (
@@ -418,6 +478,7 @@ export const ProjectAnatomy = () => {
                   ))}
                 </div>
               ) : null}
+              {entry.toolchainSwitch ? <ToolchainSwitch value={toolchain} onChange={setToolchain} /> : null}
               {entry.leverages ? <ToolChips slugs={entry.leverages} /> : null}
               {entry.link ? (
                 <Link to={entry.link.href} className="anatomy-step-link">
@@ -441,7 +502,7 @@ export const ProjectAnatomy = () => {
           <div className="anatomy-files">
             <p className="anatomy-files-root">{ROOT}</p>
             <ul className="anatomy-files-list">
-              {FILES.map((file) => (
+              {files.map((file) => (
                 <li key={file.path} className="anatomy-file" data-state={fileState(file, active)}>
                   <span className="anatomy-file-path">{file.path}</span>
                   {file.note ? <span className="anatomy-file-note">{file.note}</span> : null}
