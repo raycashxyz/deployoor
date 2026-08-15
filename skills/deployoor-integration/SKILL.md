@@ -19,8 +19,8 @@ Mental model: **artifacts → `deployoor generate` → typed `getOrDeploy<Name>`
 
 ```bash
 pnpm add -D deployoor viem tsx
-# optional verification / notification plugins:
-pnpm add -D @deployoor/etherscan @deployoor/sourcify @deployoor/slack
+# optional verification / notification plugins (pick what you need):
+pnpm add -D @deployoor/etherscan @deployoor/sourcify @deployoor/blockscout @deployoor/routescan @deployoor/slack
 # optional typed frontend access:
 pnpm add -D @wagmi/cli @deployoor/wagmi
 ```
@@ -42,7 +42,7 @@ export default defineConfig({
   include: ["Token", "Vault"], // default: every contract that has bytecode
   out: "./deployers", // where generated deployers are written (default)
   deploymentsPath: "./deployments", // where records are written/read (default)
-  plugins: [etherscan({ apiKey: process.env.ETHERSCAN_KEY! })], // optional
+  plugins: [etherscan({ apiKey: process.env.ETHERSCAN_KEY })], // optional — checked when a verification starts, not at config load
   onPluginError: "warn", // "warn" (default) keeps the run going; "throw" fails it
 });
 ```
@@ -141,7 +141,7 @@ Plugins are deploy-lifecycle hooks configured in `deployoor.config.ts`. `onContr
 await getOrDeployVault({ ...clients, args: [token.address], plugins: { etherscan: false } });
 ```
 
-Maintained plugins: `@deployoor/etherscan` (Etherscan V2 — one key works across every chain; point `apiUrl` at Blockscout/Routescan), `@deployoor/sourcify` (keyless), `@deployoor/slack`.
+Maintained plugins: `@deployoor/etherscan` (Etherscan V2 — one key works across every chain), `@deployoor/sourcify` (keyless), `@deployoor/blockscout` (any Blockscout instance — requires `instanceUrl`), `@deployoor/routescan` (mainnet/testnet worked out from the chain id), `@deployoor/slack`. The four verifiers also implement `onVerify`, so `npx deployoor verify` re-verifies recorded deployments after the fact with no recompile.
 
 ## Step 5 — Consume the contracts in a frontend (typed viem/wagmi)
 

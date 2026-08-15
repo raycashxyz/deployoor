@@ -4,19 +4,23 @@
 
 ### [`deployoor`](https://www.npmjs.com/package/deployoor)
 
-Deploy engine, codegen, and CLI (`init`, `generate`). Reads Hardhat/Foundry artifacts, emits typed deployers, records deploys to `deployments/`.
+Deploy engine, codegen, and CLI (`init`, `generate`, `verify`). Reads Hardhat/Foundry artifacts, emits typed deployers, records deploys to `deployments/`.
 
-Exports: `deployoor`, `deployoor/plugin`, `deployoor/generate`.
+Exports: `deployoor`, `deployoor/plugin`, `deployoor/generate` — the last is the programmatic `generateDeployers`, which is what `@deployoor/hardhat` runs after each compile.
 
 ## Plugins
 
 Lifecycle hooks — each peer-depends on `deployoor` and imports only `deployoor/plugin`.
 
-| Package                | npm                                                       | Description                                     |
-| ---------------------- | --------------------------------------------------------- | ----------------------------------------------- |
-| `@deployoor/etherscan` | [npm](https://www.npmjs.com/package/@deployoor/etherscan) | Etherscan V2 verification (one key, all chains) |
-| `@deployoor/sourcify`  | [npm](https://www.npmjs.com/package/@deployoor/sourcify)  | Sourcify v2 verification (keyless)              |
-| `@deployoor/slack`     | [npm](https://www.npmjs.com/package/@deployoor/slack)     | Slack notifications on deploy                   |
+| Package                 | npm                                                        | Description                                                |
+| ----------------------- | ---------------------------------------------------------- | ---------------------------------------------------------- |
+| `@deployoor/etherscan`  | [npm](https://www.npmjs.com/package/@deployoor/etherscan)  | Etherscan V2 verification (one key, all chains)            |
+| `@deployoor/sourcify`   | [npm](https://www.npmjs.com/package/@deployoor/sourcify)   | Sourcify v2 verification (keyless)                         |
+| `@deployoor/blockscout` | [npm](https://www.npmjs.com/package/@deployoor/blockscout) | Verification on any Blockscout instance                    |
+| `@deployoor/routescan`  | [npm](https://www.npmjs.com/package/@deployoor/routescan)  | Routescan verification (mainnet/testnet from the chain id) |
+| `@deployoor/slack`      | [npm](https://www.npmjs.com/package/@deployoor/slack)      | Slack notifications on deploy                              |
+
+All four verifiers implement [`onVerify`](/guides/plugins#onverify), so [`deployoor verify`](/reference/cli#verify) can replay them after the fact — see [Verify contracts](/guides/verify).
 
 ## Toolchain & consumption
 
@@ -43,6 +47,9 @@ pnpm add -D @deployoor/hardhat deployoor viem
 
 # wagmi consumption
 pnpm add -D @deployoor/wagmi @wagmi/cli
+
+# verification (pick your explorers)
+pnpm add -D @deployoor/etherscan @deployoor/sourcify @deployoor/blockscout @deployoor/routescan
 
 # testing
 pnpm add -D @deployoor/testing vitest

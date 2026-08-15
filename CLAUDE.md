@@ -26,13 +26,16 @@ North star: "contracts as plain TypeScript objects." On the deploy side, `getOrD
 
 ```text
 packages/
-  deployoor/            — the engine: codegen + CLI (`deployoor generate` / `deployoor init`) + the deploy pipeline. Exports `deployoor` (main), `deployoor/plugin` (the plugin SDK subpath), and `deployoor/generate` (the programmatic `generateDeployers`, used by `@deployoor/hardhat`).
+  deployoor/            — the engine: codegen + CLI (`deployoor init` / `generate` / `verify`) + the deploy pipeline. Exports `deployoor` (main), `deployoor/plugin` (the plugin SDK subpath), and `deployoor/generate` (the programmatic `generateDeployers`, used by `@deployoor/hardhat`).
   deployoor-wagmi/      — @deployoor/wagmi: a @wagmi/cli plugin sourcing contracts from deployments/
   deployoor-hardhat/    — @deployoor/hardhat: a Hardhat plugin that runs `generateDeployers` after each `hardhat compile` (NOT a deploy-lifecycle plugin — a Hardhat-native task hook; peer-deps `hardhat` + `deployoor`, imports `deployoor/generate`)
-  deployoor-etherscan/  — @deployoor/etherscan: Etherscan V2 verifier (one key, all chains; also Blockscout/Routescan via apiUrl)
+  deployoor-etherscan/  — @deployoor/etherscan: Etherscan V2 verifier (one key, all chains; `apiUrl` points it at any Etherscan-compatible endpoint)
   deployoor-sourcify/   — @deployoor/sourcify: Sourcify v2 verifier (keyless)
+  deployoor-blockscout/ — @deployoor/blockscout: Blockscout verifier (requires `instanceUrl` — Blockscout is self-hosted per chain, so no host table can be right; keyless, `apiKey` optional)
+  deployoor-routescan/  — @deployoor/routescan: Routescan verifier (mainnet/testnet index derived from viem's chain metadata, `network` overrides)
   deployoor-slack/      — @deployoor/slack: Slack notifier
   deployoor-testing/    — @deployoor/testing: createTestClients() (tevm as viem clients + an in-memory store) for node-free tests
+  fhevm-tevm-mocks/     — fhevm-tevm-mocks: tevm-native adapter for Zama FHEVM mock tests — ecosystem package, separate from the deploy core
 apps/docs/         — Vocs v2 documentation site for deployoor.dev
 examples/          — dogfood projects (hardhat, foundry); verified via each one's `e2e` script (needs the toolchain), kept out of the core CI sweep
 ```
@@ -102,12 +105,11 @@ The `@deployoor` npm org is **claimed**; all packages are `private: false`. Vers
 
 ## Status & next steps
 
-Early. Deploy core + plugin model + wagmi bridge are stabilizing. Foundry and Hardhat v2 work today; Hardhat v3 support is a priority compatibility item.
+Early. Deploy core, plugin model, verify-from-records, and the wagmi bridge are stabilizing. Foundry and Hardhat v2 **and v3** work today (`@deployoor/hardhat` covers both; v3 via `@deployoor/hardhat/v3`). The docs site is live at deployoor.dev (`apps/docs`, Vocs v2).
 
-- Docs site in `apps/` (vocs — the framework behind viem.sh/wagmi.sh — is the planned choice).
 - **A dry-run / plan mode.** `redeploymentStrategy: 'on-change'` is the default, so "what would this run redeploy, and why?" needs an answer that doesn't broadcast. Cheap to build: the decision is already a pure function of (record, artifact, args) — `diffIdentity` + `renderSummary` produce the whole report; only the deploy call has to be skipped.
 - **An on-chain existence check.** Nothing calls `eth_getCode`. A record that survives an `anvil` restart still reads as deployed, and `on-change` will reuse an address that holds no code. Wants a strategy or option (`redeployIfMissing`) rather than a silent default, since an RPC that lies would otherwise cause a redeploy.
-- **Verify from records.** The pinned `deployments/sources/<hash>.json` (content-addressed standard-json input, referenced by a record's `sourcesHash`) is written but nothing reads it yet — verification still happens through the deploy-time plugins. A `deployoor verify` that walks records + pinned sources is what makes the after-the-fact claim in the docs true.
+- **Verify's remaining edges.** `deployoor verify` shipped in 0.7 (walks records + the pinned `deployments/sources/<hash>.json`, submits through each plugin's `onVerify`) and has been exercised against live Sepolia through Etherscan, Blockscout, and Routescan. Still open: Sourcify's live acceptance is proven only against a mock `fetch`, and no verification status is recorded on the deployment.
 - More plugins as needed: lift Tenderly → `@deployoor/tenderly`; a gas/cost report; an `.env`/address-book writer (would exercise the `onGenerated` hook once wired).
 - A `createContracts({ client })` runtime helper was **deliberately rejected** — it would kill tree-shaking. The tree-shakeable path to viem-object ergonomics is per-contract generated factories, but `@wagmi/cli`'s per-export output already covers typed access.
 
