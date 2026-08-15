@@ -19,7 +19,7 @@ Mental model: **artifacts → `deployoor generate` → typed `getOrDeploy<Name>`
 
 ```bash
 pnpm add -D deployoor viem tsx
-# optional verification / notification plugins (pick what you need):
+# optional verification / notification plugins — every one; keep what you need:
 pnpm add -D @deployoor/etherscan @deployoor/sourcify @deployoor/blockscout @deployoor/routescan @deployoor/slack
 # optional typed frontend access:
 pnpm add -D @wagmi/cli @deployoor/wagmi
