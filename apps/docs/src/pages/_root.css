@@ -519,6 +519,10 @@
 }
 
 .landing-command-multi code {
+  /* min-width: 0 lets this flex child shrink below its content width; without it `pre` keeps the
+     longest line unbreakable and pushes the button past a narrow viewport. Then scroll it. */
+  min-width: 0;
+  overflow-x: auto;
   white-space: pre;
   text-align: left;
   line-height: 1.75;

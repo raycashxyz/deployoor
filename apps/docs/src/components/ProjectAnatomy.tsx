@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { tokenize } from "../lib/highlight";
 import { Link } from "vocs";
 import { WORDMARKS } from "./WalletStrip";
@@ -333,23 +333,62 @@ const ToolChips = ({ slugs }: { slugs: readonly ToolSlug[] }) => {
   );
 };
 
+/** The toolchain options, in tab order — a module constant so the switch and its key handler
+ *  agree on the sequence. */
+const TOOLCHAINS = ["hardhat", "foundry"] as const;
+
+/**
+ * Maps a radiogroup key to the option index it should move to, or `null` to leave the event
+ * alone. Home/End jump to the ends; the arrows step and wrap. This is the WAI-ARIA radio-group
+ * pattern: arrows move selection **and** focus, so the group stays a single tab stop.
+ */
+const radioTargetIndex = (key: string, current: number, count: number): number | null => {
+  if (key === "Home") return 0;
+  if (key === "End") return count - 1;
+  if (key === "ArrowRight" || key === "ArrowDown") return (current + 1) % count;
+  if (key === "ArrowLeft" || key === "ArrowUp") return (current - 1 + count) % count;
+  return null;
+};
+
 /**
  * Step 01's chips double as the toolchain control: same anatomy as the passive chips, but
  * as radio buttons, so picking Foundry re-flavours the starting files and the compile
  * command while everything deployoor adds stays identical.
+ *
+ * Roving tab stop: only the checked option is tabbable; arrows/Home/End move selection and
+ * focus together, per the WAI-ARIA radio-group pattern.
  */
 const ToolchainSwitch = ({ value, onChange }: { value: Toolchain; onChange: (next: Toolchain) => void }) => {
+  const refs = useRef<Partial<Record<Toolchain, HTMLButtonElement | null>>>({});
+
+  const select = (next: Toolchain) => {
+    onChange(next);
+    refs.current[next]?.focus();
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    const target = radioTargetIndex(event.key, index, TOOLCHAINS.length);
+    if (target === null) return;
+    event.preventDefault();
+    select(TOOLCHAINS[target]);
+  };
+
   return (
     <div className="anatomy-tools" role="radiogroup" aria-label="Project toolchain">
-      {(["hardhat", "foundry"] as const).map((slug) => (
+      {TOOLCHAINS.map((slug, index) => (
         <button
           key={slug}
+          ref={(node) => {
+            refs.current[slug] = node;
+          }}
           type="button"
           role="radio"
           aria-checked={value === slug}
+          tabIndex={value === slug ? 0 : -1}
           className="tool-chip tool-chip-switch"
           data-active={value === slug ? "true" : "false"}
           onClick={() => onChange(slug)}
+          onKeyDown={(event) => onKeyDown(event, index)}
         >
           <span className="tool-chip-icon" data-tool={slug} aria-hidden="true" />
           <span className="tool-chip-label">{TOOLS[slug].label}</span>
