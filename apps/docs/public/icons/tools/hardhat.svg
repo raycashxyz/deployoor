@@ -8,17 +8,18 @@
 
   Modified for use as a CSS mask. A mask reads only the alpha channel, so the original
   artwork's dark Ethereum diamond over a yellow hat flattened into one solid silhouette
-  and the diamond disappeared. The diamond is therefore no longer painted: it lives in a
-  luminance mask that knocks the hat's alpha down where it sits, which reads as a lighter
-  diamond in whatever colour the icon is tinted. Adjust the grey to change the contrast:
-  darker grey means a fainter hat there, so a more visible diamond.
+  and the diamond disappeared. The diamond is therefore not painted: it is a full
+  knockout (black in the luminance mask below), a hole in the hat that shows the page
+  background through it. Full, not partial, deliberately — a partial-alpha diamond
+  renders as a muddy blend that looks rasterised at chip size, while a hole stays crisp
+  at any size and takes each theme's background colour by construction.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="2.02 6.34 27.95 19.32" width="32" height="32">
   <title>Ethereum Hard Hat</title>
   <defs>
     <mask id="hardhat-eth" maskUnits="userSpaceOnUse" x="2.02" y="6.34" width="27.95" height="19.32" color-interpolation="sRGB">
       <rect x="2.02" y="6.34" width="27.95" height="19.32" fill="#fff"/>
-      <g fill="#737373">
+      <g fill="#000">
         <path d="M18.945 16.6L16 18.409v2.356Z"/>
         <path d="M16 20.765v-2.356L13.055 16.6Zm-2.947-5.245L16 17.223v-6.47Z"/>
         <path d="M18.945 15.519L16 10.753v6.469l2.947-1.7Z"/>

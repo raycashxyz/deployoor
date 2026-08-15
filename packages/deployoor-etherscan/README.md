@@ -35,13 +35,13 @@ await getOrDeployMock({ ...clients, args, plugins: { etherscan: false } });
 ```ts
 etherscan({
   apiKey: "…", // required — V2 key (works across chains)
-  apiUrl: "https://api.etherscan.io/v2/api", // default; override for Blockscout/Routescan or a mock
+  apiUrl: "https://api.etherscan.io/v2/api", // default; override for an Etherscan-compatible endpoint or a mock
   pollIntervalMs: 2000, // status-poll interval
   maxPolls: 20, // give up after this many polls
 });
 ```
 
-Because Etherscan V2 is one host keyed by `chainid`, a single `etherscan()` plugin verifies on whatever chain you deploy to. The `apiUrl` override also points it at any Etherscan-compatible explorer (Blockscout, Routescan).
+Because Etherscan V2 is one host keyed by `chainid`, a single `etherscan()` plugin verifies on whatever chain you deploy to. The `apiUrl` override also points it at any Etherscan-compatible endpoint — though Blockscout and Routescan have dedicated plugins, [`@deployoor/blockscout`](../deployoor-blockscout) and [`@deployoor/routescan`](../deployoor-routescan), which handle their quirks (per-chain instances, mainnet/testnet indexes) rather than assuming Etherscan's shape.
 
 ## License
 

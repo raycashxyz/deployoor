@@ -68,6 +68,7 @@ deployoor closes the gap between deploy and code:
 - **Idempotent deploys** — safe to re-run in CI; first call deploys, later calls return what's already on-chain.
 - **A committed source of truth** — every deploy recorded as plain JSON (address, ABI, chain, args, compiler) in a `deployments/` folder you own forever.
 - **Any signer, any RPC** — only viem `WalletClient` + `PublicClient`; local key, Ledger, Privy, Turnkey, anvil.
+- **Verify now or later** — each deploy pins the exact sources it compiled from, so `deployoor verify` can verify any recorded deployment on Etherscan, Sourcify, Blockscout, or Routescan long after the fact — no recompile, no matching source tree.
 - **Zero lock-in** — records are portable JSON; your app never needs deployoor at runtime.
 
 Under the hood that means `getOrDeploy<Name>` functions, a `deployments/<chainId>-<network>/` layout, and plugins for verify/notify — but the outcome is what matters: **you stop being the integration layer between your contracts and your code.**
@@ -224,15 +225,17 @@ Same `getOrDeployToken` you ship — here it targets a throwaway in-process chai
 
 ## Packages
 
-| Package                                                | Description                                                                                                                                                                 |
-| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`deployoor`](packages/deployoor)                      | The deploy engine + codegen + CLI (`deployoor generate` / `deployoor init`). Reads Hardhat/Foundry artifacts, emits typed deployers, records each deploy to `deployments/`. |
-| [`@deployoor/wagmi`](packages/deployoor-wagmi)         | A [`@wagmi/cli`](https://wagmi.sh/cli) plugin sourcing contracts from `deployments/` — typed contract objects for your app.                                                 |
-| [`@deployoor/hardhat`](packages/deployoor-hardhat)     | Hardhat plugin — regenerate the typed deployers automatically after every `hardhat compile` (no separate `deployoor generate`).                                             |
-| [`@deployoor/etherscan`](packages/deployoor-etherscan) | Verify on Etherscan V2 (one key, all chains; also Blockscout/Routescan).                                                                                                    |
-| [`@deployoor/sourcify`](packages/deployoor-sourcify)   | Verify on Sourcify (v2, keyless).                                                                                                                                           |
-| [`@deployoor/slack`](packages/deployoor-slack)         | Notify a Slack channel on each deploy.                                                                                                                                      |
-| [`@deployoor/testing`](packages/deployoor-testing)     | `createTestClients()` — an in-memory EVM (tevm) as viem clients + an in-memory store, to test deploys with no local node.                                                   |
+| Package                                                  | Description                                                                                                                                                        |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`deployoor`](packages/deployoor)                        | The deploy engine + codegen + CLI (`init` / `generate` / `verify`). Reads Hardhat/Foundry artifacts, emits typed deployers, records each deploy to `deployments/`. |
+| [`@deployoor/wagmi`](packages/deployoor-wagmi)           | A [`@wagmi/cli`](https://wagmi.sh/cli) plugin sourcing contracts from `deployments/` — typed contract objects for your app.                                        |
+| [`@deployoor/hardhat`](packages/deployoor-hardhat)       | Hardhat plugin — regenerate the typed deployers automatically after every `hardhat compile` (no separate `deployoor generate`).                                    |
+| [`@deployoor/etherscan`](packages/deployoor-etherscan)   | Verify on Etherscan V2 (one key, all chains).                                                                                                                      |
+| [`@deployoor/sourcify`](packages/deployoor-sourcify)     | Verify on Sourcify (v2, keyless).                                                                                                                                  |
+| [`@deployoor/blockscout`](packages/deployoor-blockscout) | Verify on any Blockscout instance — you name the instance, since chains self-host their own.                                                                       |
+| [`@deployoor/routescan`](packages/deployoor-routescan)   | Verify on Routescan (Avalanche, Base, and every chain it indexes; mainnet or testnet worked out from the chain id).                                                |
+| [`@deployoor/slack`](packages/deployoor-slack)           | Notify a Slack channel on each deploy.                                                                                                                             |
+| [`@deployoor/testing`](packages/deployoor-testing)       | `createTestClients()` — an in-memory EVM (tevm) as viem clients + an in-memory store, to test deploys with no local node.                                          |
 
 Plugins are deploy-lifecycle hooks; each ships as its own package and depends only on `deployoor/plugin`.
 
@@ -288,7 +291,7 @@ Grouped **done → in progress → planned → backlog**. _In progress_ is activ
 | Deploy  | Idempotent `getOrDeploy`, `register` / `reset`, stale-reuse warning                    | Done    |
 | Deploy  | Atomic record writes, deploy lock, chainId record identity + mismatch guard            | Done    |
 | Stores  | Pluggable `StoreAdapter` + in-memory store                                             | Done    |
-| Verify  | Etherscan V2 + Sourcify                                                                | Done    |
+| Verify  | Etherscan V2, Sourcify, Blockscout, and Routescan verifier plugins                     | Done    |
 | Testing | `@deployoor/testing` — same deployers on tevm, in-memory EVM, no node                  | Done    |
 | DX      | `@deployoor/wagmi` bridge, plugin SDK + Slack, Hardhat/Hardhat 3/Foundry/tevm examples | Done    |
 | Deploy  | Richer `getOrDeploy` return (`{ contract, freshDeploy, receipt, deployment }`)         | Done    |
@@ -305,12 +308,12 @@ Grouped **done → in progress → planned → backlog**. _In progress_ is activ
 | Deploy  | Proxies & diamonds, deterministic addresses (CREATE2 / CREATE3), dry run               | Backlog |
 | Deploy  | Pending-transaction recovery from interrupted deploys                                  | Backlog |
 | Stores  | HTTP + browser store adapters                                                          | Backlog |
-| Verify  | More explorers (Blockscout-native, OKLink, custom endpoints)                           | Backlog |
+| Verify  | More explorers (OKLink, custom per-chain endpoints), status recorded on the record     | Backlog |
 | DX      | `--watch`, `deployoor list` / `status`, import records, standalone scaffold            | Backlog |
 | Plugins | `onGenerated` hook, gas report, Tenderly, Discord, IPFS, Safe                          | Backlog |
 | AI      | Upgrade-safety diff, deployments MCP, deploy-script scaffolding (separate pkg)         | Backlog |
 
-† Built and tested, but not yet run against a live explorer — every verifier test uses a mock `fetch`. The request `verify` builds is proven byte-identical to a deploy-time verification's; acceptance by a real Etherscan or Sourcify is unproven.
+† Since exercised against live Sepolia through Etherscan, Blockscout, and Routescan — the runs that surfaced two live-only Etherscan bugs, fixed in `@deployoor/etherscan` 0.3.1. Sourcify's live acceptance still rests on mock-`fetch` coverage.
 
 Full detail and rationale in [TODO.md](TODO.md).
 

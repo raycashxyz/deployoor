@@ -168,13 +168,3 @@ Options:
   -h, --help     show this help
   -v, --version  show deployoor version
 ```
-
-## Programmatic generate
-
-For build-tool integration (e.g. `@deployoor/hardhat`):
-
-```ts
-import { generateDeployers } from "deployoor/generate";
-
-const files = await generateDeployers({ root: process.cwd() });
-```
