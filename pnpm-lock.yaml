@@ -367,10 +367,11 @@ importers:
         version: 4.1.9(@types/node@22.20.0)(vite@8.2.1(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.23.12)(yaml@2.9.0))
 
   packages/deployoor-evm:
-    devDependencies:
+    dependencies:
       '@nomicfoundation/edr':
         specifier: 0.15.0
         version: 0.15.0
+    devDependencies:
       '@types/node':
         specifier: 'catalog:'
         version: 22.20.0

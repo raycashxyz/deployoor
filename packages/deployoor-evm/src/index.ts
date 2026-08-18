@@ -1,4 +1,11 @@
-import { createPublicClient, createWalletClient, custom, numberToHex, type EIP1193RequestFn } from "viem";
+import {
+  createPublicClient,
+  createWalletClient,
+  custom,
+  isHex,
+  numberToHex,
+  type EIP1193RequestFn,
+} from "viem";
 import type { Account, Address, Chain, Hex, PublicClient, WalletClient } from "viem";
 import {
   accounts,
@@ -93,9 +100,12 @@ const cheatcodesFor = (provider: EvmProvider): Cheatcodes => {
       if (code !== undefined) await send("hardhat_setCode", [address, code]);
     },
     snapshot: async () => {
+      // Narrowed with a guard rather than cast: the RPC boundary hands back `unknown`,
+      // and a SnapshotId is only useful if it really is the hex quantity `evm_revert`
+      // expects back.
       const id = await send("evm_snapshot", []);
-      if (typeof id !== "string") throw new Error("evm_snapshot did not return an id");
-      return id as SnapshotId;
+      if (!isHex(id)) throw new Error(`evm_snapshot returned ${JSON.stringify(id)}, expected a hex id`);
+      return id;
     },
     revert: async (id) => (await send("evm_revert", [id])) === true,
   };
