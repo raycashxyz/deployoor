@@ -286,6 +286,9 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
+      '@nomicfoundation/edr':
+        specifier: 0.15.0
+        version: 0.15.0
       '@types/node':
         specifier: 'catalog:'
         version: 22.20.0
@@ -464,9 +467,9 @@ importers:
 
   packages/deployoor-testing:
     dependencies:
-      tevm:
-        specifier: 1.0.0-next.149
-        version: 1.0.0-next.149(@tevm/ts-plugin@1.0.0-rc.151(typescript@5.9.3)(viem@2.46.0(typescript@5.9.3)(zod@4.4.3))(zod@4.4.3))(@types/debug@4.1.13)(@types/node@22.20.0)(@types/react@19.2.18)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.48.0)(tsx@4.23.12)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.2.8))(viem@2.46.0(typescript@5.9.3)(zod@4.4.3))(webpack@5.108.1(esbuild@0.28.1)(lightningcss@1.33.0))(yaml@2.9.0)(zod@4.4.3)
+      '@nomicfoundation/edr':
+        specifier: 0.15.0
+        version: 0.15.0
       zod:
         specifier: ^4.4.3
         version: 4.4.3

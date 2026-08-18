@@ -32,8 +32,8 @@ describe("createTestClients", () => {
     expect(await publicClient.getBalance({ address: other.address })).toBeGreaterThan(0n);
   });
 
-  it("passes tevm options through (miningConfig override still boots)", async () => {
-    const { account, publicClient } = await createTestClients({ miningConfig: { type: "auto" } });
+  it("passes EVM options through (autoMine override still boots)", async () => {
+    const { account, publicClient } = await createTestClients({ autoMine: true });
     expect(await publicClient.getBalance({ address: account.address })).toBeGreaterThan(0n);
   });
 
@@ -43,11 +43,12 @@ describe("createTestClients", () => {
     expect(await store.list("anynet")).toEqual([]);
   });
 
-  it("exposes tevm and cheatcodes for EVM control", async () => {
-    const { accounts, publicClient, tevm, cheatcodes } = await createTestClients();
+  it("exposes the raw provider and cheatcodes for EVM control", async () => {
+    const { accounts, publicClient, provider, cheatcodes } = await createTestClients();
     const [, other] = accounts;
 
-    expect(typeof tevm.tevmDumpState).toBe("function");
+    // the escape hatch: any RPC the EVM supports, not just the wrapped cheatcodes
+    expect(await provider.request({ method: "web3_clientVersion" })).toMatch(/edr/i);
     await cheatcodes.setBalance(other.address, 123n);
     expect(await publicClient.getBalance({ address: other.address })).toBe(123n);
   });
@@ -93,7 +94,7 @@ describe("createTestClients", () => {
 
     // The record is remapped onto the in-memory chain (networkName AND chainId — the
     // pipeline's chain-mismatch guard would otherwise reject the reuse)…
-    const record = await clients.store.read(`${clients.chain.id}-tevm-devnet`, "Token");
+    const record = await clients.store.read(`${clients.chain.id}-edr-devnet`, "Token");
     expect(record?.address).toBe("0x00000000000000000000000000000000000000c0");
     expect(record?.chainId).toBe(clients.chain.id);
 

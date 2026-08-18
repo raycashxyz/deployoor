@@ -10,9 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # rolldown (tsdown's build engine) needs Node 20+ (node:util styleText).
-        # The published dist targets node18, so consumers on Node 18 are fine.
-        node: [20, 22, 24]
+        # Node 22+ across the board: @deployoor/testing runs EDR, which declares
+        # `engines: >=22`, and Vocs 2.x needs 22+ for `node:fs/promises` glob.
+        # The published dist still targets node18, so consumers of the core
+        # packages on Node 18 are fine.
+        node: [22, 24]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -23,11 +25,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test
-      # Vocs 2.x needs Node 22+ (node:fs/promises glob). Skip docs build on Node 20.
-      - if: matrix.node == '20'
-        run: pnpm build --filter=!@deployoor/docs
-      - if: matrix.node != '20'
-        run: pnpm build
+      - run: pnpm build
 
   lint:
     runs-on: ubuntu-latest
