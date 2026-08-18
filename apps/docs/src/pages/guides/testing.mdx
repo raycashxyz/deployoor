@@ -92,4 +92,4 @@ Separately, `deployoor generate` can compile plain-Solidity projects with no Har
 
 `@deployoor/testing` requires **Node ≥ 22** (EDR dependency).
 
-Your contracts must be **compiled**. Test deploys read bytecode, compiler version and sources from `artifacts/` (or `out/`) exactly as a real deploy does — `createTestClients()` replaces the chain and the store, not the artifacts. A test that builds a `TypedArtifact` by hand is the one exception: a full artifact is used as given and never sends deployoor to disk.
+Your contracts must be **compiled**, because `createTestClients()` replaces the chain and the store, not the artifacts. For Hardhat and Foundry that means running `hardhat compile` or `forge build` first, and test deploys then read bytecode, compiler version and sources from `artifacts/` (or `out/`) exactly as a real deploy does. For a plain-Solidity project deployoor compiles the sources itself, so there is no separate command — only `@tevm/compiler` and `solc` to install. A test that builds a `TypedArtifact` by hand is the one exception either way: a full artifact is used as given and never sends deployoor to disk.
