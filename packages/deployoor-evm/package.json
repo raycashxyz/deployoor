@@ -1,0 +1,42 @@
+{
+  "name": "@deployoor/evm",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "description": "Internal: an in-memory EVM (EDR) exposed as viem clients. Bundled into @deployoor/testing, never published.",
+  "license": "MIT",
+  "author": "Valerio Leo",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@nomicfoundation/edr": "0.15.0",
+    "viem": "^2"
+  },
+  "devDependencies": {
+    "@nomicfoundation/edr": "0.15.0",
+    "@types/node": "catalog:",
+    "tsdown": "^0.22.3",
+    "typescript": "catalog:",
+    "unrun": "^0.3.1",
+    "viem": "catalog:",
+    "vitest": "catalog:"
+  }
+}

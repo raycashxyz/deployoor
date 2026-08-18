@@ -51,6 +51,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@deployoor/evm": "workspace:*",
     "@types/node": "catalog:",
     "deployoor": "workspace:*",
     "tsdown": "^0.22.3",

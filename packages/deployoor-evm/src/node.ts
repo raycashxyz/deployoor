@@ -13,9 +13,9 @@ import { bytesToHex, defineChain, hexToBytes, type Account, type Chain, type Hex
 import { mnemonicToAccount } from "viem/accounts";
 
 /**
- * The EDR backend for `createTestClients`. EDR is the Rust EVM behind Hardhat 3;
- * it runs in-process (no node, no port) and speaks JSON-RPC over a string boundary,
- * which this module adapts to the EIP-1193 shape viem's `custom()` transport wants.
+ * The EDR backend. EDR is the Rust EVM behind Hardhat 3; it runs in-process (no node,
+ * no port) and speaks JSON-RPC over a string boundary, which this module adapts to the
+ * EIP-1193 shape viem's `custom()` transport wants.
  */
 
 /** The canonical Hardhat/Anvil development mnemonic. Well-known, and funded at genesis. */
@@ -68,6 +68,7 @@ if (firstAccount === undefined || secondAccount === undefined) {
   throw new Error(`expected at least 2 derived accounts, got ${hdAccounts.length}`);
 }
 
+/** Every prefunded account, as a tuple so `[owner, alice]` destructures cleanly. */
 export const accounts: readonly [Account, Account, ...Account[]] = [
   firstAccount,
   secondAccount,
@@ -160,13 +161,13 @@ export const createEvmProvider = async (options: EvmOptions = {}): Promise<Provi
  * no wallet to emit `accountsChanged`, so this is deliberately not viem's
  * `EIP1193Provider` (which also requires `on` / `removeListener`).
  */
-export interface TestProvider {
+export interface EvmProvider {
   readonly request: (args: { readonly method: string; readonly params?: unknown }) => Promise<unknown>;
 }
 
 /** EDR speaks JSON-RPC across a string boundary; viem wants EIP-1193. This is the seam. */
 export const requestFor =
-  (provider: Provider): TestProvider["request"] =>
+  (provider: Provider): EvmProvider["request"] =>
   async ({ method, params }) => {
     const response = await provider.handleRequest(
       JSON.stringify({ jsonrpc: "2.0", id: 1, method, params: params ?? [] }),
