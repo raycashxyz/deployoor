@@ -4,7 +4,7 @@
   "private": false,
   "type": "module",
   "sideEffects": false,
-  "description": "Test your deployoor deploys against a real in-memory EVM (EDR) exposed as viem clients \u2014 no local node, no RPC.",
+  "description": "Test your deployoor deploys against a real in-memory EVM (EDR) exposed as viem clients \u2014 no local node, no RPC unless you fork.",
   "keywords": [
     "ethereum",
     "evm",

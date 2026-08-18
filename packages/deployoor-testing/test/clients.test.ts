@@ -70,6 +70,25 @@ describe("createTestClients", () => {
     expect(await publicClient.getBalance({ address: account.address })).toBe(100n);
   });
 
+  it("keeps one fixture's snapshot per clients instance, so a second EVM still runs setup", async () => {
+    // A snapshot id only means something on the provider that issued it. Sharing one
+    // cache across instances reverts the second EVM with the first one's id, which
+    // resolves false and would hand back a value that was never applied to it.
+    const first = await createTestClients();
+    const second = await createTestClients();
+    const useFunded = createFixture(async (clients) => {
+      await clients.cheatcodes.setBalance(clients.account.address, 100n);
+      return "funded";
+    });
+
+    await useFunded(first);
+    expect(await first.publicClient.getBalance({ address: first.account.address })).toBe(100n);
+
+    expect(await second.publicClient.getBalance({ address: second.account.address })).not.toBe(100n);
+    await useFunded(second);
+    expect(await second.publicClient.getBalance({ address: second.account.address })).toBe(100n);
+  });
+
   it("seeds production records so getOrDeploy reuses them without a transaction", async () => {
     const clients = await createTestClients({
       deployments: [

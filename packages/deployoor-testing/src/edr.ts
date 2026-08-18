@@ -9,7 +9,7 @@ import {
   MineOrdering,
   type Provider,
 } from "@nomicfoundation/edr";
-import { defineChain, hexToBytes, type Account, type Chain, type Hex } from "viem";
+import { bytesToHex, defineChain, hexToBytes, type Account, type Chain, type Hex } from "viem";
 import { mnemonicToAccount } from "viem/accounts";
 
 /**
@@ -59,7 +59,7 @@ const hdAccounts = Array.from({ length: ACCOUNT_COUNT }, (_unused, index) =>
 const privateKeys: readonly Hex[] = hdAccounts.map((account) => {
   const key = account.getHdKey().privateKey;
   if (key === null) throw new Error("derived account has no private key");
-  return `0x${Buffer.from(key).toString("hex")}` as Hex;
+  return bytesToHex(key);
 });
 
 // Narrow to a tuple so callers can destructure `[owner, alice]` without optionality.
@@ -136,7 +136,7 @@ export const createEvmProvider = async (options: EvmOptions = {}): Promise<Provi
       initialBaseFeePerGas: 1_000_000_000n,
       minGasPrice: 0n,
       mining: { autoMine: options.autoMine ?? true, memPool: { order: MineOrdering.Priority } },
-      coinbase: hexToBytes(`0x${"00".repeat(20)}`),
+      coinbase: new Uint8Array(20),
       allowBlocksWithSameTimestamp: false,
       allowUnlimitedContractSize: false,
       bailOnCallFailure: false,

@@ -228,19 +228,21 @@ export const createTestClients = async (options?: CreateTestClientsOptions): Pro
 export const createFixture = <T>(
   setup: (clients: TestClients) => Promise<T> | T,
 ): ((clients: TestClients) => Promise<T>) => {
-  // A lazy cache needs exactly one mutable slot. Hold it in a locally-created container (the
-  // carve-out `memoryStore` uses) so the no-reassignment rule still holds.
-  const cache: { current?: { readonly id: SnapshotId; readonly value: T } } = {};
+  // Keyed per clients instance, not a single slot: a snapshot id is only meaningful on
+  // the provider that issued it. One cache would revert a second, independent EVM with
+  // the first one's id — which resolves `false` and would silently hand back a value
+  // that was never applied to it.
+  const cache = new WeakMap<TestClients, { readonly id: SnapshotId; readonly value: T }>();
   return async (clients) => {
-    const cached = cache.current;
+    const cached = cache.get(clients);
     if (cached === undefined) {
       const value = await setup(clients);
-      cache.current = { value, id: await clients.cheatcodes.snapshot() };
+      cache.set(clients, { value, id: await clients.cheatcodes.snapshot() });
       return value;
     }
     await clients.cheatcodes.revert(cached.id);
     // `revert` consumes the id, so re-snapshot the same point for the next call.
-    cache.current = { value: cached.value, id: await clients.cheatcodes.snapshot() };
+    cache.set(clients, { value: cached.value, id: await clients.cheatcodes.snapshot() });
     return cached.value;
   };
 };
