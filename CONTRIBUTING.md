@@ -20,7 +20,7 @@ pnpm changeset    # required if you touched a publishable package (see below)
 
 That's the whole loop — CI runs the same `typecheck`, `test`, `lint`, and `format:check`, plus a changeset gate. If it passes locally, your PR is green.
 
-**Node 20+ is required to build.** tsdown's engine (rolldown) uses `node:util.styleText`. The published output targets Node 18, so consumers on 18 are fine — only the dev toolchain needs 20+. CI builds on 20, 22, and 24. The docs site needs Node 22+ (Vocs 2.x uses `node:fs/promises` glob).
+**Node 22+ is required.** `@deployoor/testing` runs EDR, which declares `engines: >=22`, and the docs site needs 22+ (Vocs 2.x uses `node:fs/promises` glob). CI runs on 22 and 24. The core packages' published output still targets Node 18, so consumers of those on 18 are fine.
 
 **Always `pnpm build` before `pnpm test`.** Plugin packages import `deployoor/plugin`, which resolves through package exports to `deployoor`'s `dist/`. Turbo orders `^build` before each task, so `pnpm test` from the root handles this for you — but a bare `pnpm --filter @deployoor/etherscan test` on a clean checkout will fail until the core is built.
 
@@ -36,7 +36,7 @@ packages/
   deployoor-blockscout/ Blockscout verifier (per-instance)
   deployoor-routescan/  Routescan verifier
   deployoor-slack/      Slack notifier
-  deployoor-testing/    createTestClients() — tevm as viem clients
+  deployoor-testing/    createTestClients() — EDR as viem clients
 apps/docs/              Vocs v2 site for deployoor.dev
 examples/               dogfood projects (hardhat, hardhat-v3, foundry, tevm, multi-chain)
 ```
@@ -84,14 +84,14 @@ Run `tsc --noEmit`, `oxlint`, and `prettier` on **every** package you touch, and
 
 ## Tests
 
-Vitest, with real EVM execution — no fake clients. `test/evm-clients.ts`'s `makeEvmClients()` exposes a tevm `createMemoryClient` as viem clients.
+Vitest, with real EVM execution — no fake clients. `test/evm-clients.ts`'s `makeEvmClients()` exposes an [EDR](https://github.com/NomicFoundation/edr) provider as viem clients, through a small EIP-1193 shim.
 
 - Third-person `it("does X when Y")` — no "should", no test-case IDs.
 - Assert specific errors, not just that something threw.
 - For state changes, assert the precondition **before** and the postcondition **after**.
 - `vi.fn()` for spies. Plugin tests inject a mock `fetch` through `PluginDeps`.
 
-Don't remove the explicit viem return-type annotation on `makeEvmClients` — the inferred tevm chain type pulls in `@ethereumjs/common`, which isn't nameable under `declaration: true` (TS2742).
+Don't remove the explicit viem return-type annotation on `makeEvmClients` — without it the inferred chain type isn't nameable under `declaration: true` (TS2742).
 
 Codegen is covered by a tsc-over-emitted-output test (`packages/deployoor/test/codegen/emitted-typecheck.test.ts`): it builds `dist`, generates into a temp project, runs `tsc` over the emitted deployers, and asserts zero diagnostics. If you change codegen, that test is your ground truth.
 
