@@ -219,7 +219,7 @@ Same `getOrDeployToken` you ship — here it targets a throwaway in-process chai
 
 ## Compatibility
 
-- **Node.js:** Core `deployoor` and all plugins target **Node ≥ 18**. [`@deployoor/testing`](packages/deployoor-testing) and [`fhevm-tevm-mocks`](packages/fhevm-tevm-mocks) require **Node ≥ 20** because tevm's CJS build pulls in ESM-only dependencies that only work under `require()` on Node ≥ 20.19 (the ESM path works on Node 18).
+- **Node.js:** Core `deployoor` and all plugins target **Node ≥ 18**. [`@deployoor/testing`](packages/deployoor-testing) requires **Node ≥ 20** because tevm's CJS build pulls in ESM-only dependencies that only work under `require()` on Node ≥ 20.19 (the ESM path works on Node 18).
 - **TypeScript-first:** The CLI and `deployoor.config.ts` work in any project (jiti loads the config), but **`deployoor generate` emits TypeScript deployers** (`.ts`). Plain JavaScript projects should run deploy scripts with `tsx`, Bun, or vitest — not bare `node`.
 - **CJS vs ESM:** All packages ship dual CJS/ESM builds. Prefer ESM on Node 18 if you hit `ERR_REQUIRE_ESM` from tevm-dependent packages.
 
@@ -241,9 +241,7 @@ Plugins are deploy-lifecycle hooks; each ships as its own package and depends on
 
 ### Ecosystem
 
-| Package                                         | Description                                                                                                                                                |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`fhevm-tevm-mocks`](packages/fhevm-tevm-mocks) | Tevm-native adapter for Zama FHEVM mock tests — separate from the deploy core; wires FHE host contracts and relayer handlers into a Tevm instance you own. |
+[`fhevm-tevm-mocks`](https://github.com/raycashxyz/fhevm-tevm-mocks) — a tevm-native adapter for Zama FHEVM mock tests. Built here originally; it now lives in its own repo.
 
 ## Development
 

@@ -35,7 +35,6 @@ packages/
   deployoor-routescan/  — @deployoor/routescan: Routescan verifier (mainnet/testnet index derived from viem's chain metadata, `network` overrides)
   deployoor-slack/      — @deployoor/slack: Slack notifier
   deployoor-testing/    — @deployoor/testing: createTestClients() (tevm as viem clients + an in-memory store) for node-free tests
-  fhevm-tevm-mocks/     — fhevm-tevm-mocks: tevm-native adapter for Zama FHEVM mock tests — ecosystem package, separate from the deploy core
 apps/docs/         — Vocs v2 documentation site for deployoor.dev
 examples/          — dogfood projects (hardhat, foundry); verified via each one's `e2e` script (needs the toolchain), kept out of the core CI sweep
 ```

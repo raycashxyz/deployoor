@@ -37,7 +37,6 @@ packages/
   deployoor-routescan/  Routescan verifier
   deployoor-slack/      Slack notifier
   deployoor-testing/    createTestClients() — tevm as viem clients
-  fhevm-tevm-mocks/     Zama FHEVM mocks on tevm (ecosystem)
 apps/docs/              Vocs v2 site for deployoor.dev
 examples/               dogfood projects (hardhat, hardhat-v3, foundry, tevm, multi-chain)
 ```
