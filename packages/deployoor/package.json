@@ -4,7 +4,7 @@
   "private": false,
   "type": "module",
   "sideEffects": false,
-  "description": "Deploy EVM contracts from TypeScript with your own viem wallet — a deploy is an artifact plus a client, so scripts, tests, and your app share typed contract objects.",
+  "description": "Deploy EVM contracts from TypeScript with your own viem wallet \u2014 a deploy is an artifact plus a client, so scripts, tests, and your app share typed contract objects.",
   "keywords": [
     "ethereum",
     "evm",
@@ -97,7 +97,7 @@
     }
   },
   "devDependencies": {
-    "@nomicfoundation/edr": "0.15.0",
+    "@deployoor/evm": "workspace:*",
     "@tevm/compiler": "1.0.0-next.148",
     "@types/node": "catalog:",
     "solc": "0.8.30",

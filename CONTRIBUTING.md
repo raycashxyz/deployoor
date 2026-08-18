@@ -36,7 +36,8 @@ packages/
   deployoor-blockscout/ Blockscout verifier (per-instance)
   deployoor-routescan/  Routescan verifier
   deployoor-slack/      Slack notifier
-  deployoor-testing/    createTestClients() — EDR as viem clients
+  deployoor-evm/        private: the in-memory EVM (EDR) as viem clients
+  deployoor-testing/    createTestClients() — @deployoor/evm + an in-memory store
 apps/docs/              Vocs v2 site for deployoor.dev
 examples/               dogfood projects (hardhat, hardhat-v3, foundry, tevm, multi-chain)
 ```
@@ -84,7 +85,7 @@ Run `tsc --noEmit`, `oxlint`, and `prettier` on **every** package you touch, and
 
 ## Tests
 
-Vitest, with real EVM execution — no fake clients. `test/evm-clients.ts`'s `makeEvmClients()` exposes an [EDR](https://github.com/NomicFoundation/edr) provider as viem clients, through a small EIP-1193 shim.
+Vitest, with real EVM execution — no fake clients. `test/evm-clients.ts`'s `makeEvmClients()` wraps `createEvmNode()` from `@deployoor/evm`, the private package that also backs `@deployoor/testing`.
 
 - Third-person `it("does X when Y")` — no "should", no test-case IDs.
 - Assert specific errors, not just that something threw.
