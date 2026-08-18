@@ -56,6 +56,23 @@ describe("createTestClients", () => {
     expect(await publicClient.getBlockNumber({ cacheTime: 0 })).toBe(1n);
   });
 
+  it("enforces blockGasLimit on mined blocks, not just on genesis", async () => {
+    // EDR only enforces the limit in the mem pool, miner and REVM when it is set on the
+    // mining config. Setting network.genesisBlockGasLimit alone sizes the genesis block
+    // and leaves every mined block unbounded, so this asserts the option actually binds.
+    const { account, walletClient } = await createTestClients({ blockGasLimit: 100_000n });
+
+    await expect(
+      walletClient.sendTransaction({
+        account,
+        chain: null,
+        to: "0x0000000000000000000000000000000000000001",
+        value: 1n,
+        gas: 500_000n,
+      }),
+    ).rejects.toThrow(/gas limit/i);
+  });
+
   it("provides a fresh in-memory store so deploys never touch disk", async () => {
     const { store } = await createTestClients();
     expect(await store.read("anynet", "Anything")).toBeNull();

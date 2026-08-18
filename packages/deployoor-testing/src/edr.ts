@@ -135,7 +135,14 @@ export const createEvmProvider = async (options: EvmOptions = {}): Promise<Provi
       defaultTransactionGasLimit: TRANSACTION_GAS_CAP,
       initialBaseFeePerGas: 1_000_000_000n,
       minGasPrice: 0n,
-      mining: { autoMine: options.autoMine ?? true, memPool: { order: MineOrdering.Priority } },
+      mining: {
+        autoMine: options.autoMine ?? true,
+        // Not a ProviderConfig field: EDR enforces the limit in the mem pool, miner and
+        // REVM only when it is set here. `network.genesisBlockGasLimit` sizes the genesis
+        // block alone, so setting only that leaves every mined block unbounded.
+        blockGasLimit: options.blockGasLimit ?? DEFAULT_BLOCK_GAS_LIMIT,
+        memPool: { order: MineOrdering.Priority },
+      },
       coinbase: new Uint8Array(20),
       allowBlocksWithSameTimestamp: false,
       allowUnlimitedContractSize: false,
