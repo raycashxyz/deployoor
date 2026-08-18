@@ -70,7 +70,8 @@ describe("createTestClients", () => {
         value: 1n,
         gas: 500_000n,
       }),
-    ).rejects.toThrow(/gas limit/i);
+      // the exact EDR message, so an unrelated failure cannot pass this test
+    ).rejects.toThrow(/Transaction gas limit is 500000 and exceeds block gas limit of 100000/);
   });
 
   it("provides a fresh in-memory store so deploys never touch disk", async () => {
