@@ -20,7 +20,7 @@ Put your project's compile in front of the test script. A generated deployer hol
 }
 ```
 
-That is the Hardhat form. Foundry projects use `forge build && vitest run`. A plain-Solidity project needs nothing extra — deployoor compiles those sources itself when it reads them.
+That is the Hardhat form. Foundry projects use `forge build && vitest run`. A plain-Solidity project needs no separate compile step — deployoor compiles those sources itself when it reads them — but it does need a compiler on hand: `pnpm add -D @tevm/compiler solc`.
 
 ```ts
 import { test, expect } from "vitest";
