@@ -1,8 +1,8 @@
 # Testing
 
-To make testing feel like writing TypeScript scripts — not standing up infrastructure — we built [`@deployoor/testing`](/packages) on top of [TEVM](https://tevm.sh).
+To make testing feel like writing TypeScript scripts — not standing up infrastructure — we built [`@deployoor/testing`](/packages) on top of [EDR](https://github.com/NomicFoundation/edr), the Rust EVM behind Hardhat 3.
 
-`createTestClients()` gives you a **TEVM-backed in-memory EVM** and viem clients wired to it. Your generated `getOrDeploy` functions work unchanged: spread `clients`, deploy, call `contract.read` / `contract.write`. No local node, no `deployments/` writes on disk.
+`createTestClients()` gives you an **in-memory EVM** and viem clients wired to it. Your generated `getOrDeploy` functions work unchanged: spread `clients`, deploy, call `contract.read` / `contract.write`. No local node, no `deployments/` writes on disk.
 
 ## Quick example
 
@@ -20,7 +20,7 @@ Put your project's compile in front of the test script. A generated deployer hol
 }
 ```
 
-That is the Hardhat form. Foundry projects use `forge build && vitest run`. A plain-Solidity project needs nothing extra — deployoor compiles those sources itself when it reads them.
+That is the Hardhat form. Foundry projects use `forge build && vitest run`. A plain-Solidity project needs no separate compile step — deployoor compiles those sources itself when it reads them — but it does need a compiler on hand: `pnpm add -D @tevm/compiler solc`.
 
 ```ts
 import { test, expect } from "vitest";
@@ -76,12 +76,20 @@ await getOrDeployToken({
 });
 ```
 
-## More tevm
+## Forking
 
-tevm also powers `deployoor generate` for plain-Solidity projects — no Hardhat or Foundry needed; see the [tevm guide](/guides/tevm). Broader runtime support (forks, fixtures, CI presets) is on the roadmap.
+```ts
+const clients = await createTestClients({
+  fork: { url: process.env.MAINNET_RPC, blockNumber: 21_000_000n },
+});
+```
+
+Your prefunded accounts stay funded, and real remote state is readable through the same viem clients. Add `deployments` + `deploymentNetwork` to seed committed records onto the fork so `getOrDeploy` reuses production addresses instead of redeploying.
+
+Separately, `deployoor generate` can compile plain-Solidity projects with no Hardhat or Foundry, via the optional peer dependencies `@tevm/compiler` and `solc` — see the [tevm guide](/guides/tevm). Those are a compiler, not the test EVM, and installing them is opt-in.
 
 ## Requirements
 
-`@deployoor/testing` requires **Node ≥ 20** (tevm dependency).
+`@deployoor/testing` requires **Node ≥ 22** (EDR dependency).
 
-Your contracts must be **compiled**. Test deploys read bytecode, compiler version and sources from `artifacts/` (or `out/`) exactly as a real deploy does — `createTestClients()` replaces the chain and the store, not the artifacts. A test that builds a `TypedArtifact` by hand is the one exception: a full artifact is used as given and never sends deployoor to disk.
+Your contracts must be **compiled**, because `createTestClients()` replaces the chain and the store, not the artifacts. For Hardhat and Foundry that means running `hardhat compile` or `forge build` first, and test deploys then read bytecode, compiler version and sources from `artifacts/` (or `out/`) exactly as a real deploy does. For a plain-Solidity project deployoor compiles the sources itself, so there is no separate command — only `@tevm/compiler` and `solc` to install. A test that builds a `TypedArtifact` by hand is the one exception either way: deployoor uses that artifact exactly as supplied and never reads the filesystem for it.

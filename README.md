@@ -219,9 +219,9 @@ Same `getOrDeployToken` you ship — here it targets a throwaway in-process chai
 
 ## Compatibility
 
-- **Node.js:** Core `deployoor` and all plugins target **Node ≥ 18**. [`@deployoor/testing`](packages/deployoor-testing) and [`fhevm-tevm-mocks`](packages/fhevm-tevm-mocks) require **Node ≥ 20** because tevm's CJS build pulls in ESM-only dependencies that only work under `require()` on Node ≥ 20.19 (the ESM path works on Node 18).
+- **Node.js:** Core `deployoor` and all plugins target **Node ≥ 18**. [`@deployoor/testing`](packages/deployoor-testing) requires **Node ≥ 22**, which is what its EVM (EDR) declares. CI runs on Node 22 and 24.
 - **TypeScript-first:** The CLI and `deployoor.config.ts` work in any project (jiti loads the config), but **`deployoor generate` emits TypeScript deployers** (`.ts`). Plain JavaScript projects should run deploy scripts with `tsx`, Bun, or vitest — not bare `node`.
-- **CJS vs ESM:** All packages ship dual CJS/ESM builds. Prefer ESM on Node 18 if you hit `ERR_REQUIRE_ESM` from tevm-dependent packages.
+- **CJS vs ESM:** All packages ship dual CJS/ESM builds.
 
 ## Packages
 
@@ -235,15 +235,13 @@ Same `getOrDeployToken` you ship — here it targets a throwaway in-process chai
 | [`@deployoor/blockscout`](packages/deployoor-blockscout) | Verify on any Blockscout instance — you name the instance, since chains self-host their own.                                                                       |
 | [`@deployoor/routescan`](packages/deployoor-routescan)   | Verify on Routescan (Avalanche, Base, and every chain it indexes; mainnet or testnet worked out from the chain id).                                                |
 | [`@deployoor/slack`](packages/deployoor-slack)           | Notify a Slack channel on each deploy.                                                                                                                             |
-| [`@deployoor/testing`](packages/deployoor-testing)       | `createTestClients()` — an in-memory EVM (tevm) as viem clients + an in-memory store, to test deploys with no local node.                                          |
+| [`@deployoor/testing`](packages/deployoor-testing)       | `createTestClients()` — an in-memory EVM (EDR) as viem clients + an in-memory store, to test deploys with no local node.                                           |
 
 Plugins are deploy-lifecycle hooks; each ships as its own package and depends only on `deployoor/plugin`.
 
 ### Ecosystem
 
-| Package                                         | Description                                                                                                                                                |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`fhevm-tevm-mocks`](packages/fhevm-tevm-mocks) | Tevm-native adapter for Zama FHEVM mock tests — separate from the deploy core; wires FHE host contracts and relayer handlers into a Tevm instance you own. |
+[`fhevm-tevm-mocks`](https://github.com/raycashxyz/fhevm-tevm-mocks) — a tevm-native adapter for Zama FHEVM mock tests. Built here originally; it now lives in its own repo.
 
 ## Development
 

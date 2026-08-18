@@ -84,9 +84,9 @@
     "zod": "^4.4.3"
   },
   "peerDependencies": {
-    "viem": "^2",
     "@tevm/compiler": ">=1.0.0-next.148 <2",
-    "solc": ">=0.8.0 <0.9.0"
+    "solc": ">=0.8.0 <0.9.0",
+    "viem": "^2"
   },
   "peerDependenciesMeta": {
     "@tevm/compiler": {
@@ -97,8 +97,10 @@
     }
   },
   "devDependencies": {
+    "@nomicfoundation/edr": "0.15.0",
+    "@tevm/compiler": "1.0.0-next.148",
     "@types/node": "catalog:",
-    "tevm": "1.0.0-next.149",
+    "solc": "0.8.30",
     "tsdown": "^0.22.3",
     "typescript": "catalog:",
     "unrun": "^0.3.1",

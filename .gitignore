@@ -24,3 +24,7 @@ assets/brand/dist/demo.gif
 
 # Conductor per-workspace collaboration dir (also in .git/info/exclude locally)
 .context/
+
+# EDR's RPC cache for fork tests (created next to the package that forks)
+edr-cache/
+.edr-cache/

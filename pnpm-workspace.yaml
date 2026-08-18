@@ -19,3 +19,18 @@ catalog:
 
 onlyBuiltDependencies:
   - esbuild
+
+# Overrides live here, not in package.json's `pnpm` block: when both exist the
+# package.json one wins silently and this file is ignored with no warning.
+overrides:
+  es-module-lexer: 2.3.0
+
+# `@tevm/solc` does `require("solc")` but declares it nowhere — not a dependency,
+# not a peer. It only ever resolved because the `tevm` metapackage happened to pull
+# solc in alongside it. deployoor depends on `@tevm/compiler` directly (see
+# CLAUDE.md), so nothing brings solc along any more and pnpm's isolated layout
+# correctly refuses to resolve it. Declare it on their behalf.
+packageExtensions:
+  "@tevm/solc":
+    dependencies:
+      solc: ">=0.8.0 <0.9.0"

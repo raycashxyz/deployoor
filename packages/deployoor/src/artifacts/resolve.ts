@@ -14,8 +14,9 @@ import type { Framework } from "./detect";
  * so it runs before constructor args are encoded and before a record is assembled.
  *
  * A full `TypedArtifact` passes straight through. That is what keeps a hand-built or
- * compiled-in-memory artifact working with no filesystem at all, which `@deployoor/testing` and
- * `fhevm-tevm-mocks` both rely on.
+ * compiled-in-memory artifact working with no filesystem at all. Note this is a separate
+ * path from `@deployoor/testing`, which replaces the chain and the store but still reads
+ * bytecode and metadata from `artifacts/` or `out/` like any other deploy.
  */
 
 export interface ResolveArtifactOptions {

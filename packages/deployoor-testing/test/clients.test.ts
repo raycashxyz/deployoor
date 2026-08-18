@@ -32,9 +32,46 @@ describe("createTestClients", () => {
     expect(await publicClient.getBalance({ address: other.address })).toBeGreaterThan(0n);
   });
 
-  it("passes tevm options through (miningConfig override still boots)", async () => {
-    const { account, publicClient } = await createTestClients({ miningConfig: { type: "auto" } });
-    expect(await publicClient.getBalance({ address: account.address })).toBeGreaterThan(0n);
+  it("passes EVM options through to the chain itself", async () => {
+    const { chain, publicClient } = await createTestClients({ chainId: 1337 });
+    // asserts the option reached the EVM, not just that the client booted
+    expect(chain.id).toBe(1337);
+    expect(await publicClient.getChainId()).toBe(1337);
+  });
+
+  it("leaves blocks unmined when autoMine is off", async () => {
+    const clients = await createTestClients({ autoMine: false });
+    const { account, publicClient, walletClient, cheatcodes } = clients;
+    expect(await publicClient.getBlockNumber({ cacheTime: 0 })).toBe(0n);
+
+    await walletClient.sendTransaction({
+      account,
+      chain: null,
+      to: "0x0000000000000000000000000000000000000001",
+      value: 1n,
+    });
+    expect(await publicClient.getBlockNumber({ cacheTime: 0 })).toBe(0n); // still pending
+
+    await cheatcodes.mine();
+    expect(await publicClient.getBlockNumber({ cacheTime: 0 })).toBe(1n);
+  });
+
+  it("enforces blockGasLimit on mined blocks, not just on genesis", async () => {
+    // EDR only enforces the limit in the mem pool, miner and REVM when it is set on the
+    // mining config. Setting network.genesisBlockGasLimit alone sizes the genesis block
+    // and leaves every mined block unbounded, so this asserts the option actually binds.
+    const { account, walletClient } = await createTestClients({ blockGasLimit: 100_000n });
+
+    await expect(
+      walletClient.sendTransaction({
+        account,
+        chain: null,
+        to: "0x0000000000000000000000000000000000000001",
+        value: 1n,
+        gas: 500_000n,
+      }),
+      // the exact EDR message, so an unrelated failure cannot pass this test
+    ).rejects.toThrow(/Transaction gas limit is 500000 and exceeds block gas limit of 100000/);
   });
 
   it("provides a fresh in-memory store so deploys never touch disk", async () => {
@@ -43,11 +80,12 @@ describe("createTestClients", () => {
     expect(await store.list("anynet")).toEqual([]);
   });
 
-  it("exposes tevm and cheatcodes for EVM control", async () => {
-    const { accounts, publicClient, tevm, cheatcodes } = await createTestClients();
+  it("exposes the raw provider and cheatcodes for EVM control", async () => {
+    const { accounts, publicClient, provider, cheatcodes } = await createTestClients();
     const [, other] = accounts;
 
-    expect(typeof tevm.tevmDumpState).toBe("function");
+    // the escape hatch: any RPC the EVM supports, not just the wrapped cheatcodes
+    expect(await provider.request({ method: "web3_clientVersion" })).toMatch(/edr/i);
     await cheatcodes.setBalance(other.address, 123n);
     expect(await publicClient.getBalance({ address: other.address })).toBe(123n);
   });
@@ -67,6 +105,26 @@ describe("createTestClients", () => {
 
     await useFundedAccount(clients);
     expect(await publicClient.getBalance({ address: account.address })).toBe(100n);
+  });
+
+  it("keeps one fixture's snapshot per clients instance, so a second EVM still runs setup", async () => {
+    // A snapshot id only means something on the provider that issued it. Sharing one
+    // cache across instances reverts the second EVM with the first one's id, which
+    // resolves false and would hand back a value that was never applied to it.
+    const first = await createTestClients();
+    const second = await createTestClients();
+    const useFunded = createFixture(async (clients) => {
+      await clients.cheatcodes.setBalance(clients.account.address, 100n);
+      return "funded";
+    });
+
+    expect(await first.publicClient.getBalance({ address: first.account.address })).not.toBe(100n);
+    await useFunded(first);
+    expect(await first.publicClient.getBalance({ address: first.account.address })).toBe(100n);
+
+    expect(await second.publicClient.getBalance({ address: second.account.address })).not.toBe(100n);
+    await useFunded(second);
+    expect(await second.publicClient.getBalance({ address: second.account.address })).toBe(100n);
   });
 
   it("seeds production records so getOrDeploy reuses them without a transaction", async () => {
@@ -93,7 +151,7 @@ describe("createTestClients", () => {
 
     // The record is remapped onto the in-memory chain (networkName AND chainId — the
     // pipeline's chain-mismatch guard would otherwise reject the reuse)…
-    const record = await clients.store.read(`${clients.chain.id}-tevm-devnet`, "Token");
+    const record = await clients.store.read(`${clients.chain.id}-edr-devnet`, "Token");
     expect(record?.address).toBe("0x00000000000000000000000000000000000000c0");
     expect(record?.chainId).toBe(clients.chain.id);
 
