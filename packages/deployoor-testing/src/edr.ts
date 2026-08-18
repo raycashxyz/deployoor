@@ -33,7 +33,7 @@ const TRANSACTION_GAS_CAP = 16_000_000n;
 
 const DEFAULT_BLOCK_GAS_LIMIT = 30_000_000n;
 
-const DEFAULT_CHAIN_ID = 31337;
+export const DEFAULT_CHAIN_ID = 31337;
 
 export interface ForkOptions {
   /** JSON-RPC endpoint to fork from. */
@@ -148,10 +148,19 @@ export const createEvmProvider = async (options: EvmOptions = {}): Promise<Provi
   );
 };
 
+/**
+ * The request half of EIP-1193, which is all an in-process EVM implements — there is
+ * no wallet to emit `accountsChanged`, so this is deliberately not viem's
+ * `EIP1193Provider` (which also requires `on` / `removeListener`).
+ */
+export interface TestProvider {
+  readonly request: (args: { readonly method: string; readonly params?: unknown }) => Promise<unknown>;
+}
+
 /** EDR speaks JSON-RPC across a string boundary; viem wants EIP-1193. This is the seam. */
 export const requestFor =
-  (provider: Provider) =>
-  async ({ method, params }: { method: string; params?: unknown }): Promise<unknown> => {
+  (provider: Provider): TestProvider["request"] =>
+  async ({ method, params }) => {
     const response = await provider.handleRequest(
       JSON.stringify({ jsonrpc: "2.0", id: 1, method, params: params ?? [] }),
     );

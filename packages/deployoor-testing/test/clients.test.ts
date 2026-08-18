@@ -32,9 +32,28 @@ describe("createTestClients", () => {
     expect(await publicClient.getBalance({ address: other.address })).toBeGreaterThan(0n);
   });
 
-  it("passes EVM options through (autoMine override still boots)", async () => {
-    const { account, publicClient } = await createTestClients({ autoMine: true });
-    expect(await publicClient.getBalance({ address: account.address })).toBeGreaterThan(0n);
+  it("passes EVM options through to the chain itself", async () => {
+    const { chain, publicClient } = await createTestClients({ chainId: 1337 });
+    // asserts the option reached the EVM, not just that the client booted
+    expect(chain.id).toBe(1337);
+    expect(await publicClient.getChainId()).toBe(1337);
+  });
+
+  it("leaves blocks unmined when autoMine is off", async () => {
+    const clients = await createTestClients({ autoMine: false });
+    const { account, publicClient, walletClient, cheatcodes } = clients;
+    expect(await publicClient.getBlockNumber({ cacheTime: 0 })).toBe(0n);
+
+    await walletClient.sendTransaction({
+      account,
+      chain: null,
+      to: "0x0000000000000000000000000000000000000001",
+      value: 1n,
+    });
+    expect(await publicClient.getBlockNumber({ cacheTime: 0 })).toBe(0n); // still pending
+
+    await cheatcodes.mine();
+    expect(await publicClient.getBlockNumber({ cacheTime: 0 })).toBe(1n);
   });
 
   it("provides a fresh in-memory store so deploys never touch disk", async () => {
@@ -81,6 +100,7 @@ describe("createTestClients", () => {
       return "funded";
     });
 
+    expect(await first.publicClient.getBalance({ address: first.account.address })).not.toBe(100n);
     await useFunded(first);
     expect(await first.publicClient.getBalance({ address: first.account.address })).toBe(100n);
 

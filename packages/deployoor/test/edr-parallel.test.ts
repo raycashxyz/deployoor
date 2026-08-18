@@ -12,7 +12,7 @@ describe("parallel in-memory chains", () => {
     const startBlocks = await Promise.all(
       instances.map((clients) => clients.publicClient.getBlockNumber({ cacheTime: 0 })),
     );
-    expect(startBlocks.every((block) => block === 0n)).toBe(true);
+    expect(startBlocks).toEqual(Array.from({ length: 12 }, () => 0n));
 
     // Advance only the even-indexed chains, concurrently.
     await Promise.all(
@@ -31,7 +31,7 @@ describe("parallel in-memory chains", () => {
     const endBlocks = await Promise.all(
       instances.map((clients) => clients.publicClient.getBlockNumber({ cacheTime: 0 })),
     );
-    expect(endBlocks.filter((_, index) => index % 2 === 0).every((block) => block === 1n)).toBe(true);
-    expect(endBlocks.filter((_, index) => index % 2 === 1).every((block) => block === 0n)).toBe(true);
+    // compared as arrays, so a failure names the chain that drifted
+    expect(endBlocks).toEqual(Array.from({ length: 12 }, (_unused, index) => (index % 2 === 0 ? 1n : 0n)));
   });
 });

@@ -26,6 +26,11 @@ import { privateKeyToAccount } from "viem/accounts";
  * A real, in-process EVM (EDR — the Rust engine behind Hardhat 3) exposed as
  * ordinary viem wallet/public clients. Used by every deploy test — no fake clients.
  *
+ * This deliberately duplicates a slice of `@deployoor/testing`'s `src/edr.ts` rather
+ * than importing it: `@deployoor/testing` depends on `deployoor`, so the reverse edge
+ * is a package cycle that turbo rejects outright ("Circular package dependency
+ * detected"). Keep the two configs in step by hand.
+ *
  * The return type is annotated with viem's portable client types so the emitted
  * declarations stay nameable across pnpm's layout under `declaration: true` (TS2742).
  */
@@ -81,23 +86,20 @@ const providerConfig = () => ({
   network: { genesisBlockGasLimit: BLOCK_GAS_LIMIT },
   observability: {},
   precompileOverrides: [],
-  chainOverrides: [],
   genesisState: genesisState(),
   ownedAccounts: [...PREFUNDED_PRIVATE_KEYS],
   chainId: BigInt(CHAIN_ID),
   networkId: BigInt(CHAIN_ID),
   hardfork: l1HardforkToString(l1HardforkLatest()),
-  blockGasLimit: BLOCK_GAS_LIMIT,
   defaultTransactionGasLimit: TRANSACTION_GAS_CAP,
   initialBaseFeePerGas: 1_000_000_000n,
   minGasPrice: 0n,
   mining: { autoMine: true, memPool: { order: MineOrdering.Priority } },
-  coinbase: hexToBytes(`0x${"00".repeat(20)}`),
+  coinbase: new Uint8Array(20),
   allowBlocksWithSameTimestamp: false,
   allowUnlimitedContractSize: false,
   bailOnCallFailure: false,
   bailOnTransactionFailure: false,
-  cacheDir: ".edr-cache",
 });
 
 export const makeEvmClients = async (): Promise<{
@@ -116,12 +118,14 @@ export const makeEvmClients = async (): Promise<{
   );
 
   // EDR speaks JSON-RPC over a string boundary; viem wants EIP-1193. This is the seam.
-  const request: EIP1193RequestFn = async ({ method, params }) => {
+  const request = async ({ method, params }: { method: string; params?: unknown }): Promise<unknown> => {
     const response = await provider.handleRequest(
       JSON.stringify({ jsonrpc: "2.0", id: 1, method, params: params ?? [] }),
     );
     const { data } = response;
-    const parsed = typeof data === "string" ? JSON.parse(data) : data;
+    // JSON.parse is `any`; annotate the shape rather than reading through it blind.
+    const parsed: { result?: unknown; error?: { message: string } } =
+      typeof data === "string" ? JSON.parse(data) : data;
     if (parsed.error !== undefined) throw new Error(parsed.error.message);
     return parsed.result;
   };
@@ -130,7 +134,10 @@ export const makeEvmClients = async (): Promise<{
   if (account === undefined) throw new Error("no prefunded accounts");
   // retryCount: 0 — fail fast on reverts instead of viem's retry backoff (keeps the
   // failed-deploy test quick and deterministic).
-  const transport = custom({ request }, { retryCount: 0 });
+  // EIP1193RequestFn is generic over each method's return type, and a JSON-RPC string
+  // boundary can only promise `unknown`. Narrowed here, where the dynamic transport
+  // meets viem's typed schema, and nowhere else.
+  const transport = custom({ request: request as EIP1193RequestFn }, { retryCount: 0 });
   return {
     account,
     address: account.address,

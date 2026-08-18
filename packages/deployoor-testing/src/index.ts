@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { createWalletClient, createPublicClient, custom, numberToHex, type EIP1193Provider } from "viem";
+import { createWalletClient, createPublicClient, custom, numberToHex, type EIP1193RequestFn } from "viem";
 import type { Account, Address, Chain, Hex, PublicClient, WalletClient } from "viem";
 import {
   DeploymentRecord,
@@ -10,9 +10,17 @@ import {
   type StoreAdapter,
   type DeploymentRecord as DeploymentRecordType,
 } from "deployoor";
-import { accounts as prefunded, chainFor, createEvmProvider, requestFor, type EvmOptions } from "./edr";
+import {
+  accounts as prefunded,
+  chainFor,
+  createEvmProvider,
+  DEFAULT_CHAIN_ID,
+  requestFor,
+  type EvmOptions,
+  type TestProvider,
+} from "./edr";
 
-export type { ForkOptions } from "./edr";
+export type { ForkOptions, TestProvider } from "./edr";
 
 export type TestAccounts = readonly [Account, Account, ...Account[]];
 
@@ -75,10 +83,10 @@ export interface TestClients {
    */
   readonly walletClientFor: (account: Account) => WalletClient;
   /**
-   * The raw EIP-1193 provider, for anything the cheatcodes don't cover. Every
-   * `hardhat_*` / `evm_*` method the underlying EVM supports is reachable here.
+   * The raw provider, for anything the cheatcodes don't cover. Every `hardhat_*` /
+   * `evm_*` method the underlying EVM supports is reachable through `request`.
    */
-  readonly provider: EIP1193Provider;
+  readonly provider: TestProvider;
   /** Common EVM controls, as thin wrappers over the provider. */
   readonly cheatcodes: TestCheatcodes;
   /**
@@ -141,11 +149,9 @@ const splitOptions = (
   return { evmOptions, deployments, deploymentNetwork };
 };
 
-const cheatcodesFor = (provider: EIP1193Provider): TestCheatcodes => {
+const cheatcodesFor = (provider: TestProvider): TestCheatcodes => {
   const send = (method: string, params: readonly unknown[]): Promise<unknown> =>
-    // The cheatcode namespaces are outside viem's typed RPC schema, so this call is
-    // deliberately untyped at the boundary and narrowed by each wrapper below.
-    provider.request({ method, params } as Parameters<EIP1193Provider["request"]>[0]);
+    provider.request({ method, params });
 
   const setBalance = async (address: Address, value: bigint): Promise<void> => {
     await send("hardhat_setBalance", [address, numberToHex(value)]);
@@ -196,15 +202,18 @@ const cheatcodesFor = (provider: EIP1193Provider): TestCheatcodes => {
 export const createTestClients = async (options?: CreateTestClientsOptions): Promise<TestClients> => {
   const { evmOptions, deployments, deploymentNetwork } = splitOptions(options);
   const evm = await createEvmProvider(evmOptions);
-  const chain = chainFor(evmOptions.chainId ?? 31337);
-  const provider = { request: requestFor(evm) } as EIP1193Provider;
+  const chain = chainFor(evmOptions.chainId ?? DEFAULT_CHAIN_ID);
+  const provider: TestProvider = { request: requestFor(evm) };
+  // The one unavoidable cast: EIP1193RequestFn is generic over each method's return
+  // type, and a JSON-RPC string boundary can only promise `unknown`. It is narrowed
+  // here, at the single point where the dynamic transport meets viem's typed schema.
   // retryCount: 0 — surface reverts immediately instead of viem's retry backoff.
-  const transport = custom(provider, { retryCount: 0 });
+  const transport = custom({ request: provider.request as EIP1193RequestFn }, { retryCount: 0 });
 
   const walletClientFor = (account: Account): WalletClient =>
     createWalletClient({ account, chain, transport });
 
-  const accounts = prefunded as TestAccounts;
+  const accounts: TestAccounts = prefunded;
   const account = accounts[0];
   const seed = readDeploymentRecords(deployments, deploymentNetwork, chain);
 
@@ -240,7 +249,12 @@ export const createFixture = <T>(
       cache.set(clients, { value, id: await clients.cheatcodes.snapshot() });
       return value;
     }
-    await clients.cheatcodes.revert(cached.id);
+    // `revert` resolves false for an id that was already consumed or never existed.
+    // Swallowing that would re-snapshot unrestored state and hand back the cached
+    // value anyway, so every later assertion would run against leaked state.
+    const restored = await clients.cheatcodes.revert(cached.id);
+    if (!restored)
+      throw new Error("createFixture could not restore its snapshot: the id was already consumed");
     // `revert` consumes the id, so re-snapshot the same point for the next call.
     cache.set(clients, { value: cached.value, id: await clients.cheatcodes.snapshot() });
     return cached.value;

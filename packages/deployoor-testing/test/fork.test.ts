@@ -55,7 +55,9 @@ describe.skipIf(forkRpc === undefined)("fork mode", () => {
 
     const record = await clients.store.read(`${clients.chain.id}-edr-devnet`, "USDC");
     expect(record?.address).toBe(USDC);
-    // the seeded address is live on the fork — the record points at real code
-    expect(await clients.publicClient.getCode({ address: USDC })).not.toBe(undefined);
+    // the seeded address is live on the fork — the record points at real code.
+    // `not.toBe(undefined)` would also pass for "0x", which means no code at all.
+    const code = await clients.publicClient.getCode({ address: USDC });
+    expect(code).toMatch(/^0x[0-9a-f]{100,}$/);
   });
 });

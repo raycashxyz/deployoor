@@ -86,7 +86,7 @@ const clients = await createTestClients({
 
 Your prefunded accounts stay funded, and real remote state is readable through the same viem clients. Add `deployments` + `deploymentNetwork` to seed committed records onto the fork so `getOrDeploy` reuses production addresses instead of redeploying.
 
-Separately, tevm still powers `deployoor generate` for plain-Solidity projects — no Hardhat or Foundry needed; see the [tevm guide](/guides/tevm). That is a compiler, not the test EVM, and it is an optional peer dependency.
+Separately, `deployoor generate` can compile plain-Solidity projects with no Hardhat or Foundry, via the optional peer dependencies `@tevm/compiler` and `solc` — see the [tevm guide](/guides/tevm). Those are a compiler, not the test EVM, and installing them is opt-in.
 
 ## Requirements
 
