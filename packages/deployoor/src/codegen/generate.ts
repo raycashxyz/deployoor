@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Artifact } from "../schemas";
+import type { ResolvedImportExtension } from "../config";
 import { artifactModule, deployerModule, indexModule } from "./templates";
 
 export interface GenerateOptions {
@@ -13,6 +14,11 @@ export interface GenerateOptions {
   readonly configImport?: string;
   /** The runtime package generated deployers import. Default "deployoor". */
   readonly packageName?: string;
+  /**
+   * Extension on emitted relative specifiers. Default "none" — the caller (`runGenerate`) resolves
+   * the project's `'auto'` setting before it gets here, so codegen stays a pure function of it.
+   */
+  readonly importExtension?: ResolvedImportExtension;
 }
 
 export interface GeneratedFile {
@@ -30,6 +36,7 @@ export const generate = (
   opts: GenerateOptions,
 ): ReadonlyArray<GeneratedFile> => {
   const packageName = opts.packageName ?? "deployoor";
+  const importExtension = opts.importExtension ?? "none";
   const typesDir = join(opts.outDir, "types");
   mkdirSync(typesDir, { recursive: true });
 
@@ -45,14 +52,14 @@ export const generate = (
       emit(join(typesDir, `${artifact.name}.ts`), artifactModule(artifact, packageName)),
       emit(
         join(opts.outDir, `${artifact.name}.ts`),
-        deployerModule(artifact, { packageName, configImport: opts.configImport }),
+        deployerModule(artifact, { packageName, configImport: opts.configImport, importExtension }),
       ),
     ]),
     emit(
       join(opts.outDir, "index.ts"),
       indexModule(
         artifacts.map((a) => a.name),
-        { packageName, configImport: opts.configImport },
+        { packageName, configImport: opts.configImport, importExtension },
       ),
     ),
   ];
