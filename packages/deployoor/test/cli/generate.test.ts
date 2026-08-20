@@ -1,11 +1,26 @@
 import { describe, it, expect, vi } from "vitest";
-import { mkdtempSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runGenerate } from "../../src/cli/generate";
 import { runInit, isDeployoorInstalled } from "../../src/cli/init";
 
 const hhRoot = join(import.meta.dirname, "..", "fixtures", "hh");
+
+/**
+ * A copy of the Hardhat fixture as a *writable* project root, so a test can drop a tsconfig beside
+ * the artifacts. Import-extension detection reads `root`, which in real use is the user's project —
+ * pointing `root` at the shared read-only fixture cannot exercise that.
+ */
+const projectFromFixture = (tsconfig?: string): string => {
+  const root = mkdtempSync(join(tmpdir(), "deployoor-gen-root-"));
+  cpSync(hhRoot, root, { recursive: true });
+  if (tsconfig !== undefined) writeFileSync(join(root, "tsconfig.json"), tsconfig);
+  return root;
+};
+
+const tsconfigWith = (moduleResolution: string): string =>
+  JSON.stringify({ compilerOptions: { moduleResolution } });
 
 describe("runGenerate", () => {
   it("reads a project's artifacts and emits a deployer per deployable contract", async () => {
@@ -21,6 +36,52 @@ describe("runGenerate", () => {
     const deployer = readFileSync(join(out, "Counter.ts"), "utf8");
     expect(deployer).toContain("export const getOrDeployCounter = defineDeployer(counterArtifact, config)");
     expect(deployer).toContain('import config from "../deployoor.config"'); // deployers/ → ../deployoor.config
+  });
+
+  // End-to-end for the extension decision: nothing is passed in, so the only input is the
+  // tsconfig sitting in the project root.
+  describe("import extensions, from the project's tsconfig", () => {
+    it("emits extensionless relative imports for a bundler project", async () => {
+      const root = projectFromFixture(tsconfigWith("bundler"));
+      const out = join(root, "deployers");
+      await runGenerate({ root, out, configPath: join(root, "deployoor.config.ts") });
+
+      const deployer = readFileSync(join(out, "Counter.ts"), "utf8");
+      expect(deployer).toContain('from "./types/Counter"');
+      expect(deployer).toContain('import config from "../deployoor.config"');
+      expect(deployer).not.toContain(".js");
+      expect(readFileSync(join(out, "index.ts"), "utf8")).toContain('from "./Counter";');
+    });
+
+    it("emits .js relative imports for a node16 project, which rejects extensionless ones", async () => {
+      const root = projectFromFixture(tsconfigWith("node16"));
+      const out = join(root, "deployers");
+      await runGenerate({ root, out, configPath: join(root, "deployoor.config.ts") });
+
+      const deployer = readFileSync(join(out, "Counter.ts"), "utf8");
+      expect(deployer).toContain('from "./types/Counter.js"');
+      expect(deployer).toContain('import config from "../deployoor.config.js"');
+      expect(readFileSync(join(out, "index.ts"), "utf8")).toContain('from "./Counter.js";');
+    });
+
+    it("lets an explicit setting override what the tsconfig implies", async () => {
+      const root = projectFromFixture(tsconfigWith("node16"));
+      const out = join(root, "deployers");
+      await runGenerate({ root, out, importExtension: "none" });
+
+      expect(readFileSync(join(out, "Counter.ts"), "utf8")).toContain('from "./types/Counter"');
+    });
+
+    // A .mts config has to be imported as .mjs; .js would not resolve under node16.
+    it("maps a .mts config to a .mjs specifier", async () => {
+      const root = projectFromFixture(tsconfigWith("nodenext"));
+      const out = join(root, "deployers");
+      await runGenerate({ root, out, configPath: join(root, "deployoor.config.mts") });
+
+      expect(readFileSync(join(out, "Counter.ts"), "utf8")).toContain(
+        'import config from "../deployoor.config.mjs"',
+      );
+    });
   });
 
   it("fails when an include filter matches no deployable contracts", async () => {
