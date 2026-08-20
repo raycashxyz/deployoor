@@ -30,6 +30,7 @@ export default defineConfig({
 | `artifactsPath`                 | framework default        | Compiled artifacts dir, if not `./artifacts` (Hardhat) or `./out` (Foundry) |
 | `framework`                     | auto-detected            | `"hardhat"` \| `"foundry"` \| `"tevm"` — name the toolchain outright        |
 | `sources`                       | `./src`                  | `tevm` only: the `.sol` directory to compile                                |
+| `importExtension`               | `"auto"`                 | `.js` on generated relative imports ([details](#import-extensions))         |
 | `plugins`                       | `[]`                     | Deploy-lifecycle hooks                                                      |
 | `onPluginError`                 | `"warn"`                 | `"throw"` fails the run on plugin error                                     |
 | `redeploymentStrategy`          | `"on-change"`            | Reuse vs redeploy when a record exists ([details](/concepts/idempotency))   |
@@ -83,6 +84,29 @@ neither, or one whose sources sit somewhere unusual, can name it outright with `
 - `getOrDeploy<Name>` — idempotent deployer returning a typed viem contract object
 - Typed artifact module under `deployers/types/`
 - Project-level `register` and `reset` bound to your config
+
+### Import extensions
+
+The relative imports inside `deployers/` are written to match your TypeScript setup, so the
+generated tree typechecks without you touching `tsconfig.json`.
+
+Under `moduleResolution: "node16"` or `"nodenext"` — Hardhat 3's default — TypeScript rejects an
+extensionless relative import (`TS2835`), so deployoor emits `./types/Counter.js`. Under `bundler`
+(or no tsconfig at all) it emits `./types/Counter`, because that is the idiomatic form and a `.js`
+specifier is a resolution failure in setups that do not map it back to `.ts` — webpack without
+`resolve.extensionAlias`, ts-jest without a `moduleNameMapper`.
+
+Detection uses [`get-tsconfig`](https://github.com/privatenumber/get-tsconfig) — the same resolver
+`tsx` uses — so it reads your project the way your runtime does: the nearest `tsconfig.json` at or
+above the project, with `extends` resolved (a `moduleResolution` inherited from a preset such as
+`@tsconfig/node22` counts). A project with no tsconfig keeps the extensionless form. Override it
+when you need to:
+
+```ts
+export default defineConfig({
+  importExtension: "none", // "auto" (default) | "none" | "js"
+});
+```
 
 ## Per-deploy plugin overrides
 

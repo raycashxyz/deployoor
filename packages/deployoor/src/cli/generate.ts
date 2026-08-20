@@ -1,6 +1,8 @@
 import { relative } from "node:path";
 import { readArtifactsAsync, type Framework } from "../artifacts";
 import { generate, type GeneratedFile } from "../codegen/generate";
+import type { ImportExtension, ResolvedImportExtension } from "../config";
+import { resolveImportExtension } from "./import-extension";
 
 export interface RunGenerateOptions {
   /** Project root (detect + read artifacts from here). */
@@ -22,16 +24,38 @@ export interface RunGenerateOptions {
   readonly sources?: string;
   /** Artifacts directory, when it is not the framework default. See `Config.artifactsPath`. */
   readonly artifactsPath?: string;
+  /**
+   * Extension on emitted relative specifiers. Default `'auto'` — detected from `root`'s tsconfig.
+   * See `Config.importExtension`.
+   */
+  readonly importExtension?: ImportExtension;
 }
 
 const matches = (name: string, include?: ReadonlyArray<string> | RegExp): boolean =>
   include === undefined ? true : include instanceof RegExp ? include.test(name) : include.includes(name);
 
-/** Compute the import specifier from a generated deployer file to the user's config. */
-const configSpecifier = (fromDir: string, configPath: string): string => {
+/**
+ * The runtime extension a config specifier carries when the project needs one: `.ts`/`.js` → `.js`,
+ * `.mts`/`.mjs` → `.mjs`, `.cts`/`.cjs` → `.cjs`, keyed off the module marker (`m`/`c`/none). A
+ * `deployoor.config.mts` must be imported as `.mjs` — `.js` would not resolve under node16.
+ */
+const jsExtensionFor = (configPath: string): string => {
+  const marker = configPath.match(/\.([mc])?[jt]s$/)?.[1];
+  return marker === undefined ? ".js" : `.${marker}js`;
+};
+
+/**
+ * Compute the import specifier from a generated deployer file to the user's config: the extension
+ * is stripped, or rewritten to its runtime form when the project requires explicit extensions.
+ */
+const configSpecifier = (
+  fromDir: string,
+  configPath: string,
+  importExtension: ResolvedImportExtension,
+): string => {
   const rel = relative(fromDir, configPath)
     .replace(/\\/g, "/")
-    .replace(/\.[mc]?[jt]s$/, "");
+    .replace(/\.[mc]?[jt]s$/, importExtension === "js" ? jsExtensionFor(configPath) : "");
   return rel.startsWith(".") ? rel : `./${rel}`;
 };
 
@@ -63,9 +87,12 @@ export const runGenerate = async (opts: RunGenerateOptions): Promise<ReadonlyArr
       );
     }
   }
+  const importExtension = resolveImportExtension(opts.importExtension, opts.root);
   return generate(artifacts, {
     outDir: opts.out,
-    configImport: opts.configPath === undefined ? undefined : configSpecifier(opts.out, opts.configPath),
+    configImport:
+      opts.configPath === undefined ? undefined : configSpecifier(opts.out, opts.configPath, importExtension),
     packageName: opts.packageName,
+    importExtension,
   });
 };

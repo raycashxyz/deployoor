@@ -11,6 +11,17 @@ const run = () => {
   return outDir;
 };
 
+/** The same emit for a project that needs explicit extensions (moduleResolution node16/nodenext). */
+const runWithJsExtensions = () => {
+  const outDir = mkdtempSync(join(tmpdir(), "deployoor-gen-js-"));
+  generate([counterArtifact], {
+    outDir,
+    configImport: "../deployoor.config.js",
+    importExtension: "js",
+  });
+  return outDir;
+};
+
 /** A project with no deployoor.config.* at all — every option left at its default. */
 const runWithoutConfig = () => {
   const outDir = mkdtempSync(join(tmpdir(), "deployoor-gen-noconfig-"));
@@ -53,6 +64,7 @@ describe("generate (codegen)", () => {
     const mod = readFileSync(join(run(), "Counter.ts"), "utf8");
     expect(mod).toContain('import { defineDeployer } from "deployoor"');
     expect(mod).toContain('import config from "../deployoor.config"');
+    expect(mod).toContain('import { counterArtifact } from "./types/Counter"');
     expect(mod).toContain("export const getOrDeployCounter = defineDeployer(counterArtifact, config)");
   });
 
@@ -68,6 +80,28 @@ describe("generate (codegen)", () => {
     expect(idx).toContain('import config from "../deployoor.config";');
     expect(idx).toContain("export const register = defineRegister(config);");
     expect(idx).toContain("export const reset = defineReset(config);");
+  });
+
+  // Only a project whose TypeScript setup demands explicit extensions gets them: under
+  // moduleResolution node16/nodenext an extensionless relative specifier is TS2835. Everywhere
+  // else they stay off, because a `.js` a bundler does not map back to `.ts` is a resolution failure.
+  describe("with explicit import extensions", () => {
+    it("appends .js to the artifact import in the deployer", () => {
+      const mod = readFileSync(join(runWithJsExtensions(), "Counter.ts"), "utf8");
+      expect(mod).toContain('import { counterArtifact } from "./types/Counter.js"');
+      expect(mod).toContain('import config from "../deployoor.config.js"');
+    });
+
+    it("appends .js to the index's re-exports", () => {
+      const idx = readFileSync(join(runWithJsExtensions(), "index.ts"), "utf8");
+      expect(idx).toContain('export { getOrDeployCounter } from "./Counter.js";');
+    });
+
+    it("leaves the bare deployoor import alone, since only relative specifiers need extensions", () => {
+      const mod = readFileSync(join(runWithJsExtensions(), "Counter.ts"), "utf8");
+      expect(mod).toContain('import { defineDeployer } from "deployoor";');
+      expect(mod).not.toContain('from "deployoor.js"');
+    });
   });
 
   describe("without a config file", () => {

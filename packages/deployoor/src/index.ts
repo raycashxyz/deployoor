@@ -17,7 +17,7 @@
 
 // Config
 export { defineConfig } from "./config";
-export type { Config } from "./config";
+export type { Config, ImportExtension } from "./config";
 
 // Generated-deployer factories (emitted by `deployoor generate`; users call their results)
 export { defineDeployer, defineRegister, defineReset } from "./engine/deployer";
