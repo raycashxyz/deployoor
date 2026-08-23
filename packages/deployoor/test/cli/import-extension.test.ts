@@ -55,11 +55,14 @@ describe("detectImportExtension", () => {
   });
 
   // The whole `module` family, pinned. node18 (TS 5.8) and node20 (TS 5.9) are *only* valid as
-  // `module` — tsc rejects them for `moduleResolution` — and both imply `moduleResolution: node16`,
-  // so a project naming either and nothing else still requires explicit extensions. Verified against
-  // tsc 5.9: an extensionless relative import under each of node16/node18/node20/nodenext is TS2835,
-  // and under esnext/preserve/commonjs it compiles. These cases also guard the normalization we let
-  // get-tsconfig perform, which is the only reason `effectiveResolution` can read one field.
+  // `module` — tsc rejects them for `moduleResolution` — and both imply `moduleResolution: node16`.
+  // What these cases pin is that mapping, and with it the normalization we let get-tsconfig perform,
+  // which is the only reason `effectiveResolution` can read a single field.
+  //
+  // They deliberately do not prove TS2835: that needs an ESM file (under node16 in a CommonJS
+  // package, extensionless resolves fine and `.js` compiles clean too, so `.js` is safe either way).
+  // `emitted-typecheck.test.ts` is where tsc actually runs, over the real emitted tree, in a package
+  // marked `"type": "module"`.
   it.each([
     ["node16", "js"],
     ["node18", "js"],
