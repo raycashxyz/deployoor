@@ -27,15 +27,18 @@ const readTsconfig = (root: string) => {
 };
 
 /**
- * `moduleResolution` when stated, else `module` — because tsc infers the resolution from it, so
- * `"module": "nodenext"` alone puts a project in strict-ESM resolution and is enough to hit TS2835.
- * Every other `module` value (`esnext`, `preserve`, `commonjs`) implies a mode that accepts
- * extensionless specifiers, so falling through to the same membership test is correct.
+ * Only `moduleResolution` is read, because `get-tsconfig` has already applied tsc's own
+ * `module` → `moduleResolution` implication by the time we see the config:
+ *
+ *   node16 | node18 | node20 -> node16      nodenext -> nodenext
+ *   preserve                 -> bundler     esnext   -> classic
+ *
+ * That matters: `"module": "node20"` alone puts a project in strict-ESM resolution and hits
+ * TS2835, and reading `module` ourselves would mean re-deriving that table (and re-deriving it
+ * again for whatever Node version tsc names next). The mapping is pinned by tests instead.
  */
-const effectiveResolution = (root: string): string => {
-  const options = readTsconfig(root);
-  return (options?.moduleResolution ?? options?.module ?? "").toLowerCase();
-};
+const effectiveResolution = (root: string): string =>
+  (readTsconfig(root)?.moduleResolution ?? "").toLowerCase();
 
 /**
  * Decide whether the generated relative imports in `root` need a `.js` extension. A project with no

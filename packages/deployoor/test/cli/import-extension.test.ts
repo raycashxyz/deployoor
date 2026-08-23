@@ -54,6 +54,24 @@ describe("detectImportExtension", () => {
     expect(detectImportExtension(projectWith(withCompilerOptions({ module: "esnext" })))).toBe("none");
   });
 
+  // The whole `module` family, pinned. node18 (TS 5.8) and node20 (TS 5.9) are *only* valid as
+  // `module` — tsc rejects them for `moduleResolution` — and both imply `moduleResolution: node16`,
+  // so a project naming either and nothing else still requires explicit extensions. Verified against
+  // tsc 5.9: an extensionless relative import under each of node16/node18/node20/nodenext is TS2835,
+  // and under esnext/preserve/commonjs it compiles. These cases also guard the normalization we let
+  // get-tsconfig perform, which is the only reason `effectiveResolution` can read one field.
+  it.each([
+    ["node16", "js"],
+    ["node18", "js"],
+    ["node20", "js"],
+    ["nodenext", "js"],
+    ["esnext", "none"],
+    ["preserve", "none"],
+    ["commonjs", "none"],
+  ])("resolves module %s to %s", (module, expected) => {
+    expect(detectImportExtension(projectWith(withCompilerOptions({ module })))).toBe(expected);
+  });
+
   it("prefers an explicit moduleResolution over what module would imply", () => {
     const root = projectWith(withCompilerOptions({ module: "nodenext", moduleResolution: "bundler" }));
     expect(detectImportExtension(root)).toBe("none");
