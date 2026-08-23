@@ -1,5 +1,12 @@
 # @example/hardhat-v3
 
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies [1722559]
+  - deployoor@0.8.0
+
 ## 0.0.4
 
 ### Patch Changes

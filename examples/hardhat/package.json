@@ -1,6 +1,6 @@
 {
   "name": "@example/hardhat",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "private": true,
   "description": "deployoor on a Hardhat project: compile → auto-generate typed deployers → deploy, recorded to deployments/, then consumed as typed contracts via @wagmi/cli. Also tests on an in-memory EVM.",
   "scripts": {
