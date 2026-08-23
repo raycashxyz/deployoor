@@ -71,6 +71,8 @@ const { contract: usdc } = await register({
 });
 ```
 
+A `publicClient` is enough, and the contract comes back read-only (`contract.read.*`). Pass a `walletClient` as well to get `contract.write.*` too, and to record that account as the registrant.
+
 `register` will not overwrite a real deployment at the same name — `reset` first or use a different `deploymentName`.
 
 ## Reset records

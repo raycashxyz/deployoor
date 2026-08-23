@@ -144,25 +144,52 @@ describe("generated deployers type-check against deployoor", () => {
   });
 
   // The call-site half of the spine: the emitted deployers compiling says nothing about what a
-  // deploy script can write against the result. The assertion is two-sided — a regression that
-  // widened the contract type back out to a bare `WalletClient` would make the write call demand
-  // an explicit `{ account, chain }` and fail here.
+  // deploy script can write against the result. Both assertions are two-sided — a regression that
+  // widened the contract type back out would fail the write calls, and one that dropped the
+  // read-only narrowing would leave the `@ts-expect-error` unused, which tsc also reports.
   //
   // Pinned under `bundler` only: this is about the contract types, and module resolution is
   // already covered above.
   const CONSUMER = `
 import type { PublicClient, WalletClient } from "viem";
-import { getOrDeployCounter } from "./deployers";
+import { getOrDeployCounter, register } from "./deployers";
 
 declare const walletClient: WalletClient;
 declare const publicClient: PublicClient;
 const owner = "0x0000000000000000000000000000000000000001" as const;
+
+const counterAbi = [
+  { type: "function", name: "increment", stateMutability: "nonpayable", inputs: [], outputs: [] },
+  { type: "function", name: "count", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+] as const;
 
 // A deployed contract's account and chain are bound, so a write takes no second argument.
 export const deployed = async () => {
   const { contract } = await getOrDeployCounter({ walletClient, publicClient, args: [1n, owner] });
   await contract.write.increment();
   const count: bigint = await contract.read.count();
+  return count;
+};
+
+export const registered = async () => {
+  const writable = await register({
+    walletClient,
+    publicClient,
+    deploymentName: "Counter",
+    address: owner,
+    abi: counterAbi,
+  });
+  await writable.contract.write.increment();
+
+  const readOnly = await register({
+    publicClient,
+    deploymentName: "Counter",
+    address: owner,
+    abi: counterAbi,
+  });
+  const count: bigint = await readOnly.contract.read.count();
+  // @ts-expect-error no wallet client was passed, so the contract has no write namespace
+  readOnly.contract.write.increment();
   return count;
 };
 `;

@@ -1,7 +1,13 @@
 import { resolve } from "node:path";
 import { Cause, Effect, Exit, Layer } from "effect";
 import type { Abi, Address, PublicClient, WalletClient } from "viem";
-import { Clients, clientsLayer, registerClientsLayer, type DeployResult } from "../services/clients";
+import {
+  Clients,
+  clientsLayer,
+  registerClientsLayer,
+  type DeployResult,
+  type ReadOnlyContract,
+} from "../services/clients";
 import { Store, layerFromAdapter } from "../services/store";
 import { getOrDeploy, register } from "./pipeline";
 import { NoChainOnClient } from "../errors";
@@ -204,13 +210,26 @@ export type RegisterCallOptions<A extends Abi> = DeploymentNameOption & {
 };
 
 /**
+ * The two shapes `register` resolves to. viem's `getContract` builds a `write` namespace only
+ * when it is handed a wallet client, so promising one for a public-client-only call would
+ * typecheck `contract.write.foo(...)` and then throw at runtime. Written as overloads rather
+ * than a conditional return type so the two cases read as two signatures on hover.
+ */
+export interface Register {
+  <A extends Abi>(
+    opts: RegisterCallOptions<A> & { readonly walletClient: WalletClient },
+  ): Promise<DeployResult<A>>;
+  <A extends Abi>(opts: RegisterCallOptions<A>): Promise<DeployResult<A, ReadOnlyContract<A>>>;
+}
+
+/**
  * Build a project-level `register` from the config. `deployoor generate` emits one in the
  * deployers index; the user records a contract they did NOT deploy (e.g. USDC, a partner
  * contract) on the client's chain — no transaction — and gets back the same viem contract
  * object `getOrDeploy` returns. `deploymentName` is the record key (use distinct names to track
  * several instances); `name` is accepted as a compatibility alias.
  */
-export const defineRegister = <const P extends readonly AnyDeployPlugin[]>(config: Config<P>) => {
+export const defineRegister = <const P extends readonly AnyDeployPlugin[]>(config: Config<P>): Register => {
   return <A extends Abi>(opts: RegisterCallOptions<A>): Promise<DeployResult<A>> => {
     const deploymentName = opts.deploymentName ?? opts.name;
     if (deploymentName === undefined) throw new Error("register requires deploymentName");

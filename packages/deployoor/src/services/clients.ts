@@ -36,6 +36,12 @@ export type DeployedContract<A extends Abi> = GetContractReturnType<
 >;
 
 /**
+ * The same contract without `write`: what `register` resolves to when called with no wallet
+ * client, because viem's `getContract` emits no `write` namespace for a public client alone.
+ */
+export type ReadOnlyContract<A extends Abi> = Omit<DeployedContract<A>, "write">;
+
+/**
  * What a generated `getOrDeploy<Name>` / `register` resolves to — more than just the
  * contract, so a deploy script can branch on what actually happened:
  *   - `contract`     — the typed viem object (`.read.*` / `.write.*` / `.address`).
@@ -43,9 +49,12 @@ export type DeployedContract<A extends Abi> = GetContractReturnType<
  *   - `freshDeploy`  — `true` only when this call broadcast a deploy transaction;
  *                      `false` on idempotent reuse and for `register` (which never deploys).
  *   - `receipt`      — the deploy receipt, present only when `freshDeploy` is `true`.
+ *
+ * `contract` is writable by default; `register` without a wallet client narrows it to
+ * `ReadOnlyContract`.
  */
-export interface DeployResult<A extends Abi> {
-  readonly contract: DeployedContract<A>;
+export interface DeployResult<A extends Abi, contract = DeployedContract<A>> {
+  readonly contract: contract;
   readonly deployment: DeploymentRecord;
   readonly freshDeploy: boolean;
   readonly receipt?: TransactionReceipt;
@@ -115,6 +124,11 @@ export const registerClientsLayer = (
         account: walletClient?.account?.address ?? zeroAddress,
         deploy: notDeploying,
         waitForReceipt: notDeploying,
+        // `ClientsService` is one shape for both paths, so this widens to the writable
+        // contract type — the only place in the engine that does. Whether `write` is really
+        // there is a property of the arguments, not of the chain, so `register`'s public
+        // overloads carry it instead: with a wallet client they promise `DeployedContract`,
+        // without one only `ReadOnlyContract`.
         contractAt: (address, abi) =>
           (walletClient === undefined
             ? getContract({ address, abi, client: publicClient })

@@ -21,9 +21,11 @@ export type { Config, ImportExtension } from "./config";
 
 // Generated-deployer factories (emitted by `deployoor generate`; users call their results)
 export { defineDeployer, defineRegister, defineReset } from "./engine/deployer";
-export type { DeployerCallOptions, RegisterCallOptions, ResetCallOptions } from "./engine/deployer";
+export type { DeployerCallOptions, Register, RegisterCallOptions, ResetCallOptions } from "./engine/deployer";
 // What a generated `getOrDeploy<Name>` / `register` resolves to: { contract, deployment, freshDeploy, receipt? }.
-export type { DeployResult } from "./services/clients";
+// `DeployedContract` is the typed viem object in `contract`; `ReadOnlyContract` is the same minus
+// `write`, which is what `register` returns when called without a wallet client.
+export type { DeployResult, DeployedContract, ReadOnlyContract } from "./services/clients";
 
 // Plugin SDK
 export { definePlugin } from "./plugin";
