@@ -53,13 +53,36 @@ describe("generated deployers type-check against deployoor", () => {
     }
   };
 
+  // The two resolution modes the emitted tree has to satisfy, each with the extension form
+  // deployoor emits for it. `bundler` is the common tsx/Vite setup and takes extensionless
+  // specifiers; `node16` is strict-ESM and Hardhat 3's default, and *rejects* them (TS2835/TS2307),
+  // so it gets `.js`.
+  //
+  // Only the node16 row is asymmetric: tsc accepts `.js` under `bundler` too (it substitutes back to
+  // `.ts`), so this suite would still pass if extensions were emitted unconditionally. What rules
+  // that out is not tsc but runtime resolution — webpack without `resolve.extensionAlias` and
+  // ts-jest without a `moduleNameMapper` fail on a `.js` specifier — which is why the emitted form
+  // tracks the project instead of always taking the superset. `import-extension.test.ts` pins that
+  // decision; this suite pins that each form compiles where it is emitted.
+  const RESOLUTIONS = [
+    { moduleResolution: "bundler", module: "esnext", esm: false, importExtension: "none" },
+    { moduleResolution: "node16", module: "node16", esm: true, importExtension: "js" },
+  ] as const;
+
   /** Generate into a throwaway project — with or without a config file — and tsc the result. */
-  const typecheckEmitted = async ({ withConfig }: { withConfig: boolean }): Promise<string> => {
+  const typecheckEmitted = async ({
+    withConfig,
+    resolution,
+  }: {
+    withConfig: boolean;
+    resolution: (typeof RESOLUTIONS)[number];
+  }): Promise<string> => {
     const project = mkdtempSync(join(tmpdir(), "deployoor-tsc-"));
     const configPath = join(project, "deployoor.config.ts");
     await runGenerate({
       root: hhRoot,
       out: join(project, "deployers"),
+      importExtension: resolution.importExtension,
       ...(withConfig ? { configPath } : {}),
     });
     if (withConfig) {
@@ -68,13 +91,18 @@ describe("generated deployers type-check against deployoor", () => {
         'import { defineConfig } from "deployoor";\nexport default defineConfig({});\n',
       );
     }
+    // node16 only demands extensions on files that are ESM, which is what makes this the real
+    // Hardhat 3 shape rather than a config that happens to pass.
+    if (resolution.esm) {
+      writeFileSync(join(project, "package.json"), JSON.stringify({ type: "module" }));
+    }
     writeFileSync(
       join(project, "tsconfig.json"),
       JSON.stringify({
         compilerOptions: {
           strict: true,
-          module: "esnext",
-          moduleResolution: "bundler",
+          module: resolution.module,
+          moduleResolution: resolution.moduleResolution,
           target: "es2022",
           noEmit: true,
           skipLibCheck: true,
@@ -88,15 +116,17 @@ describe("generated deployers type-check against deployoor", () => {
     return runTsc(project);
   };
 
-  it("compiles the emitted deployers, artifact modules, and config", async () => {
-    const diagnostics = await typecheckEmitted({ withConfig: true });
-    expect(diagnostics, diagnostics).toBe("");
-  }, 60_000);
+  RESOLUTIONS.forEach((resolution) => {
+    it(`compiles the emitted deployers, artifact modules, and config under ${resolution.moduleResolution}`, async () => {
+      const diagnostics = await typecheckEmitted({ withConfig: true, resolution });
+      expect(diagnostics, diagnostics).toBe("");
+    }, 60_000);
 
-  // The zero-config path: no deployoor.config.* anywhere, so the deployers carry `{} satisfies
-  // Config` inline. Proves the inlined defaults satisfy the same signature the imported config does.
-  it("compiles the emitted deployers when the project has no config file", async () => {
-    const diagnostics = await typecheckEmitted({ withConfig: false });
-    expect(diagnostics, diagnostics).toBe("");
-  }, 60_000);
+    // The zero-config path: no deployoor.config.* anywhere, so the deployers carry `{} satisfies
+    // Config` inline. Proves the inlined defaults satisfy the same signature the imported config does.
+    it(`compiles the emitted deployers with no config file under ${resolution.moduleResolution}`, async () => {
+      const diagnostics = await typecheckEmitted({ withConfig: false, resolution });
+      expect(diagnostics, diagnostics).toBe("");
+    }, 60_000);
+  });
 });

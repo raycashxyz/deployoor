@@ -22,18 +22,19 @@ export default defineConfig({
 
 ## Options
 
-| Option                          | Default                  | Description                                                                 |
-| ------------------------------- | ------------------------ | --------------------------------------------------------------------------- |
-| `include`                       | all deployable contracts | Filter by contract name                                                     |
-| `out`                           | `./deployers`            | Where typed deployers are written                                           |
-| `deploymentsPath`               | `./deployments`          | Where JSON records are read/written                                         |
-| `artifactsPath`                 | framework default        | Compiled artifacts dir, if not `./artifacts` (Hardhat) or `./out` (Foundry) |
-| `framework`                     | auto-detected            | `"hardhat"` \| `"foundry"` \| `"tevm"` — name the toolchain outright        |
-| `sources`                       | `./src`                  | `tevm` only: the `.sol` directory to compile                                |
-| `plugins`                       | `[]`                     | Deploy-lifecycle hooks                                                      |
-| `onPluginError`                 | `"warn"`                 | `"throw"` fails the run on plugin error                                     |
-| `redeploymentStrategy`          | `"on-change"`            | Reuse vs redeploy when a record exists ([details](/concepts/idempotency))   |
-| `redeploymentStrategyByChainId` | `{}`                     | Per-chain override, keyed by chain id                                       |
+| Option                          | Default                  | Description                                                                               |
+| ------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------- |
+| `include`                       | all deployable contracts | Filter by contract name                                                                   |
+| `out`                           | `./deployers`            | Where typed deployers are written                                                         |
+| `deploymentsPath`               | `./deployments`          | Where JSON records are read/written                                                       |
+| `artifactsPath`                 | framework default        | Compiled artifacts dir, if not `./artifacts` (Hardhat) or `./out` (Foundry)               |
+| `framework`                     | auto-detected            | `"hardhat"` \| `"foundry"` \| `"tevm"` — name the toolchain outright                      |
+| `sources`                       | `./src`                  | `tevm` only: the `.sol` directory to compile                                              |
+| `importExtension`               | `"auto"`                 | `.js` on generated relative imports under node16/nodenext ([details](#import-extensions)) |
+| `plugins`                       | `[]`                     | Deploy-lifecycle hooks                                                                    |
+| `onPluginError`                 | `"warn"`                 | `"throw"` fails the run on plugin error                                                   |
+| `redeploymentStrategy`          | `"on-change"`            | Reuse vs redeploy when a record exists ([details](/concepts/idempotency))                 |
+| `redeploymentStrategyByChainId` | `{}`                     | Per-chain override, keyed by chain id                                                     |
 
 `defineConfig` is typed via `import { defineConfig } from "deployoor"`. If a name in `include` matches nothing after compile, `deployoor generate` warns (typo or missing artifact).
 
@@ -83,6 +84,34 @@ neither, or one whose sources sit somewhere unusual, can name it outright with `
 - `getOrDeploy<Name>` — idempotent deployer returning a typed viem contract object
 - Typed artifact module under `deployers/types/`
 - Project-level `register` and `reset` bound to your config
+
+### Import extensions
+
+The relative imports inside `deployers/` are written to match your TypeScript setup, so the
+generated tree typechecks without you touching `tsconfig.json`.
+
+Under `moduleResolution: "node16"` or `"nodenext"` — Hardhat 3's default — TypeScript rejects an
+extensionless relative import (`TS2835`), so deployoor emits `./types/Counter.js`. Everywhere else
+it emits `./types/Counter`, because that is the idiomatic form and a `.js` specifier is a resolution
+failure in setups that do not map it back to `.ts` — webpack without `resolve.extensionAlias`,
+ts-jest without a `moduleNameMapper`.
+
+`moduleResolution` does not have to be spelled out. TypeScript infers it from `module`, and
+`"node16"`, `"node18"` and `"node20"` all imply `moduleResolution: "node16"` (`"nodenext"` implies
+`"nodenext"`), so naming any of those and nothing else is enough to require extensions. `"esnext"`,
+`"preserve"` and `"commonjs"` imply modes that accept extensionless imports.
+
+Detection uses [`get-tsconfig`](https://github.com/privatenumber/get-tsconfig) — the same resolver
+`tsx` uses — so it reads your project the way your runtime does: the nearest `tsconfig.json` at or
+above the project, with `extends` resolved (a `moduleResolution` inherited from a preset such as
+`@tsconfig/node22` counts). A project with no readable tsconfig keeps the extensionless form.
+Override it when you need to:
+
+```ts
+export default defineConfig({
+  importExtension: "none", // "auto" (default) | "none" | "js"
+});
+```
 
 ## Per-deploy plugin overrides
 

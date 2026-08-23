@@ -43,5 +43,6 @@ export const generateDeployers = async (
     framework: config.framework,
     sources: config.sources,
     artifactsPath: config.artifactsPath,
+    importExtension: config.importExtension,
   });
 };
