@@ -2,6 +2,7 @@ import { Context, Effect, Layer } from "effect";
 import { getContract, zeroAddress } from "viem";
 import type {
   Abi,
+  Account,
   Address,
   Chain,
   GetContractReturnType,
@@ -9,14 +10,29 @@ import type {
   Hex,
   PublicClient,
   TransactionReceipt,
+  Transport,
   WalletClient,
 } from "viem";
 import { NoChainOnClient } from "../errors";
 import type { DeploymentRecord } from "../schemas";
 
+/**
+ * A wallet client with `chain` and `account` both bound — the only shape the engine ever
+ * runs on, since `clientsLayer` fails with `NoChainOnClient` otherwise. Saying so in the
+ * type is what lets `contract.write.foo(args)` be called with one argument: viem derives
+ * that from the client, requiring an explicit `{ account, chain }` whenever either could
+ * be `undefined`, which is exactly what bare `WalletClient` declares (its defaults are
+ * `Chain | undefined` / `Account | undefined`).
+ */
+export type BoundWalletClient = WalletClient<Transport, Chain, Account>;
+
+/** The runtime side of `BoundWalletClient`, as a guard so the narrowing reaches `contractAt`. */
+const isBoundWalletClient = (client: WalletClient): client is BoundWalletClient =>
+  client.chain !== undefined && client.account !== undefined;
+
 export type DeployedContract<A extends Abi> = GetContractReturnType<
   A,
-  { public: PublicClient; wallet: WalletClient }
+  { public: PublicClient; wallet: BoundWalletClient }
 >;
 
 /**
@@ -61,11 +77,8 @@ export const clientsLayer = (
   Layer.effect(
     Clients,
     Effect.gen(function* () {
-      const chain = walletClient.chain;
-      const account = walletClient.account;
-      if (chain === undefined || account === undefined) {
-        return yield* Effect.fail(new NoChainOnClient());
-      }
+      if (!isBoundWalletClient(walletClient)) return yield* Effect.fail(new NoChainOnClient());
+      const { chain, account } = walletClient;
       return {
         chain,
         account: account.address,

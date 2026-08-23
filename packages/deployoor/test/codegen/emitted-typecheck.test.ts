@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -73,9 +73,12 @@ describe("generated deployers type-check against deployoor", () => {
   const typecheckEmitted = async ({
     withConfig,
     resolution,
+    consumer,
   }: {
     withConfig: boolean;
     resolution: (typeof RESOLUTIONS)[number];
+    /** A caller-side script to compile alongside the emitted tree, for asserting call ergonomics. */
+    consumer?: string;
   }): Promise<string> => {
     const project = mkdtempSync(join(tmpdir(), "deployoor-tsc-"));
     const configPath = join(project, "deployoor.config.ts");
@@ -96,6 +99,12 @@ describe("generated deployers type-check against deployoor", () => {
     if (resolution.esm) {
       writeFileSync(join(project, "package.json"), JSON.stringify({ type: "module" }));
     }
+    // A consumer script names viem's client types directly, the way a real deploy script does,
+    // so it needs viem resolvable from the project rather than only from deployoor's dist.
+    if (consumer !== undefined) {
+      writeFileSync(join(project, "consumer.ts"), consumer);
+      symlinkSync(join(pkgRoot, "node_modules"), join(project, "node_modules"), "dir");
+    }
     writeFileSync(
       join(project, "tsconfig.json"),
       JSON.stringify({
@@ -109,7 +118,11 @@ describe("generated deployers type-check against deployoor", () => {
           baseUrl: ".",
           paths: { deployoor: [distTypes] },
         },
-        include: withConfig ? ["deployers/**/*.ts", "deployoor.config.ts"] : ["deployers/**/*.ts"],
+        include: [
+          "deployers/**/*.ts",
+          ...(withConfig ? ["deployoor.config.ts"] : []),
+          ...(consumer === undefined ? [] : ["consumer.ts"]),
+        ],
       }),
     );
 
@@ -129,4 +142,37 @@ describe("generated deployers type-check against deployoor", () => {
       expect(diagnostics, diagnostics).toBe("");
     }, 60_000);
   });
+
+  // The call-site half of the spine: the emitted deployers compiling says nothing about what a
+  // deploy script can write against the result. The assertion is two-sided — a regression that
+  // widened the contract type back out to a bare `WalletClient` would make the write call demand
+  // an explicit `{ account, chain }` and fail here.
+  //
+  // Pinned under `bundler` only: this is about the contract types, and module resolution is
+  // already covered above.
+  const CONSUMER = `
+import type { PublicClient, WalletClient } from "viem";
+import { getOrDeployCounter } from "./deployers";
+
+declare const walletClient: WalletClient;
+declare const publicClient: PublicClient;
+const owner = "0x0000000000000000000000000000000000000001" as const;
+
+// A deployed contract's account and chain are bound, so a write takes no second argument.
+export const deployed = async () => {
+  const { contract } = await getOrDeployCounter({ walletClient, publicClient, args: [1n, owner] });
+  await contract.write.increment();
+  const count: bigint = await contract.read.count();
+  return count;
+};
+`;
+
+  it("compiles a deploy script that writes without passing account and chain", async () => {
+    const diagnostics = await typecheckEmitted({
+      withConfig: true,
+      resolution: RESOLUTIONS[0],
+      consumer: CONSUMER,
+    });
+    expect(diagnostics, diagnostics).toBe("");
+  }, 60_000);
 });
