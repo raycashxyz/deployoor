@@ -144,18 +144,21 @@ describe("generated deployers type-check against deployoor", () => {
   });
 
   // The call-site half of the spine: the emitted deployers compiling says nothing about what a
-  // deploy script can write against the result. Both assertions are two-sided — a regression that
-  // widened the contract type back out would fail the write calls, and one that dropped the
-  // read-only narrowing would leave the `@ts-expect-error` unused, which tsc also reports.
+  // deploy script can write against the result. Every assertion here is two-sided — a regression
+  // that widened a contract type back out fails the bare write calls, and one that dropped a
+  // narrowing leaves a `@ts-expect-error` unused, which tsc also reports.
   //
   // Pinned under `bundler` only: this is about the contract types, and module resolution is
   // already covered above.
   const CONSUMER = `
-import type { PublicClient, WalletClient } from "viem";
+import type { Account, Chain, PublicClient, Transport, WalletClient } from "viem";
 import { getOrDeployCounter, register } from "./deployers";
 
-declare const walletClient: WalletClient;
+declare const walletClient: WalletClient<Transport, Chain, Account>;
+declare const unboundWallet: WalletClient;
 declare const publicClient: PublicClient;
+declare const account: Account;
+declare const chain: Chain;
 const owner = "0x0000000000000000000000000000000000000001" as const;
 
 const counterAbi = [
@@ -163,14 +166,16 @@ const counterAbi = [
   { type: "function", name: "count", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
 ] as const;
 
-// A deployed contract's account and chain are bound, so a write takes no second argument.
+// A deployed contract's account and chain are bound — the deployer fails without them — so a
+// write takes no second argument whatever the caller's client type says.
 export const deployed = async () => {
-  const { contract } = await getOrDeployCounter({ walletClient, publicClient, args: [1n, owner] });
+  const { contract } = await getOrDeployCounter({ walletClient: unboundWallet, publicClient, args: [1n, owner] });
   await contract.write.increment();
   const count: bigint = await contract.read.count();
   return count;
 };
 
+// register, unlike a deploy, broadcasts nothing and so accepts all three client shapes.
 export const registered = async () => {
   const writable = await register({
     walletClient,
@@ -180,6 +185,17 @@ export const registered = async () => {
     abi: counterAbi,
   });
   await writable.contract.write.increment();
+
+  const unbound = await register({
+    walletClient: unboundWallet,
+    publicClient,
+    deploymentName: "Counter",
+    address: owner,
+    abi: counterAbi,
+  });
+  await unbound.contract.write.increment({ account, chain });
+  // @ts-expect-error this wallet client binds neither an account nor a chain, so writes need both
+  await unbound.contract.write.increment();
 
   const readOnly = await register({
     publicClient,

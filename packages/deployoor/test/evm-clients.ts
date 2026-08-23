@@ -1,5 +1,5 @@
-import { createEvmNode } from "@deployoor/evm";
-import type { Account, Address, WalletClient, PublicClient } from "viem";
+import { createEvmNode, type EvmWalletClient } from "@deployoor/evm";
+import type { Account, Address, Chain, PublicClient } from "viem";
 
 /**
  * A real, in-process EVM (EDR — the Rust engine behind Hardhat 3) exposed as
@@ -16,9 +16,10 @@ import type { Account, Address, WalletClient, PublicClient } from "viem";
 export const makeEvmClients = async (): Promise<{
   account: Account;
   address: Address;
-  walletClient: WalletClient;
+  chain: Chain;
+  walletClient: EvmWalletClient;
   publicClient: PublicClient;
 }> => {
-  const { account, walletClient, publicClient } = await createEvmNode();
-  return { account, address: account.address, walletClient, publicClient };
+  const { account, chain, walletClient, publicClient } = await createEvmNode();
+  return { account, address: account.address, chain, walletClient, publicClient };
 };

@@ -42,6 +42,17 @@ export type DeployedContract<A extends Abi> = GetContractReturnType<
 export type ReadOnlyContract<A extends Abi> = Omit<DeployedContract<A>, "write">;
 
 /**
+ * The contract `register` resolves to for a wallet client that binds neither an account nor a
+ * chain (an injected wallet used without hoisting one, say). `write` is there — viem builds it
+ * from the wallet client's presence, not its bindings — but every call has to supply
+ * `{ account, chain }`, which is what this type says and `DeployedContract` would not.
+ */
+export type UnboundContract<A extends Abi> = GetContractReturnType<
+  A,
+  { public: PublicClient; wallet: WalletClient }
+>;
+
+/**
  * What a generated `getOrDeploy<Name>` / `register` resolves to — more than just the
  * contract, so a deploy script can branch on what actually happened:
  *   - `contract`     — the typed viem object (`.read.*` / `.write.*` / `.address`).

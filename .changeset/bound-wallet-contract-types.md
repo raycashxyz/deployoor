@@ -1,5 +1,6 @@
 ---
 "deployoor": minor
+"@deployoor/testing": minor
 ---
 
 Writes on a deployed contract no longer need an explicit `{ account, chain }`.
@@ -13,6 +14,8 @@ await contract.write.increment(); // was: increment({ account, chain })
 
 Passing the options explicitly still works, so existing scripts keep compiling.
 
-`register` called with only a `publicClient` now resolves to a read-only contract (`ReadOnlyContract`, the same type without `write`). viem builds no `write` namespace for a public client alone, so `contract.write.foo(...)` on that result used to typecheck and then throw. Pass a `walletClient` to get a writable contract back.
+`register` now resolves to a contract that matches the client it was handed. It broadcasts nothing, so it accepts clients a deploy would reject, and each gets the write surface it can actually use: a wallet client with an account and a chain writes with no second argument; one binding neither still has `write` but must pass `{ account, chain }`; a public client alone gets no `write` at all. Previously every case was typed writable-and-bound, so `register({ publicClient })` followed by `contract.write.foo(...)` typechecked and then threw.
 
-`DeployedContract` and `ReadOnlyContract` are exported for annotating helpers, and `DeployResult` takes an optional second type parameter for the contract type (defaulting to the writable one).
+`@deployoor/testing`'s clients are typed as bound (they always were, at runtime), so `contract.write.foo(args)` works single-argument in tests too. `TestWalletClient` is exported for annotating helpers.
+
+New exported types on `deployoor`: `BoundWalletClient`, `DeployedContract`, `UnboundContract`, `ReadOnlyContract`, and `Register`. `DeployResult` takes an optional second type parameter for the contract type, defaulting to the writable one.

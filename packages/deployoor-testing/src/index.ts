@@ -13,6 +13,7 @@ import {
 export type {
   Cheatcodes as TestCheatcodes,
   EvmProvider as TestProvider,
+  EvmWalletClient as TestWalletClient,
   ForkOptions,
   MineParams,
   SetAccountParams,

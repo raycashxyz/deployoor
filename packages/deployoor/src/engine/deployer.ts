@@ -5,8 +5,10 @@ import {
   Clients,
   clientsLayer,
   registerClientsLayer,
+  type BoundWalletClient,
   type DeployResult,
   type ReadOnlyContract,
+  type UnboundContract,
 } from "../services/clients";
 import { Store, layerFromAdapter } from "../services/store";
 import { getOrDeploy, register } from "./pipeline";
@@ -210,15 +212,26 @@ export type RegisterCallOptions<A extends Abi> = DeploymentNameOption & {
 };
 
 /**
- * The two shapes `register` resolves to. viem's `getContract` builds a `write` namespace only
- * when it is handed a wallet client, so promising one for a public-client-only call would
- * typecheck `contract.write.foo(...)` and then throw at runtime. Written as overloads rather
- * than a conditional return type so the two cases read as two signatures on hover.
+ * The three shapes `register` resolves to, one per client it can be handed. Unlike a deploy,
+ * `register` broadcasts nothing, so it accepts clients a deploy would reject — and the contract
+ * it hands back differs accordingly:
+ *
+ *   - a wallet client with an account and a chain → writes need no second argument
+ *   - a wallet client binding neither → `write` exists, but every call must pass
+ *     `{ account, chain }`, since viem builds `write` from the client's presence, not its
+ *     bindings
+ *   - no wallet client → no `write` at all; viem emits none for a public client alone, so
+ *     promising one would typecheck `contract.write.foo(...)` and then throw
+ *
+ * Overloads rather than a conditional return type, so the cases read as signatures on hover.
  */
 export interface Register {
   <A extends Abi>(
-    opts: RegisterCallOptions<A> & { readonly walletClient: WalletClient },
+    opts: RegisterCallOptions<A> & { readonly walletClient: BoundWalletClient },
   ): Promise<DeployResult<A>>;
+  <A extends Abi>(
+    opts: RegisterCallOptions<A> & { readonly walletClient: WalletClient },
+  ): Promise<DeployResult<A, UnboundContract<A>>>;
   <A extends Abi>(opts: RegisterCallOptions<A>): Promise<DeployResult<A, ReadOnlyContract<A>>>;
 }
 

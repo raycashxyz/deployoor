@@ -23,9 +23,17 @@ export type { Config, ImportExtension } from "./config";
 export { defineDeployer, defineRegister, defineReset } from "./engine/deployer";
 export type { DeployerCallOptions, Register, RegisterCallOptions, ResetCallOptions } from "./engine/deployer";
 // What a generated `getOrDeploy<Name>` / `register` resolves to: { contract, deployment, freshDeploy, receipt? }.
-// `DeployedContract` is the typed viem object in `contract`; `ReadOnlyContract` is the same minus
-// `write`, which is what `register` returns when called without a wallet client.
-export type { DeployResult, DeployedContract, ReadOnlyContract } from "./services/clients";
+// `DeployedContract` is the typed viem object in `contract`, built for a `BoundWalletClient` (an
+// account and a chain, so writes take no second argument). `register` also has the two weaker
+// cases: `UnboundContract` (a wallet client binding neither, so writes must pass them) and
+// `ReadOnlyContract` (no wallet client, so no `write` at all).
+export type {
+  BoundWalletClient,
+  DeployResult,
+  DeployedContract,
+  ReadOnlyContract,
+  UnboundContract,
+} from "./services/clients";
 
 // Plugin SDK
 export { definePlugin } from "./plugin";

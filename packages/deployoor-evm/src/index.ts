@@ -6,7 +6,7 @@ import {
   numberToHex,
   type EIP1193RequestFn,
 } from "viem";
-import type { Account, Address, Chain, Hex, PublicClient, WalletClient } from "viem";
+import type { Account, Address, Chain, Hex, PublicClient, Transport, WalletClient } from "viem";
 import {
   accounts,
   chainFor,
@@ -61,16 +61,24 @@ export interface Cheatcodes {
   readonly revert: (id: SnapshotId) => Promise<boolean>;
 }
 
+/**
+ * Every wallet client this node hands out is built with both an account and a chain, and the
+ * type says so rather than widening to a bare `WalletClient` — that is what lets a consumer
+ * call `contract.write.foo(args)` without repeating `{ account, chain }`. Still spelled with
+ * viem's own names, so emitted declarations stay nameable across the package boundary (TS2742).
+ */
+export type EvmWalletClient = WalletClient<Transport, Chain, Account>;
+
 export interface EvmNode {
   /** The primary prefunded account (`accounts[0]`), bound to `walletClient`. */
   readonly account: Account;
   /** Every prefunded account — use these to test multiple addresses interacting. */
   readonly accounts: EvmAccounts;
   readonly chain: Chain;
-  readonly walletClient: WalletClient;
+  readonly walletClient: EvmWalletClient;
   readonly publicClient: PublicClient;
   /** A wallet client bound to any account on this same EVM. */
-  readonly walletClientFor: (account: Account) => WalletClient;
+  readonly walletClientFor: (account: Account) => EvmWalletClient;
   /** The raw provider, for any RPC the cheatcodes don't wrap. */
   readonly provider: EvmProvider;
   readonly cheatcodes: Cheatcodes;
@@ -126,7 +134,7 @@ export const createEvmNode = async (options: EvmOptions = {}): Promise<EvmNode> 
   // retryCount: 0 — surface reverts immediately instead of viem's retry backoff.
   const transport = custom({ request: provider.request as EIP1193RequestFn }, { retryCount: 0 });
 
-  const walletClientFor = (account: Account): WalletClient =>
+  const walletClientFor = (account: Account): EvmWalletClient =>
     createWalletClient({ account, chain, transport });
 
   const account = accounts[0];

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createWalletClient, custom, zeroAddress } from "viem";
 import type { Chain } from "viem";
 import { defineConfig, defineDeployer, defineRegister, defineReset } from "../../src/index";
 import { networkKeyForChain } from "../../src/store";
@@ -144,6 +145,33 @@ describe("defineRegister / defineReset (project-level entry points)", () => {
     const moved = await register({ ...clients, address: other });
     expect(moved.deployment.history).toHaveLength(2); // appended, not replaced
     expect(moved.deployment.history?.[1]?.supersededAddress).toBe(account);
+  });
+
+  // Deliberately not rejected. A wallet client with no account cannot be the registrant and
+  // cannot send a transaction, but `register` only writes a record, so failing here would break
+  // a call that works today. The consequence is carried in the type instead: this client resolves
+  // to an `UnboundContract`, whose writes must pass `{ account, chain }` explicitly — pinned in
+  // `test/codegen/emitted-typecheck.test.ts`, since it is a compile-time property.
+  it("register accepts a wallet client with no account and records the zero-address deployer", async () => {
+    const deploymentsPath = mkdtempSync(join(tmpdir(), "deployoor-"));
+    const register = defineRegister(defineConfig({ deploymentsPath }));
+
+    const { address: external, publicClient, chain } = await makeEvmClients();
+    // Same EVM, no hoisted account — the shape an injected browser wallet has before a connect.
+    const accountless = createWalletClient({ chain, transport: custom({ request: publicClient.request }) });
+    expect(accountless.account).toBeUndefined();
+
+    const { contract, deployment } = await register({
+      walletClient: accountless,
+      publicClient,
+      deploymentName: "USDC",
+      address: external,
+      abi: counterArtifact.abi,
+    });
+
+    expect(deployment.deployer).toBe(zeroAddress);
+    expect(deployment.kind).toBe("external");
+    expect(contract.address).toBe(external);
   });
 
   it("register works with only a public client (no signer) and records the zero-address deployer", async () => {
