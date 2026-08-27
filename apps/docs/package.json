@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vocs dev",
-    "build": "vocs build",
-    "preview": "vocs preview"
+    "build": "vocs build && node scripts/augment-llms.mjs && node scripts/ping-indexnow.mjs",
+    "preview": "vocs preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "react": "^19.2.8",
@@ -17,10 +19,12 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "deployoor": "workspace:*",
+    "hono": "^4.12.14",
     "mermaid": "^11.16.1",
     "typescript": "^5.9.3",
     "viem": "catalog:",
     "vite": "^8.2.1",
+    "vitest": "catalog:",
     "waku": "^1.0.0-beta.6"
   }
 }
