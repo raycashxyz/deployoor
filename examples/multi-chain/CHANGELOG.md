@@ -1,5 +1,12 @@
 # @example/multi-chain
 
+## 0.0.7
+
+### Patch Changes
+
+- Updated dependencies [915141e]
+  - deployoor@0.9.0
+
 ## 0.0.6
 
 ### Patch Changes

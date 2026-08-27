@@ -1,5 +1,12 @@
 # @example/custom-paths
 
+## 0.0.3
+
+### Patch Changes
+
+- Updated dependencies [915141e]
+  - deployoor@0.9.0
+
 ## 0.0.2
 
 ### Patch Changes

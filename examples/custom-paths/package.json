@@ -1,6 +1,6 @@
 {
   "name": "@example/custom-paths",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "description": "deployoor on a project where every path is moved: Hardhat sources, artifacts and cache, plus deployoor's own out and deploymentsPath. Shows which paths deployoor reads from your framework's config and which need a deployoor config.",
   "scripts": {

@@ -1,6 +1,6 @@
 {
   "name": "@example/multi-chain",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "private": true,
   "type": "module",
   "description": "Multi-chain deploy script: Ping on Sepolia and Pong on Base Sepolia, wired as LayerZero peers.",
