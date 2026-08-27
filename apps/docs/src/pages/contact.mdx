@@ -1,0 +1,42 @@
+---
+title: Contact
+description: Where to report a bug, ask a question, or reach the maintainer of deployoor.
+---
+
+# Contact
+
+deployoor is maintained in the open, so most of the channels below are public and all of them reach the same people. There is no support queue and no ticket system: an issue on the repository is the fastest way to get a fix. For anything that does not belong in public, email **[hi@raycash.xyz](mailto:hi@raycash.xyz)**.
+
+## Report a bug or request a feature
+
+Open an issue at [github.com/raycashxyz/deployoor/issues](https://github.com/raycashxyz/deployoor/issues). A report moves fastest when it carries:
+
+- the versions of `deployoor`, `viem`, and Node you are running (`npx deployoor --version`, `node --version`)
+- the framework the artifacts come from, so Hardhat v2, Hardhat v3, Foundry, or tevm
+- the command you ran and the full error, including the tagged error name (for example `ContractArtifactNotFound`)
+- the relevant part of `deployoor.config.ts`, and the deployment record under `deployments/` if the problem is a redeploy or a reuse you did not expect
+
+## Ask a question
+
+- **[GitHub Discussions](https://github.com/raycashxyz/deployoor/discussions)** for anything that is not a bug: "is this the right tool for X", design questions, or a pattern you are unsure about.
+- **[Telegram group](https://t.me/deployoor)** for shorter back-and-forth with other people using it.
+- **[hi@raycash.xyz](mailto:hi@raycash.xyz)** for everything else: partnerships, sponsorship, press, or a question you would rather not ask in public.
+
+Before any of them, [llms-full.txt](https://deployoor.dev/llms-full.txt) is the entire documentation as one file, which is often quicker to search than asking.
+
+## Contribute
+
+Pull requests are welcome. [CONTRIBUTING.md](https://github.com/raycashxyz/deployoor/blob/main/CONTRIBUTING.md) covers the setup, the conventions the codebase holds to, and the checks that run in CI. If the change is more than a fix, open an issue first so the design gets settled before anyone writes code.
+
+## Security
+
+If you find a vulnerability, please do not describe it in a public issue. Two private channels, either is fine:
+
+- **[Report it on GitHub](https://github.com/raycashxyz/deployoor/security/advisories/new)**, which opens a private advisory only the maintainers can read, and turns into a published advisory and a CVE once there is a fix.
+- **Email [hi@raycash.xyz](mailto:hi@raycash.xyz)** if you would rather not use GitHub.
+
+deployoor never handles your private keys (it signs through the viem wallet client you pass in), so the reports that matter most are about the deployment record, the generated deployers, or the verification path.
+
+## Who you are reaching
+
+deployoor is published by [Raycash](https://www.raycash.xyz), and maintained by Valerio Leo. See the [about page](/about) for what that means for the license and the roadmap.

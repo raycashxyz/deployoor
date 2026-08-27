@@ -1,0 +1,34 @@
+---
+title: Privacy
+description: What this site and the deployoor CLI do with data. No accounts, no analytics, no telemetry.
+---
+
+# Privacy
+
+**Last updated: 21 August 2026.**
+
+deployoor has no accounts, no analytics, and no telemetry. This page says exactly what that means for the documentation site and for the tool you install.
+
+## This site
+
+deployoor.dev is a static documentation site built with [Vocs](https://vocs.dev) and hosted on [Vercel](https://vercel.com).
+
+- **No analytics and no ad or tracking scripts.** Nothing on these pages profiles you, and no third-party script runs. Fonts, images, and the search index are served from this domain, so loading a page contacts no other host.
+- **No cookies are set by this site.** Two things are kept in your browser's own `localStorage` and never leave it: the light or dark theme you pick, and the last few terms you typed into the search box, so the dialog can offer them again. Clearing site data removes both.
+- **Search runs in your browser.** The search index is downloaded as a static file and queried locally, so your queries are never sent anywhere.
+- **Server logs.** Vercel processes ordinary request data (IP address, user agent, requested URL, timestamp) to serve the site, cache it, and defend it against abuse. That is Vercel's infrastructure logging under their own [privacy policy](https://vercel.com/legal/privacy-policy); it is not read, exported, or joined with anything else.
+- **No forms.** There is nothing on this site to submit, subscribe to, or sign up for, so there is nothing for us to store. The channels on the [contact page](/contact) are GitHub and Telegram, each governed by their own policy.
+- **Outbound links.** Following a link to GitHub, npm, Telegram, or a block explorer hands you to that service, which has its own terms.
+
+## The tool you install
+
+`deployoor` and the `@deployoor/*` packages run locally, on your machine or in your CI. They report nothing back:
+
+- **No telemetry.** No version pings, no usage counters, no crash reporting. There is no endpoint for the CLI to call because none exists.
+- **The network calls are the ones you configure.** A deploy talks to the RPC endpoint of the viem client you pass in. A verifier plugin talks to the block explorer you enabled ([Etherscan](/guides/verify), Sourcify, Blockscout, or Routescan), which means your contract source and constructor arguments go to that explorer by design, because that is what verification is. The Slack plugin posts to the webhook you supply. Nothing else leaves your process.
+- **Keys stay yours.** deployoor never reads, stores, or transmits a private key. It asks for a viem wallet client and calls it to sign, so the key stays wherever you keep it, including a cloud signer that never exposes it at all.
+- **Deployment records are files on your disk.** Addresses, ABIs, chain IDs, constructor arguments, and transaction hashes are written to `deployments/` in your own repository. Everything in them is already public on-chain data. You decide what gets committed; see [version control](/concepts/version-control).
+
+## Changes
+
+This page changes when the site or the tool does, and the date at the top moves with it. Every version of it is in the [repository's history](https://github.com/raycashxyz/deployoor/commits/main/apps/docs/src/pages/privacy.mdx). Questions about anything here belong on the [contact page](/contact).
