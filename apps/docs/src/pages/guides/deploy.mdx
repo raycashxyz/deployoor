@@ -71,6 +71,8 @@ const { contract: usdc } = await register({
 });
 ```
 
+A `publicClient` is enough, and the contract comes back read-only (`contract.read.*`). Pass a `walletClient` with an account and a chain to get `contract.write.*` as well, and to record that account as the registrant. One with neither bound still gets `write`, but every call has to pass `{ account, chain }`, and the record's `deployer` stays the zero address.
+
 `register` will not overwrite a real deployment at the same name — `reset` first or use a different `deploymentName`.
 
 ## Reset records

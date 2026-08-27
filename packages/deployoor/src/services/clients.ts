@@ -2,6 +2,7 @@ import { Context, Effect, Layer } from "effect";
 import { getContract, zeroAddress } from "viem";
 import type {
   Abi,
+  Account,
   Address,
   Chain,
   GetContractReturnType,
@@ -9,12 +10,44 @@ import type {
   Hex,
   PublicClient,
   TransactionReceipt,
+  Transport,
   WalletClient,
 } from "viem";
 import { NoChainOnClient } from "../errors";
 import type { DeploymentRecord } from "../schemas";
 
+/**
+ * A wallet client with `chain` and `account` both bound — the only shape the engine ever
+ * runs on, since `clientsLayer` fails with `NoChainOnClient` otherwise. Saying so in the
+ * type is what lets `contract.write.foo(args)` be called with one argument: viem derives
+ * that from the client, requiring an explicit `{ account, chain }` whenever either could
+ * be `undefined`, which is exactly what bare `WalletClient` declares (its defaults are
+ * `Chain | undefined` / `Account | undefined`).
+ */
+export type BoundWalletClient = WalletClient<Transport, Chain, Account>;
+
+/** The runtime side of `BoundWalletClient`, as a guard so the narrowing reaches `contractAt`. */
+const isBoundWalletClient = (client: WalletClient): client is BoundWalletClient =>
+  client.chain !== undefined && client.account !== undefined;
+
 export type DeployedContract<A extends Abi> = GetContractReturnType<
+  A,
+  { public: PublicClient; wallet: BoundWalletClient }
+>;
+
+/**
+ * The same contract without `write`: what `register` resolves to when called with no wallet
+ * client, because viem's `getContract` emits no `write` namespace for a public client alone.
+ */
+export type ReadOnlyContract<A extends Abi> = Omit<DeployedContract<A>, "write">;
+
+/**
+ * The contract `register` resolves to for a wallet client that binds neither an account nor a
+ * chain (an injected wallet used without hoisting one, say). `write` is there — viem builds it
+ * from the wallet client's presence, not its bindings — but every call has to supply
+ * `{ account, chain }`, which is what this type says and `DeployedContract` would not.
+ */
+export type UnboundContract<A extends Abi> = GetContractReturnType<
   A,
   { public: PublicClient; wallet: WalletClient }
 >;
@@ -27,9 +60,12 @@ export type DeployedContract<A extends Abi> = GetContractReturnType<
  *   - `freshDeploy`  — `true` only when this call broadcast a deploy transaction;
  *                      `false` on idempotent reuse and for `register` (which never deploys).
  *   - `receipt`      — the deploy receipt, present only when `freshDeploy` is `true`.
+ *
+ * `contract` is writable by default; `register` without a wallet client narrows it to
+ * `ReadOnlyContract`.
  */
-export interface DeployResult<A extends Abi> {
-  readonly contract: DeployedContract<A>;
+export interface DeployResult<A extends Abi, contract = DeployedContract<A>> {
+  readonly contract: contract;
   readonly deployment: DeploymentRecord;
   readonly freshDeploy: boolean;
   readonly receipt?: TransactionReceipt;
@@ -61,11 +97,8 @@ export const clientsLayer = (
   Layer.effect(
     Clients,
     Effect.gen(function* () {
-      const chain = walletClient.chain;
-      const account = walletClient.account;
-      if (chain === undefined || account === undefined) {
-        return yield* Effect.fail(new NoChainOnClient());
-      }
+      if (!isBoundWalletClient(walletClient)) return yield* Effect.fail(new NoChainOnClient());
+      const { chain, account } = walletClient;
       return {
         chain,
         account: account.address,
@@ -102,6 +135,11 @@ export const registerClientsLayer = (
         account: walletClient?.account?.address ?? zeroAddress,
         deploy: notDeploying,
         waitForReceipt: notDeploying,
+        // `ClientsService` is one shape for both paths, so this widens to the writable
+        // contract type — the only place in the engine that does. Whether `write` is really
+        // there is a property of the arguments, not of the chain, so `register`'s public
+        // overloads carry it instead: with a wallet client they promise `DeployedContract`,
+        // without one only `ReadOnlyContract`.
         contractAt: (address, abi) =>
           (walletClient === undefined
             ? getContract({ address, abi, client: publicClient })
