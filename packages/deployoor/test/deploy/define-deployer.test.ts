@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { existsSync, mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createWalletClient, custom, zeroAddress } from "viem";
@@ -161,6 +161,9 @@ describe("defineRegister / defineReset (project-level entry points)", () => {
     const accountless = createWalletClient({ chain, transport: custom({ request: publicClient.request }) });
     expect(accountless.account).toBeUndefined();
 
+    const record = join(deploymentsPath, network(chain), "USDC.json");
+    expect(existsSync(record)).toBe(false);
+
     const { contract, deployment } = await register({
       walletClient: accountless,
       publicClient,
@@ -172,6 +175,12 @@ describe("defineRegister / defineReset (project-level entry points)", () => {
     expect(deployment.deployer).toBe(zeroAddress);
     expect(deployment.kind).toBe("external");
     expect(contract.address).toBe(external);
+    // Read it off disk too: the zero-address deployer has to be what was *persisted*, not just
+    // what the call resolved to, since that record is what a later `getOrDeploy` reuses.
+    const persisted = JSON.parse(readFileSync(record, "utf8"));
+    expect(persisted.address).toBe(external);
+    expect(persisted.kind).toBe("external");
+    expect(persisted.deployer).toBe(zeroAddress);
   });
 
   it("register works with only a public client (no signer) and records the zero-address deployer", async () => {
