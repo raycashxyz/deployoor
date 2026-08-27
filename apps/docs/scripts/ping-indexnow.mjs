@@ -67,11 +67,12 @@ const main = async () => {
   if (!submission) return console.log("ping-indexnow: sitemap listed no URLs, skipped");
 
   // A search engine being unreachable is not a reason to fail a deploy, so the outcome is
-  // logged rather than thrown.
+  // logged rather than thrown. The deadline keeps a stalled IndexNow from holding the build.
   const response = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json; charset=utf-8" },
     body: JSON.stringify(submission),
+    signal: AbortSignal.timeout(10_000),
   }).catch((error) => error);
 
   if (response instanceof Error) return console.log(`ping-indexnow: submission failed (${response.message})`);

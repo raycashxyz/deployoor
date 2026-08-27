@@ -39,6 +39,14 @@ describe("prefersMarkdown", () => {
     expect(prefersMarkdown("TEXT/HTML")).toBe(false);
     expect(prefersMarkdown("TEXT/MARKDOWN")).toBe(true);
   });
+
+  it("does not select Markdown when its quality is zero", () => {
+    expect(prefersMarkdown("text/markdown;q=0")).toBe(false);
+  });
+
+  it("selects Markdown when HTML is refused and a wildcard remains", () => {
+    expect(prefersMarkdown("text/html;q=0, */*;q=0.8")).toBe(true);
+  });
 });
 
 describe("notFoundMarkdown", () => {
@@ -64,9 +72,11 @@ describe("notFoundMarkdown", () => {
   });
 
   it("links every recovery target absolutely, so no base URL is needed to follow one", () => {
-    recoveryLinks.forEach(({ path: linkPath, label }) => {
-      expect(body).toContain(`[${label}](${siteUrl}${linkPath})`);
-    });
+    expect(
+      recoveryLinks
+        .map(({ path: linkPath, label }) => `[${label}](${siteUrl}${linkPath})`)
+        .filter((link) => !body.includes(link)),
+    ).toEqual([]);
   });
 
   it("keeps an echoed path to one bounded line", () => {
@@ -133,10 +143,11 @@ describe("recoveryLinks", () => {
     const pages = recoveryLinks.filter(({ file }) => !file);
     expect(pages.length).toBeGreaterThan(0);
 
-    pages.forEach(({ path: linkPath }) => {
-      const source = path.join(docsRoot, "src/pages", `${linkPath}.mdx`);
-      expect(existsSync(source), `${linkPath} has no page at ${source}`).toBe(true);
-    });
+    expect(
+      pages
+        .map(({ path: linkPath }) => path.join(docsRoot, "src/pages", `${linkPath}.mdx`))
+        .filter((source) => !existsSync(source)),
+    ).toEqual([]);
   });
 
   it("ships the static files it links that are not build output", () => {

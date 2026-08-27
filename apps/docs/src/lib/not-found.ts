@@ -82,17 +82,36 @@ export const notFoundMarkdown = (pathname: string) =>
     "",
   ].join("\n");
 
+/** Quality of `type` in `Accept`, falling back to a wildcard range. An exact `q=0` refuses that type. */
+const acceptQuality = (ranges: { media: string; q: number }[], type: string) => {
+  const exact = ranges.find((range) => range.media === type);
+  if (exact !== undefined) return exact.q;
+  return ranges.find((range) => range.media === "*/*")?.q ?? 0;
+};
+
 /**
  * Whether this request should get the Markdown 404 rather than the HTML page.
  *
  * A browser always names `text/html` in `Accept`; HTTP clients and agents send a wildcard,
  * nothing at all, or ask for Markdown outright. Deciding on the header rather than a
- * user-agent table means no list to maintain as agents come and go.
+ * user-agent table means no list to maintain as agents come and go. `q=0` is a refusal, so
+ * `text/markdown;q=0` stays on the HTML page and `text/html;q=0` does not block Markdown.
  */
 export const prefersMarkdown = (accept: string | undefined) => {
-  const value = accept?.toLowerCase() ?? "";
-  if (value.includes("text/markdown")) return true;
-  return !value.includes("text/html") && !value.includes("application/xhtml+xml");
+  const value = accept?.toLowerCase().trim() ?? "";
+  if (value === "") return true;
+
+  const ranges = value.split(",").map((part) => {
+    const [media = "", ...params] = part.split(";").map((token) => token.trim());
+    const qSpec = params.find((param) => param.startsWith("q="))?.slice(2);
+    const parsed = qSpec === undefined ? 1 : Number(qSpec);
+    return { media, q: Number.isFinite(parsed) ? parsed : 0 };
+  });
+
+  const markdownQ = acceptQuality(ranges, "text/markdown");
+  const htmlQ = Math.max(acceptQuality(ranges, "text/html"), acceptQuality(ranges, "application/xhtml+xml"));
+  if (markdownQ !== htmlQ) return markdownQ > htmlQ;
+  return markdownQ > 0;
 };
 
 /**
