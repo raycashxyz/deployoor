@@ -721,6 +721,25 @@
   color: var(--vocs-color-text3);
 }
 
+.landing-colophon-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.1rem;
+  justify-content: center;
+}
+
+.landing-colophon-links a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--deployoor-fg) 28%, transparent);
+  text-underline-offset: 0.25em;
+}
+
+.landing-colophon-links a:hover {
+  color: var(--deployoor-fg);
+  text-decoration-color: currentColor;
+}
+
 @media (max-width: 640px) {
   .landing-hero {
     padding-top: 0.75rem;
@@ -1642,4 +1661,46 @@
   .anatomy[data-mounted="true"] .anatomy-file[data-state="active"] {
     animation: none;
   }
+}
+
+/* 404 recovery list. Vocs' 404 offers one link home, which is the least useful place to land
+   after following a dead deep link. Same list as the Markdown 404 body — see src/lib/not-found.ts
+   — so a reader and a program get the same answer. Dashed hairline and mono whisper, as the
+   landing colophon. */
+.not-found-recovery {
+  width: min(34rem, 100%);
+  margin-top: 3rem;
+  padding-top: 1.35rem;
+  border-top: 1px dashed color-mix(in srgb, var(--deployoor-fg) 22%, transparent);
+  font-family: var(--vocs-font-family-mono, ui-monospace, monospace);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  text-align: left;
+  color: var(--vocs-color-text3);
+}
+
+.not-found-recovery-title {
+  margin: 0 0 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.not-found-recovery ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.not-found-recovery a {
+  color: var(--deployoor-fg);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--deployoor-fg) 35%, transparent);
+  text-underline-offset: 0.2em;
+}
+
+.not-found-recovery a:hover {
+  text-decoration-color: currentColor;
 }

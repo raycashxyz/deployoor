@@ -1,0 +1,16 @@
+# deployoor.dev
+#
+# Hand-written to keep the pointers below. Vocs generates this file from `baseUrl` when it is
+# absent (`Allow: /` plus the sitemap line), and skips generating it when a copy exists in
+# `public/`, so the two directives here must stay in step with that output.
+
+User-agent: *
+Allow: /
+
+# Machine-readable documentation:
+#   https://deployoor.dev/llms.txt       every page as a link list, plus when to use deployoor
+#   https://deployoor.dev/llms-full.txt  the whole documentation as one Markdown file
+#   https://deployoor.dev/AGENTS.md      how to add deployoor to a project, for agents
+# Any page is also available as Markdown: append `.md` to its path, or send `Accept: text/markdown`.
+
+Sitemap: https://deployoor.dev/sitemap.xml

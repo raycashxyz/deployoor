@@ -1,5 +1,8 @@
 import { Changelog, defineConfig } from "vocs/config";
 
+// Extension included deliberately: Vite's native config loader warns without one.
+import { siteDescription, siteUrl } from "./src/lib/site.js";
+
 // Set this ONLY where the public hostname is known — i.e. production.
 //
 // Vocs turns `baseUrl` into a `<base href="…">` tag, and `<base>` re-resolves *every* relative
@@ -18,7 +21,7 @@ import { Changelog, defineConfig } from "vocs/config";
 // is that previews carry no canonical/og:url/og:image; that costs nothing here, because those
 // only matter to external crawlers and no crawler can reach an SSO-gated preview anyway. To
 // review a change to the OG image itself, open `/api/og?title=…` on the preview directly.
-const baseUrl = process.env.VERCEL_ENV === "production" ? "https://www.deployoor.dev" : undefined;
+const baseUrl = process.env.VERCEL_ENV === "production" ? siteUrl : undefined;
 
 const githubChangelog = Changelog.github({ repo: "raycashxyz/deployoor" });
 const deployoorChangelog = Changelog.from({
@@ -35,11 +38,12 @@ const deployoorChangelog = Changelog.from({
 
 export default defineConfig({
   title: "deployoor",
-  description:
-    "Deploy EVM contracts from TypeScript with your own viem wallet. A deploy is an artifact plus a client, so scripts, tests, and your app share typed contract objects. Hardhat, Foundry, and tevm.",
+  description: siteDescription,
   baseUrl,
   // Keep docs pages prerendered while allowing Vocs' dynamic OG endpoint to run on Vercel.
   renderStrategy: "partial-static",
+  // `/404` is a real route (src/pages/404.tsx) but not a destination.
+  sitemap: { include: (path) => path !== "/404" },
   mcp: { enabled: false },
   accentColor: "light-dark(#111513, #BEF4BE)",
   colorScheme: "light dark",

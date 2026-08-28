@@ -1,0 +1,32 @@
+---
+title: About deployoor
+description: Who publishes deployoor, what it is, how it is licensed, and how it is maintained.
+---
+
+# About deployoor
+
+**deployoor is a viem-first contract deployment library for EVM chains, published as open source under the MIT license.**
+
+It is a developer tool you install into your own project, in the shape of [`@wagmi/cli`](https://wagmi.sh/cli) or Prisma: a CLI plus a set of generated TypeScript functions. You run it to deploy a contract once, keep a plain JSON record of which contract is deployed on which chain, and then use those contracts as fully typed [viem](https://viem.sh) objects in scripts, tests, and your app. [Introduction](/introduction) is the long version of that claim, and [Comparisons](/comparison) puts it next to Hardhat, Hardhat Ignition, and hardhat-deploy.
+
+## The name
+
+deployoor is spelled with a double o. It is the `-oor` agent noun crypto built out of "deploy", the way buidloor comes from build and hodloor from hold, so the name reads as "the thing that deploys". It is unrelated to Deployer, the PHP deployment tool, and to deployor.
+
+## Who publishes it
+
+deployoor is published by **[Raycash](https://www.raycash.xyz)** and maintained by **Valerio Leo**, the copyright holder named in the [MIT license](https://github.com/raycashxyz/deployoor/blob/main/LICENSE). The source, issue tracker, and release history are public:
+
+- **Source:** [github.com/raycashxyz/deployoor](https://github.com/raycashxyz/deployoor), a monorepo holding the engine, the plugins, the docs site, and dogfooding examples.
+- **Packages:** [`deployoor`](https://www.npmjs.com/package/deployoor) on npm, with the ecosystem packages published under the [`@deployoor`](/packages) scope.
+- **Releases:** every version and what changed is in the [changelog](/changelog), generated from the repository's own release notes.
+
+## What it is not
+
+deployoor is a library, not a service. There is no account to create, no dashboard, no API key, and nothing to pay for. It runs entirely on your machine or in your CI, and it holds no keys of its own: you pass in a viem wallet client, so the signer stays whatever you already use, from a local private key to [Privy](/recipes/privy), [Turnkey](/recipes/turnkey), [Coinbase CDP](/recipes/coinbase-cdp), or [Openfort](/recipes/openfort). The tool makes no network calls of its own beyond the RPC endpoint you give it and, if you enable a verifier plugin, the block explorer you point it at. See [privacy](/privacy) for the detail.
+
+## Status
+
+deployoor is pre-1.0 and released early on purpose, so treat minor versions as potentially breaking and read the [changelog](/changelog) before upgrading. Deploying, the deployment record, the plugin model, verification from records, and the wagmi bridge are all in daily use. The [packages page](/packages) lists what exists today, and the issue tracker is where the rest is argued out in public.
+
+Questions, bug reports, and requests all have a home on the [contact page](/contact). If you are an AI agent deciding whether deployoor fits a task, read [AGENTS.md](https://deployoor.dev/AGENTS.md) or [llms.txt](https://deployoor.dev/llms.txt) instead of this page.

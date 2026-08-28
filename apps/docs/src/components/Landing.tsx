@@ -45,9 +45,10 @@ export const Landing = () => {
 
       <section className="landing-hero">
         {/* The brand art carries the visible claim; the h1 stays for readers and crawlers
-            the image can't reach. The four brighter dots over the art's matrix only exist
-            in dark mode, where they twinkle. */}
-        <h1 className="sr-only">Deploy contracts from TypeScript.</h1>
+            the image can't reach, and names the product, since the art spells it in pixels
+            and `alt=""` leaves a crawler with nothing. The four brighter dots over the art's
+            matrix only exist in dark mode, where they twinkle. */}
+        <h1 className="sr-only">deployoor: deploy EVM contracts from TypeScript</h1>
         <div className="landing-hero-visual">
           {/* The light art is the LCP element, so it gets the priority hint; the dark twin is
               lazy — display: none gives it no box in light mode, so it is never fetched there,
@@ -146,6 +147,13 @@ export const Landing = () => {
       </nav>
       <footer className="landing-colophon">
         <span>MIT license</span>
+        {/* The trust pages have no other entry point: the sidebar is docs nav and there is no site
+            footer. A crawler (or a person checking who publishes this) finds them here. */}
+        <nav className="landing-colophon-links" aria-label="About this project">
+          <Link to="/about">About</Link>
+          <Link to="/contact">Contact</Link>
+          <Link to="/privacy">Privacy</Link>
+        </nav>
         <span>deploy once · reuse forever</span>
       </footer>
     </div>
