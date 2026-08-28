@@ -82,36 +82,53 @@ export const notFoundMarkdown = (pathname: string) =>
     "",
   ].join("\n");
 
-/** Quality of `type` in `Accept`, falling back to a wildcard range. An exact `q=0` refuses that type. */
-const acceptQuality = (ranges: { media: string; q: number }[], type: string) => {
-  const exact = ranges.find((range) => range.media === type);
-  if (exact !== undefined) return exact.q;
-  return ranges.find((range) => range.media === "*/*")?.q ?? 0;
+type AcceptRange = { type: string; subtype: string; q: number };
+type AcceptMatch = { q: number; specificity: number };
+
+const parseAcceptRange = (part: string): AcceptRange => {
+  const [media = "", ...params] = part.split(";").map((token) => token.trim());
+  const [type = "", subtype = ""] = media.split("/");
+  const qSpec = params.find((param) => param.startsWith("q="))?.slice(2);
+  const parsed = qSpec === undefined ? 1 : Number(qSpec);
+  return { type, subtype, q: Number.isFinite(parsed) ? parsed : 0 };
 };
+
+const unmatched = { q: 0, specificity: 0 };
+
+/** Exact type/subtype, then a type wildcard, then a catch-all. An exact `q=0` refuses that type. */
+const acceptMatch = (ranges: AcceptRange[], type: string, subtype: string): AcceptMatch => {
+  const exact = ranges.find((range) => range.type === type && range.subtype === subtype);
+  if (exact !== undefined) return { q: exact.q, specificity: 3 };
+  const partial = ranges.find((range) => range.type === type && range.subtype === "*");
+  if (partial !== undefined) return { q: partial.q, specificity: 2 };
+  const wildcard = ranges.find((range) => range.type === "*" && range.subtype === "*");
+  if (wildcard !== undefined) return { q: wildcard.q, specificity: 1 };
+  return unmatched;
+};
+
+const stronger = (left: AcceptMatch, right: AcceptMatch) =>
+  left.q > right.q || (left.q === right.q && left.specificity > right.specificity) ? left : right;
 
 /**
  * Whether this request should get the Markdown 404 rather than the HTML page.
  *
  * A browser always names `text/html` in `Accept`; HTTP clients and agents send a wildcard,
  * nothing at all, or ask for Markdown outright. Deciding on the header rather than a
- * user-agent table means no list to maintain as agents come and go. `q=0` is a refusal, so
- * `text/markdown;q=0` stays on the HTML page and `text/html;q=0` does not block Markdown.
+ * user-agent table means no list to maintain as agents come and go. `q=0` is a refusal.
+ * When qualities tie, a more specific range wins: HTML named next to a catch-all stays
+ * on the HTML page, while a lone catch-all still gets Markdown.
  */
 export const prefersMarkdown = (accept: string | undefined) => {
   const value = accept?.toLowerCase().trim() ?? "";
   if (value === "") return true;
 
-  const ranges = value.split(",").map((part) => {
-    const [media = "", ...params] = part.split(";").map((token) => token.trim());
-    const qSpec = params.find((param) => param.startsWith("q="))?.slice(2);
-    const parsed = qSpec === undefined ? 1 : Number(qSpec);
-    return { media, q: Number.isFinite(parsed) ? parsed : 0 };
-  });
-
-  const markdownQ = acceptQuality(ranges, "text/markdown");
-  const htmlQ = Math.max(acceptQuality(ranges, "text/html"), acceptQuality(ranges, "application/xhtml+xml"));
-  if (markdownQ !== htmlQ) return markdownQ > htmlQ;
-  return markdownQ > 0;
+  const ranges = value.split(",").map(parseAcceptRange);
+  const markdown = acceptMatch(ranges, "text", "markdown");
+  const html = stronger(acceptMatch(ranges, "text", "html"), acceptMatch(ranges, "application", "xhtml+xml"));
+  if (markdown.q !== html.q) return markdown.q > html.q;
+  if (markdown.q === 0) return false;
+  if (markdown.specificity !== html.specificity) return markdown.specificity > html.specificity;
+  return true;
 };
 
 /**

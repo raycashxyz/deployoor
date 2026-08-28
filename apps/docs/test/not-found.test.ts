@@ -47,6 +47,14 @@ describe("prefersMarkdown", () => {
   it("selects Markdown when HTML is refused and a wildcard remains", () => {
     expect(prefersMarkdown("text/html;q=0, */*;q=0.8")).toBe(true);
   });
+
+  it("keeps HTML when it is named explicitly next to a catch-all", () => {
+    expect(prefersMarkdown("text/html, */*")).toBe(false);
+  });
+
+  it("selects Markdown when HTML is refused and a text wildcard remains", () => {
+    expect(prefersMarkdown("text/html;q=0, text/*;q=0.8")).toBe(true);
+  });
 });
 
 describe("notFoundMarkdown", () => {
