@@ -16,7 +16,7 @@ import process from "node:process";
 
 import { RUNGS, type Rung } from "./prompts.ts";
 import { autoLevel, tally, type RunRecord } from "../lib/score.ts";
-import { isAvailable, probeVersion, RUNNERS, type Runner } from "../lib/runners.ts";
+import { isAvailable, probeVersion, RUNNERS, WORKSPACE_PREFIX, type Runner } from "../lib/runners.ts";
 
 const flag = (name: string, fallback: string): string => {
   const index = process.argv.indexOf(`--${name}`);
@@ -42,7 +42,7 @@ interface Cell {
 }
 
 const runCell = (cell: Cell, version: string, outDir: string): RunRecord => {
-  const workspace = mkdtempSync(join(tmpdir(), "deployoor-eval-"));
+  const workspace = mkdtempSync(join(tmpdir(), WORKSPACE_PREFIX));
   const startedAt = Date.now();
   const result = spawnSync(cell.runner.file, [...cell.runner.argv(cell.rung.prompt)], {
     cwd: workspace,

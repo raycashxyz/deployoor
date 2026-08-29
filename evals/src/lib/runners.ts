@@ -9,6 +9,17 @@
 
 import { spawnSync } from "node:child_process";
 
+/**
+ * Prefix for the throwaway directory each run happens in.
+ *
+ * Deliberately neutral. The first baseline used `deployoor-eval-`, and every agentic harness echoes
+ * its working directory into the transcript, so the scorer found the product name in runs that had
+ * never heard of it: five false positives out of ten. One harness went further and named the project
+ * it scaffolded after the directory. `test/score.test.ts` asserts this prefix cannot trip the
+ * detector.
+ */
+export const WORKSPACE_PREFIX = "agent-eval-";
+
 export interface Runner {
   readonly id: string;
   readonly harness: string;
@@ -21,6 +32,21 @@ export interface Runner {
   readonly versionArgv: readonly string[];
 }
 
+/** Every built-in tool, so the chat-only track answers from weights and nothing else. */
+const DENIED_TOOLS = [
+  "Bash",
+  "Read",
+  "Glob",
+  "Grep",
+  "WebSearch",
+  "WebFetch",
+  "Task",
+  "Write",
+  "Edit",
+  "NotebookEdit",
+  "TodoWrite",
+] as const;
+
 export const RUNNERS: readonly Runner[] = [
   {
     id: "claude-code:no-tools",
@@ -28,7 +54,9 @@ export const RUNNERS: readonly Runner[] = [
     model: "default",
     track: "chat-only",
     file: "claude",
-    argv: (prompt) => ["-p", prompt, "--allowed-tools", ""],
+    // `--allowed-tools ""` does not disable anything: a run given it still read the filesystem.
+    // Denying the built-in tools by name is what actually leaves the model answering from weights.
+    argv: (prompt) => ["-p", prompt, "--disallowed-tools", ...DENIED_TOOLS],
     versionArgv: ["--version"],
   },
   {

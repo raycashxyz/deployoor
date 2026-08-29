@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { autoLevel, namesDeployoor, tally, usedWebSearch, type RunRecord } from "../src/lib/score.ts";
+import { WORKSPACE_PREFIX } from "../src/lib/runners.ts";
 
 describe("autoLevel", () => {
   it("scores a transcript that never names deployoor as absent, with no model involved", () => {
@@ -15,6 +16,12 @@ describe("autoLevel", () => {
     expect(namesDeployoor("Deployoor")).toBe(true);
     expect(namesDeployoor("DEPLOYOOR")).toBe(true);
     expect(namesDeployoor("deployer")).toBe(false);
+  });
+});
+
+describe("the run workspace", () => {
+  it("uses a prefix the detector cannot see, since every harness echoes its working directory", () => {
+    expect(namesDeployoor(WORKSPACE_PREFIX)).toBe(false);
   });
 });
 
