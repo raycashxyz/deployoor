@@ -2,6 +2,7 @@ packages:
   - "packages/*"
   - "apps/*"
   - "examples/*"
+  - "evals"
 
 # Self-contained catalog (no external monorepo dependency).
 catalog:
@@ -19,6 +20,10 @@ catalog:
 
 onlyBuiltDependencies:
   - esbuild
+  # evalite stores eval history in SQLite, so its better-sqlite3 needs its native build to run.
+  # pnpm skips build scripts unless it is listed here, and the failure is a require-time
+  # "Could not locate the bindings file" out of `evalite`, not an install error.
+  - better-sqlite3
 
 # Overrides live here, not in package.json's `pnpm` block: when both exist the
 # package.json one wins silently and this file is ignored with no warning.
