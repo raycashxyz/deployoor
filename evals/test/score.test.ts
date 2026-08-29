@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_RUNNER_IDS, runnersUnderTest, WORKSPACE_PREFIX } from "../src/lib/runners.ts";
+import { WORKSPACE_PREFIX } from "../src/lib/runners.ts";
 import { KNOWN_TOOLS, mentionedTools, namesDeployoor } from "../src/lib/score.ts";
 
 describe("namesDeployoor", () => {
@@ -46,40 +46,5 @@ describe("mentionedTools", () => {
 
   it("keeps every known tool lowercase, since matching lowercases the transcript", () => {
     expect(KNOWN_TOOLS.every((tool) => tool === tool.toLowerCase())).toBe(true);
-  });
-});
-
-describe("runnersUnderTest", () => {
-  const installed = () => true;
-
-  it("selects the runners named in the list", () => {
-    const chosen = runnersUnderTest({
-      ids: "claude-code:no-tools,codex:agentic",
-      available: installed,
-    });
-
-    expect(chosen.map((runner) => runner.id)).toEqual(["claude-code:no-tools", "codex:agentic"]);
-  });
-
-  it("falls back to the chat-only runner when nothing is named", () => {
-    expect(runnersUnderTest({ ids: DEFAULT_RUNNER_IDS, available: installed })).toHaveLength(1);
-  });
-
-  it("throws on an id that matches no runner, rather than running zero rows", () => {
-    expect(() => runnersUnderTest({ ids: "claude-code:no-tool", available: installed })).toThrow(
-      /no such runner/,
-    );
-  });
-
-  it("throws when a named harness is not installed, rather than shrinking the matrix", () => {
-    expect(() =>
-      runnersUnderTest({ ids: "codex:agentic", available: (runner) => runner.file !== "codex" }),
-    ).toThrow(/not on PATH/);
-  });
-
-  it("ignores the whitespace a person leaves after a comma", () => {
-    expect(
-      runnersUnderTest({ ids: " claude-code:no-tools , codex:agentic ", available: installed }),
-    ).toHaveLength(2);
   });
 });

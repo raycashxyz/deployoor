@@ -11,8 +11,6 @@ import type { Runner } from "../src/lib/runners.ts";
 const fake = (script: string, file = "node"): Runner => ({
   id: "fake",
   harness: "fake",
-  model: "none",
-  track: "chat-only",
   file,
   argv: () => ["-e", script],
   versionArgv: ["--version"],

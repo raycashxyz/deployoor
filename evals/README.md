@@ -7,6 +7,20 @@ Built on [evalite](https://www.evalite.dev), which is vitest underneath: `.eval.
 scorers, trial counts for non-deterministic runs, a local UI for reading transcripts, and a SQLite
 history so month-over-month movement comes for free.
 
+## Two tracks, two mechanisms
+
+**Chat-only** asks models directly over the AI SDK through OpenRouter. It measures what the
+ecosystem's weights recommend, across five labs, and adding a lab is a line in `src/lib/models.ts`.
+It needs `OPENROUTER_API_KEY`: copy `.env.example` to `.env` and fill it in. The same key is in the
+repo's GitHub secrets.
+
+**Agentic** spawns real coding-agent CLIs, because no HTTP call makes an agent search the web and
+scaffold a project. It needs those CLIs installed and logged in, and no API key.
+
+An earlier version ran the chat-only track by spawning Claude Code with its tools denied. That was a
+subprocess standing in for an HTTP call: brittle, one lab, and it measured a coding agent pretending
+not to be one.
+
 ## Running it
 
 ```bash
@@ -14,14 +28,22 @@ pnpm --filter @deployoor/evals eval        # run once, print the table
 pnpm --filter @deployoor/evals eval:dev    # run and open the UI on localhost:3006
 ```
 
-The default is one trial on the chat-only runner: five runs, about two minutes. Widen it with the
+The default is one trial across the five models: 25 answers, roughly 25 cents. Widen it with the
 environment:
 
 ```bash
-EVAL_TRIALS=5 pnpm --filter @deployoor/evals eval
-EVAL_RUNNERS=claude-code:no-tools,claude-code:agentic,codex:agentic EVAL_TRIALS=5 \
-  pnpm --filter @deployoor/evals eval
+EVAL_TRIALS=5 pnpm --filter @deployoor/evals eval                        # the designed five per cell
+EVAL_SUBJECTS=codex:agentic,claude-code:agentic EVAL_CONCURRENCY=1 \
+  pnpm --filter @deployoor/evals eval                                    # the agentic track
 ```
+
+Drop concurrency to 1 for CLI-heavy runs: those share one local account and its rate limit, while
+the model calls are independent HTTP requests to different providers.
+
+Cost, since the key carries a $2 monthly cap: a default pass is about 25 cents and a five-trial pass
+is about a dollar, which is one full baseline a month with room to spare. `MAX_OUTPUT_TOKENS` bounds
+the worst case, and an answer that hits it fails as `AnswerTruncated` rather than being scored
+`absent`, so a budget cap can never quietly become a finding.
 
 `evalite export` writes a static HTML bundle if a result is ever worth sharing.
 
@@ -47,17 +69,16 @@ The `instead` column is the more useful half of a run that scores 0: which tools
 for instead. That column is how the first baseline found that viem is already the default in more
 than half of runs, and that Ignition, not hardhat-deploy, is the incumbent worth comparing against.
 
-Runners are command templates in `src/lib/runners.ts`, so this measures what a developer's agent
-actually does rather than what a raw completion says. Every run happens in a throwaway directory
-whose prefix is deliberately neutral: harnesses echo their working directory into the transcript, so
-a prefix containing the product name scores itself.
+Agentic runs happen in a throwaway directory whose prefix is deliberately neutral: harnesses echo
+their working directory into the transcript, so a prefix containing the product name scores itself.
 
 ## Known gap
 
 The design also wanted a `usedWebSearch` axis per run, separating discovery from weights and
-discovery from an index. It is only decidable by construction today: the chat-only runner has tools
-denied, so it is false there, and an agentic run's tool calls do not reliably appear in the text
-output. Doing it properly needs `--output-format stream-json` and a parser per harness.
+discovery from an index. The track now answers it at the coarse level, since the model track cannot
+search at all, but within an agentic run it is still undecidable: those tool calls do not reliably
+appear in text output. Doing it properly needs `--output-format stream-json` and a parser per
+harness.
 
 ## Operation
 

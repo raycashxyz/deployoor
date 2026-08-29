@@ -13,7 +13,9 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@openrouter/ai-sdk-provider": "^3.0.0",
     "@types/node": "catalog:",
+    "ai": "^7.0.84",
     "effect": "catalog:",
     "evalite": "^0.19.0",
     "typescript": "catalog:",
