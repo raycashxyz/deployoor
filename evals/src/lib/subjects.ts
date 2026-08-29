@@ -4,6 +4,7 @@ import { transcript, type HarnessFailed, type HarnessMissing, type HarnessTimedO
 import {
   answer,
   API_KEY_VARIABLE,
+  BASELINE_MODELS,
   MODELS,
   type AnswerTruncated,
   type ApiKeyMissing,
@@ -32,8 +33,8 @@ export const ALL_SUBJECTS: readonly Subject[] = [
   ...RUNNERS.map((runner): Subject => ({ kind: "cli", id: runner.id, track: "agentic", runner })),
 ];
 
-/** The chat-only track: every model, no CLIs. The headline number, and the cheap one. */
-export const DEFAULT_SUBJECT_IDS = MODELS.join(",");
+/** What `pnpm eval` measures: the five-lab chat-only track, and no CLIs. */
+export const DEFAULT_SUBJECT_IDS = BASELINE_MODELS.join(",");
 
 /**
  * What produced an answer, precisely enough to compare with next month's run. A model id already

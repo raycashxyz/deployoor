@@ -9,6 +9,7 @@
   "scripts": {
     "eval": "evalite run",
     "eval:dev": "evalite watch",
+    "smoke": "EVAL_SUBJECTS=openai/gpt-5-nano evalite run",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

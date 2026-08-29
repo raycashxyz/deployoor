@@ -24,12 +24,28 @@ not to be one.
 ## Running it
 
 ```bash
-pnpm --filter @deployoor/evals eval        # run once, print the table
-pnpm --filter @deployoor/evals eval:dev    # run and open the UI on localhost:3006
+pnpm --filter @deployoor/evals smoke       # one cheap model, a quarter of a penny
+pnpm --filter @deployoor/evals eval        # the five-lab measurement, about 30p
+pnpm --filter @deployoor/evals eval:dev    # the same, with the UI on localhost:3006
 ```
 
-The default is one trial across the five models: 25 answers, roughly 25 cents. Widen it with the
-environment:
+`smoke` is for developing the harness: do rows complete, does the scorer fire, does the table
+render. `eval` is for measuring. The distinction matters more than the money — the whole lesson of
+this eval so far is that the subject _is_ the measurement, so a cheap stand-in produces numbers that
+look like a baseline and are not one.
+
+Per five-rung pass, at the time of writing:
+
+| model                       | output $/M | per pass |
+| --------------------------- | ---------- | -------- |
+| openai/gpt-5-nano           | 0.40       | $0.0024  |
+| deepseek/deepseek-chat-v3.1 | 1.65       | $0.0099  |
+| moonshotai/kimi-k2.5        | 3.00       | $0.018   |
+| anthropic/claude-sonnet-5   | 10.00      | $0.060   |
+| openai/gpt-5.1              | 10.00      | $0.060   |
+| google/gemini-2.5-pro       | 10.00      | $0.060   |
+
+Widen a real run with the environment:
 
 ```bash
 EVAL_TRIALS=5 pnpm --filter @deployoor/evals eval                        # the designed five per cell
@@ -40,10 +56,10 @@ EVAL_SUBJECTS=codex:agentic,claude-code:agentic EVAL_CONCURRENCY=1 \
 Drop concurrency to 1 for CLI-heavy runs: those share one local account and its rate limit, while
 the model calls are independent HTTP requests to different providers.
 
-Cost, since the key carries a $2 monthly cap: a default pass is about 25 cents and a five-trial pass
-is about a dollar, which is one full baseline a month with room to spare. `MAX_OUTPUT_TOKENS` bounds
-the worst case, and an answer that hits it fails as `AnswerTruncated` rather than being scored
-`absent`, so a budget cap can never quietly become a finding.
+Cost, since the key carries a $2 monthly cap: a baseline pass is about 30p and a five-trial pass is
+about $1.50, so the monthly cadence is one trial per cell and development happens on `smoke`.
+`MAX_OUTPUT_TOKENS` bounds the worst case, and an answer that hits it fails as `AnswerTruncated`
+rather than being scored `absent`, so a budget cap can never quietly become a finding.
 
 `evalite export` writes a static HTML bundle if a result is ever worth sharing.
 

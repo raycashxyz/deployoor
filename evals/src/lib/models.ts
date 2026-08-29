@@ -13,17 +13,41 @@ import { Data, Effect } from "effect";
  */
 
 /**
- * Five labs rather than five checkpoints of one vendor. Mid-tier rather than flagship: these are the
- * models people actually write code against, and the flagship tiers would eat the month's budget in
- * a single pass.
+ * The measurement set: five labs rather than five checkpoints of one vendor, and the tiers people
+ * actually write code against.
+ *
+ * This list *is* the measurement, so it does not get swapped for something cheaper to save money.
+ * The first baseline ran one coding-agent CLI and concluded that viem was already the default and
+ * that Ignition was the incumbent to displace. Across these five, ethers outnumbers viem four to one
+ * and Ignition never appears at all. Both conclusions were artifacts of the subject, not findings
+ * about the ecosystem, and a cheap stand-in would introduce the same class of error more quietly.
+ *
+ * About 30p per pass at one trial.
  */
-export const MODELS = [
+export const BASELINE_MODELS = [
   "anthropic/claude-sonnet-5",
   "openai/gpt-5.1",
   "google/gemini-2.5-pro",
   "deepseek/deepseek-chat-v3.1",
   "moonshotai/kimi-k2.5",
 ] as const;
+
+/**
+ * The development set: one cheap model, for checking that the harness works.
+ *
+ * A quarter of a penny per pass, roughly a hundredth of the baseline. Use it whenever the question
+ * is "do rows complete, does the scorer fire, does the table render" rather than "what does the
+ * ecosystem recommend". It is a real model over the real HTTP path, so the plumbing is genuinely
+ * exercised; it is simply not the thing being measured, and its numbers are not a baseline.
+ *
+ * One model rather than two on purpose. `gemini-2.5-flash-lite` was the second, and it truncated at
+ * 6000 tokens on a prompt the others answer in 1200, which makes a dev-loop check fail for reasons
+ * that have nothing to do with the plumbing. Add a second lab here if a provider-specific bug is
+ * ever suspected; it is one line.
+ */
+export const SMOKE_MODELS = ["openai/gpt-5-nano"] as const;
+
+export const MODELS = [...BASELINE_MODELS, ...SMOKE_MODELS] as const;
 
 /**
  * Low enough to bound what a runaway model can spend, high enough that a verbose one finishes. A

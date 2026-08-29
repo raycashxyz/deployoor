@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { MODELS } from "../src/lib/models.ts";
+import { BASELINE_MODELS, MODELS, SMOKE_MODELS } from "../src/lib/models.ts";
 import type { Runner } from "../src/lib/runners.ts";
 import { ALL_SUBJECTS, DEFAULT_SUBJECT_IDS, subjectsUnderTest } from "../src/lib/subjects.ts";
 
@@ -25,11 +25,21 @@ describe("ALL_SUBJECTS", () => {
 });
 
 describe("subjectsUnderTest", () => {
-  it("defaults to the models, which are the headline track", () => {
+  it("defaults to the baseline models, not the cheap ones", () => {
     const chosen = subjectsUnderTest({ ids: DEFAULT_SUBJECT_IDS, available: installed, apiKey: key });
 
-    expect(chosen).toHaveLength(MODELS.length);
-    expect(chosen.every((subject) => subject.kind === "model")).toBe(true);
+    expect(chosen.map((subject) => subject.id)).toEqual([...BASELINE_MODELS]);
+  });
+
+  it("can select the smoke models, which are selectable but never the default", () => {
+    const chosen = subjectsUnderTest({
+      ids: SMOKE_MODELS.join(","),
+      available: installed,
+      apiKey: key,
+    });
+
+    expect(chosen.map((subject) => subject.id)).toEqual([...SMOKE_MODELS]);
+    expect(SMOKE_MODELS.some((id) => BASELINE_MODELS.includes(id as never))).toBe(false);
   });
 
   it("selects a mix of models and CLIs when asked for both", () => {
