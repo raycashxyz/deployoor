@@ -80,6 +80,50 @@ export const RUNNERS: readonly Runner[] = [
   },
 ];
 
+/** What runs when `EVAL_RUNNERS` says nothing: the cheapest track, and the one that is the headline. */
+export const DEFAULT_RUNNER_IDS = "claude-code:no-tools";
+
+export interface SelectionDeps {
+  /** Comma-separated runner ids. Defaults to the `EVAL_RUNNERS` environment variable. */
+  readonly ids?: string;
+  /** Whether a harness is installed. Defaults to spawning it. */
+  readonly available?: (runner: Runner) => boolean;
+}
+
+/**
+ * The harnesses this run puts the ladder to.
+ *
+ * Both failure modes throw rather than filter, because both used to be silent and both look exactly
+ * like a healthy result. A typo in `EVAL_RUNNERS` narrowed the list to nothing, and evalite then
+ * reported a clean run of zero rows. A harness that was named but not installed was quietly dropped,
+ * so the matrix shrank to whatever happened to be on the machine and the summary said nothing about
+ * what was missing.
+ */
+export const runnersUnderTest = ({
+  ids = process.env.EVAL_RUNNERS ?? DEFAULT_RUNNER_IDS,
+  available = (runner) => isAvailable(runner),
+}: SelectionDeps = {}): readonly Runner[] => {
+  const requested = ids
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => id.length > 0);
+
+  const unknown = requested.filter((id) => !RUNNERS.some((runner) => runner.id === id));
+  if (unknown.length > 0)
+    throw new Error(
+      `EVAL_RUNNERS names no such runner: ${unknown.join(", ")}. Known runners: ${RUNNERS.map((runner) => runner.id).join(", ")}`,
+    );
+
+  const chosen = RUNNERS.filter((runner) => requested.includes(runner.id));
+  const missing = chosen.filter((runner) => !available(runner));
+  if (missing.length > 0)
+    throw new Error(
+      `EVAL_RUNNERS asked for ${missing.map((runner) => runner.id).join(", ")}, but ${missing.map((runner) => runner.file).join(" and ")} is not on PATH`,
+    );
+
+  return chosen;
+};
+
 export const probeVersion = (runner: Runner): string => {
   const result = spawnSync(runner.file, [...runner.versionArgv], { encoding: "utf8" });
   return (result.stdout ?? "").trim().split("\n")[0] ?? "unknown";

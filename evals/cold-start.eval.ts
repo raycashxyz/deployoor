@@ -20,20 +20,19 @@ import { Effect } from "effect";
 
 import { transcript } from "./src/lib/harness.ts";
 import { RUNGS } from "./src/lib/prompts.ts";
-import { isAvailable, RUNNERS, type Runner } from "./src/lib/runners.ts";
+import { runnersUnderTest, type Runner } from "./src/lib/runners.ts";
 import { mentionedTools, namesDeployoor } from "./src/lib/score.ts";
 
-interface Cell {
+/** One rung put to one harness. evalite calls this the row's `input`, and `trialCount` repeats it. */
+interface ColdStartInput {
   readonly rung: string;
   readonly prompt: string;
   readonly runner: Runner;
 }
 
-const requested = (process.env.EVAL_RUNNERS ?? "claude-code:no-tools").split(",");
+const runners = runnersUnderTest();
 
-const selected = RUNNERS.filter((runner) => requested.includes(runner.id) && isAvailable(runner));
-
-const namesDeployoorScorer = createScorer<Cell, string>({
+const namesDeployoorScorer = createScorer<ColdStartInput, string>({
   name: "names deployoor",
   description:
     "0 when the transcript never names deployoor, which settles it as absent. 1 means a person still has to read the run and call it chosen, offered or mentioned.",
@@ -43,13 +42,13 @@ const namesDeployoorScorer = createScorer<Cell, string>({
   }),
 });
 
-evalite<Cell, string>("cold start: does an agent reach for deployoor?", {
+evalite<ColdStartInput, string>("cold start: does an agent reach for deployoor?", {
   data: () =>
-    selected.flatMap((runner) =>
+    runners.flatMap((runner) =>
       RUNGS.map((rung) => ({ input: { rung: rung.id, prompt: rung.prompt, runner } })),
     ),
   // One Effect.runPromise at the boundary evalite demands, Effect everywhere behind it.
-  task: (cell) => Effect.runPromise(transcript(cell.runner, cell.prompt)),
+  task: (input) => Effect.runPromise(transcript(input.runner, input.prompt)),
   scorers: [namesDeployoorScorer],
   columns: ({ input, output }) => [
     { label: "rung", value: input.rung },

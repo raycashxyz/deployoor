@@ -46,9 +46,9 @@ interface Completion {
  * The child process as a promise, and nothing more. It resolves on every outcome, including the
  * ones that are errors, so that deciding what an outcome *means* happens once, in Effect, below.
  */
-const complete = (runner: Runner, prompt: string, cwd: string): Promise<Completion> =>
+const complete = (runner: Runner, prompt: string, cwd: string, timeoutMs: number): Promise<Completion> =>
   new Promise((resolve) => {
-    const child = spawn(runner.file, [...runner.argv(prompt)], { cwd, timeout: TIMEOUT_MS });
+    const child = spawn(runner.file, [...runner.argv(prompt)], { cwd, timeout: timeoutMs });
     // Local arrays, written only by the listeners that own them and read once on close.
     const out: string[] = [];
     const err: string[] = [];
@@ -73,13 +73,14 @@ const complete = (runner: Runner, prompt: string, cwd: string): Promise<Completi
 export const transcript = (
   runner: Runner,
   prompt: string,
+  { timeoutMs = TIMEOUT_MS }: { readonly timeoutMs?: number } = {},
 ): Effect.Effect<string, HarnessMissing | HarnessTimedOut | HarnessFailed> =>
   Effect.gen(function* () {
     const cwd = yield* Effect.promise(() => mkdtemp(join(tmpdir(), WORKSPACE_PREFIX)));
-    const done = yield* Effect.promise(() => complete(runner, prompt, cwd));
+    const done = yield* Effect.promise(() => complete(runner, prompt, cwd, timeoutMs));
 
     if (done.spawnFailed) return yield* new HarnessMissing({ file: runner.file });
-    if (done.signal === "SIGTERM") return yield* new HarnessTimedOut({ file: runner.file, ms: TIMEOUT_MS });
+    if (done.signal === "SIGTERM") return yield* new HarnessTimedOut({ file: runner.file, ms: timeoutMs });
     if (done.code !== 0)
       return yield* new HarnessFailed({
         file: runner.file,
