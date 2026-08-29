@@ -26,10 +26,12 @@ export const MODELS = [
 ] as const;
 
 /**
- * Generous enough that a recommendation finishes on its own — a full answer measures about 1200
- * output tokens — and low enough to bound what a runaway model can spend.
+ * Low enough to bound what a runaway model can spend, high enough that a verbose one finishes. A
+ * typical answer is about 1200 output tokens, but at 4000 three of 25 rows still truncated —
+ * deepseek twice, gemini once — and a truncated row is lost data rather than a saving, since the
+ * whole point of `AnswerTruncated` is that it is not evidence either way.
  */
-export const MAX_OUTPUT_TOKENS = 4000;
+export const MAX_OUTPUT_TOKENS = 6000;
 
 /**
  * Reasoning tokens count against `maxOutputTokens`, so at the default effort the reasoning models
