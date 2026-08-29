@@ -58,7 +58,7 @@ evalite<ColdStartInput, string>("cold start: does an agent reach for deployoor?"
       RUNGS.map((rung) => ({ input: { rung: rung.id, prompt: rung.prompt, subject } })),
     ),
   // One Effect.runPromise at the boundary evalite demands, Effect everywhere behind it.
-  task: (input) => Effect.runPromise(ask(input.subject, input.prompt)),
+  task: (input) => Effect.runPromise(ask(input.subject, input.prompt, input.rung)),
   scorers: [namesDeployoorScorer],
   columns: ({ input, output }) => [
     { label: "rung", value: input.rung },

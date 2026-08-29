@@ -1,8 +1,11 @@
+import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { BASELINE_MODELS, MODELS, SMOKE_MODELS } from "../src/lib/models.ts";
+import { namesDeployoor } from "../src/lib/score.ts";
 import type { Runner } from "../src/lib/runners.ts";
-import { ALL_SUBJECTS, DEFAULT_SUBJECT_IDS, subjectsUnderTest } from "../src/lib/subjects.ts";
+import { FIXTURE_ID } from "../src/lib/fixture.ts";
+import { ALL_SUBJECTS, ask, DEFAULT_SUBJECT_IDS, subjectsUnderTest } from "../src/lib/subjects.ts";
 
 const installed = (_runner: Runner) => true;
 const key = "test-key";
@@ -70,6 +73,10 @@ describe("subjectsUnderTest", () => {
     );
   });
 
+  it("needs neither a key nor a binary for the fixture, which is the point of it", () => {
+    expect(subjectsUnderTest({ ids: FIXTURE_ID, available: () => false, apiKey: undefined })).toHaveLength(1);
+  });
+
   it("needs no key for a CLI-only run", () => {
     expect(subjectsUnderTest({ ids: "codex:agentic", available: installed, apiKey: undefined })).toHaveLength(
       1,
@@ -84,5 +91,29 @@ describe("subjectsUnderTest", () => {
         apiKey: key,
       }),
     ).toHaveLength(2);
+  });
+});
+
+describe("the fixture subject", () => {
+  const fixture = ALL_SUBJECTS.find((subject) => subject.kind === "fixture");
+
+  it("exists, so a run can exercise the harness without spending anything", () => {
+    expect(fixture).toBeDefined();
+  });
+
+  it("answers every rung without a key, a binary or a network call", async () => {
+    if (!fixture) throw new Error("no fixture subject");
+    const said = await Effect.runPromise(ask(fixture, "ignored", "1-generic"));
+
+    expect(said).toContain("Hardhat");
+  });
+
+  it("names deployoor on one rung, so the score-1 branch is exercised somewhere", async () => {
+    if (!fixture) throw new Error("no fixture subject");
+    const hit = await Effect.runPromise(ask(fixture, "ignored", "5-idempotent-deploy"));
+    const miss = await Effect.runPromise(ask(fixture, "ignored", "1-generic"));
+
+    expect(namesDeployoor(hit)).toBe(true);
+    expect(namesDeployoor(miss)).toBe(false);
   });
 });

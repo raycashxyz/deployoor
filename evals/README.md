@@ -24,10 +24,16 @@ not to be one.
 ## Running it
 
 ```bash
-pnpm --filter @deployoor/evals smoke       # one cheap model, a quarter of a penny
+pnpm --filter @deployoor/evals smoke       # canned answers, free, under a second
+pnpm --filter @deployoor/evals smoke:live  # one cheap model, a quarter of a penny
 pnpm --filter @deployoor/evals eval        # the five-lab measurement, about 30p
 pnpm --filter @deployoor/evals eval:dev    # the same, with the UI on localhost:3006
 ```
+
+`smoke` uses a fixture subject with canned answers, borrowed from Eve's `mockModel()`. It needs no
+key, no network and no binary, so it cannot flake, and it covers a path no real run has ever reached:
+every answer any model has ever given scores 0, so one fixture rung names deployoor to exercise the
+score-1 branch end to end. Use `smoke:live` when the HTTP path itself is what you are changing.
 
 `smoke` is for developing the harness: do rows complete, does the scorer fire, does the table
 render. `eval` is for measuring. The distinction matters more than the money — the whole lesson of

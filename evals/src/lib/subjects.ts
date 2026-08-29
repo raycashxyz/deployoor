@@ -10,6 +10,7 @@ import {
   type ApiKeyMissing,
   type ModelFailed,
 } from "./models.ts";
+import { FIXTURE_ID, fixtureAnswer } from "./fixture.ts";
 import { isAvailable, probeVersion, RUNNERS, type Runner } from "./runners.ts";
 
 /**
@@ -17,6 +18,7 @@ import { isAvailable, probeVersion, RUNNERS, type Runner } from "./runners.ts";
  * weights, or a coding-agent CLI, which is the agentic track and may search the web and write files.
  */
 export type Subject =
+  | { readonly kind: "fixture"; readonly id: string; readonly track: "fixture" }
   | { readonly kind: "model"; readonly id: string; readonly track: "chat-only" }
   | {
       readonly kind: "cli";
@@ -29,6 +31,7 @@ export type AskError =
   ApiKeyMissing | ModelFailed | AnswerTruncated | HarnessMissing | HarnessTimedOut | HarnessFailed;
 
 export const ALL_SUBJECTS: readonly Subject[] = [
+  { kind: "fixture", id: FIXTURE_ID, track: "fixture" },
   ...MODELS.map((id): Subject => ({ kind: "model", id, track: "chat-only" })),
   ...RUNNERS.map((runner): Subject => ({ kind: "cli", id: runner.id, track: "agentic", runner })),
 ];
@@ -40,11 +43,16 @@ export const DEFAULT_SUBJECT_IDS = BASELINE_MODELS.join(",");
  * What produced an answer, precisely enough to compare with next month's run. A model id already
  * names its version; a CLI has to be asked.
  */
-export const versionOf = (subject: Subject): string =>
-  subject.kind === "model" ? subject.id : probeVersion(subject.runner);
+export const versionOf = (subject: Subject): string => {
+  if (subject.kind === "cli") return probeVersion(subject.runner);
+  return subject.id;
+};
 
-export const ask = (subject: Subject, prompt: string): Effect.Effect<string, AskError> =>
-  subject.kind === "model" ? answer(subject.id, prompt) : transcript(subject.runner, prompt);
+export const ask = (subject: Subject, prompt: string, rung: string): Effect.Effect<string, AskError> => {
+  if (subject.kind === "fixture") return fixtureAnswer(rung);
+  if (subject.kind === "model") return answer(subject.id, prompt);
+  return transcript(subject.runner, prompt);
+};
 
 export interface SelectionDeps {
   readonly ids?: string;
@@ -84,6 +92,7 @@ export const subjectsUnderTest = ({
       `EVAL_SUBJECTS asked for ${missing.map((subject) => subject.id).join(", ")}, but the binary is not on PATH`,
     );
 
+  // The fixture needs neither a key nor a binary, which is the point of it.
   if (chosen.some((subject) => subject.kind === "model") && !apiKey)
     throw new Error(
       `EVAL_SUBJECTS includes models, so ${API_KEY_VARIABLE} must be set. Copy evals/.env.example to evals/.env and fill it in.`,
