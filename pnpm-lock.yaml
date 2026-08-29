@@ -99,6 +99,18 @@ importers:
         specifier: ^1.0.0-beta.6
         version: 1.0.0-beta.6(@types/node@26.0.1)(esbuild@0.28.1)(jiti@2.7.0)(react-dom@19.2.8(react@19.2.8))(react-server-dom-webpack@19.2.7(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(webpack@5.108.1(esbuild@0.28.1)))(react@19.2.8)(terser@5.48.0)(tsx@4.23.12)(yaml@2.9.0)
 
+  evals:
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.0
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.9(@types/node@22.20.0)(vite@8.2.1(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.23.12)(yaml@2.9.0))
+
   examples/custom-paths:
     dependencies:
       deployoor:
@@ -190,7 +202,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.1.9(@types/node@22.20.0)(vite@8.2.1(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.23.12)(yaml@2.9.0))
+        version: 4.1.9(@types/node@22.20.0)(vite@8.2.1(@types/node@22.20.0)(esbuild@0.25.12)(jiti@2.7.0)(terser@5.48.0)(tsx@4.23.12)(yaml@2.9.0))
 
   examples/hardhat-v3:
     dependencies:
@@ -558,7 +570,7 @@ importers:
         version: 2.46.0(typescript@5.9.3)(zod@4.4.3)
       vitest:
         specifier: 'catalog:'
-        version: 4.1.9(@types/node@22.20.0)(vite@8.2.1(@types/node@22.20.0)(esbuild@0.25.12)(jiti@2.7.0)(terser@5.48.0)(tsx@4.23.12)(yaml@2.9.0))
+        version: 4.1.9(@types/node@22.20.0)(vite@8.2.1(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.23.12)(yaml@2.9.0))
 
 packages:
 
