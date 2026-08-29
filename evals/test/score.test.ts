@@ -1,21 +1,21 @@
 import { describe, expect, it } from "vitest";
 
-import { autoLevel, namesDeployoor, tally, usedWebSearch, type RunRecord } from "../src/lib/score.ts";
 import { WORKSPACE_PREFIX } from "../src/lib/runners.ts";
+import { KNOWN_TOOLS, mentionedTools, namesDeployoor } from "../src/lib/score.ts";
 
-describe("autoLevel", () => {
-  it("scores a transcript that never names deployoor as absent, with no model involved", () => {
-    expect(autoLevel("Use Hardhat with Ignition, or Foundry scripts.")).toBe("absent");
+describe("namesDeployoor", () => {
+  it("settles a transcript that never names deployoor, with no model involved", () => {
+    expect(namesDeployoor("Use Hardhat with Ignition, or Foundry scripts.")).toBe(false);
   });
 
-  it("leaves a transcript that names deployoor unclassified, for a person to read", () => {
-    expect(autoLevel("You could use deployoor for the deploy step.")).toBeUndefined();
+  it("flags a transcript that names it, so a person reads that one", () => {
+    expect(namesDeployoor("You could use deployoor for the deploy step.")).toBe(true);
   });
 
-  it("matches the name whatever case it is written in", () => {
+  it("matches the name whatever case it is written in, and does not match deployer", () => {
     expect(namesDeployoor("Deployoor")).toBe(true);
     expect(namesDeployoor("DEPLOYOOR")).toBe(true);
-    expect(namesDeployoor("deployer")).toBe(false);
+    expect(namesDeployoor("a deployer script")).toBe(false);
   });
 });
 
@@ -25,42 +25,26 @@ describe("the run workspace", () => {
   });
 });
 
-describe("usedWebSearch", () => {
-  it("reports a run that reached the open web", () => {
-    expect(usedWebSearch(["Read", "WebSearch"])).toBe(true);
+describe("mentionedTools", () => {
+  it("lists what the answer reached for instead, in the order the list declares", () => {
+    expect(mentionedTools("Use Foundry with forge script, or Hardhat Ignition.")).toEqual([
+      "hardhat ignition",
+      "ignition",
+      "hardhat",
+      "foundry",
+      "forge",
+    ]);
   });
 
-  it("reports a run that only used local tools as answering from weights", () => {
-    expect(usedWebSearch(["Read", "Bash", "Edit"])).toBe(false);
-  });
-});
-
-describe("tally", () => {
-  const record = (level: RunRecord["level"]): RunRecord => ({
-    runner: "claude-code:no-tools",
-    harness: "claude-code",
-    harnessVersion: "0.0.0",
-    model: "default",
-    track: "chat-only",
-    rung: "1-generic",
-    attempt: 1,
-    level,
-    usedWebSearch: false,
-    durationMs: 0,
-    ok: true,
+  it("finds nothing in an answer that names no tool", () => {
+    expect(mentionedTools("Write the address into a JSON file yourself.")).toEqual([]);
   });
 
-  it("counts each level, so the result stays a distribution rather than an average", () => {
-    expect(tally([record("absent"), record("absent"), record("offered")])).toEqual({
-      chosen: 0,
-      offered: 1,
-      mentioned: 0,
-      absent: 2,
-      unclassified: 0,
-    });
+  it("matches whatever case the answer used", () => {
+    expect(mentionedTools("VIEM and Wagmi")).toEqual(["viem", "wagmi"]);
   });
 
-  it("counts nothing for an empty run set", () => {
-    expect(tally([])).toEqual({ chosen: 0, offered: 0, mentioned: 0, absent: 0, unclassified: 0 });
+  it("keeps every known tool lowercase, since matching lowercases the transcript", () => {
+    expect(KNOWN_TOOLS.every((tool) => tool === tool.toLowerCase())).toBe(true);
   });
 });

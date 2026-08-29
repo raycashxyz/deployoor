@@ -1,37 +1,28 @@
 packages:
-  - "packages/*"
-  - "apps/*"
-  - "examples/*"
-  - "evals"
+  - packages/*
+  - apps/*
+  - examples/*
+  - evals
 
-# Self-contained catalog (no external monorepo dependency).
 catalog:
-  "@types/node": ^22.15.3
-  "@wagmi/cli": ^2.3.1
-  effect: ^3.19.0
+  '@types/node': ^22.15.3
+  '@wagmi/cli': ^2.3.1
+  effect: 3.21.4
   typescript: ^5.9.3
-  # Capped at 2.46.0, not a whim: tevm re-exports `ekta` from `viem/chains`, and viem deleted that
-  # chain in 2.46.1 — so 2.46.1+ breaks every tevm-backed test with
-  # `SyntaxError: The requested module 'viem/chains' does not provide an export named 'ekta'`.
-  # tevm 1.0.0-next.149 (latest) declares `viem: ^2.37.9`, so its own range does not express this.
-  # Raise this only once tevm ships a build that imports no removed chain.
   viem: 2.46.0
   vitest: ^4.0.17
 
 onlyBuiltDependencies:
   - esbuild
+  # evalite stores eval history in SQLite, so its better-sqlite3 needs its native build to run.
+  # pnpm skips build scripts unless the package is listed here, and the failure is a require-time
+  # "Could not locate the bindings file" from `evalite`, not an install error.
+  - better-sqlite3
 
-# Overrides live here, not in package.json's `pnpm` block: when both exist the
-# package.json one wins silently and this file is ignored with no warning.
 overrides:
   es-module-lexer: 2.3.0
 
-# `@tevm/solc` does `require("solc")` but declares it nowhere — not a dependency,
-# not a peer. It only ever resolved because the `tevm` metapackage happened to pull
-# solc in alongside it. deployoor depends on `@tevm/compiler` directly (see
-# CLAUDE.md), so nothing brings solc along any more and pnpm's isolated layout
-# correctly refuses to resolve it. Declare it on their behalf.
 packageExtensions:
-  "@tevm/solc":
+  '@tevm/solc':
     dependencies:
-      solc: ">=0.8.0 <0.9.0"
+      solc: '>=0.8.0 <0.9.0'
