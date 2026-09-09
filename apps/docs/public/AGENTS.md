@@ -178,6 +178,9 @@ await reset({ publicClient, deploymentName: "Token" });
   deployed.
 - **The CLI never prompts without a TTY.** In CI it reports what it would have done and exits,
   so it will not install packages or edit `.gitignore` behind your back.
+- **`--json` is the machine-readable output.** `npx deployoor verify --json` prints
+  `{ ok, plugins, counts, results }` and `npx deployoor generate --json` prints `{ files }`, each as
+  the only thing on stdout — progress lines move to stderr. `--json` also means never prompt.
 - **Tests do not touch disk.** `createTestClients()` from `@deployoor/testing` passes an in-memory
   store, so test deploys write no records.
 - **Verification submits your source.** `npx deployoor verify` sends the pinned standard-json input

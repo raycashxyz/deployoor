@@ -84,6 +84,22 @@ already added are accounted for. A rule broader than deployoor's output (`build`
 `./build/deployers`) or one outside the project (`.git/info/exclude`, a global `core.excludesFile`) is
 reported and left alone. See [upgrading](/guides/upgrading#3-commit-deployers).
 
+`--json` prints the file list instead, as the only thing on stdout:
+
+```bash
+npx deployoor generate --json
+```
+
+```json
+{
+  "files": ["deployers/types/Counter.ts", "deployers/Counter.ts", "deployers/index.ts"]
+}
+```
+
+Paths are relative to the project root. `--json` also means unattended: neither question above is
+asked, a missing `deployoor`/`viem` fails with the install command rather than offering to run it, and
+the `.gitignore` advice goes to stderr.
+
 ### `verify`
 
 Verify already-deployed contracts on a block explorer, reading only committed data. Nothing is
@@ -149,6 +165,50 @@ all, so `deployoor verify` works as a CI check. Two outcomes are not failures:
   recompiling. Records written before deployoor pinned sources are in this bucket; redeploy to fix,
   or verify those with your explorer's own tooling. The run reports them and keeps going.
 
+#### `--json`
+
+`--json` prints the same report as one JSON document, for a script or an agent that would otherwise
+have to parse the summary above:
+
+```bash
+npx deployoor verify --json
+```
+
+```json
+{
+  "ok": false,
+  "plugins": ["etherscan"],
+  "counts": { "verified": 1, "failed": 0, "unverifiable": 1, "skipped": 0 },
+  "results": [
+    {
+      "deploymentName": "Counter",
+      "contractName": "Counter",
+      "networkName": "11155111-sepolia",
+      "chainId": 11155111,
+      "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "outcome": { "status": "verified", "plugins": ["etherscan"] }
+    },
+    {
+      "deploymentName": "OldToken",
+      "contractName": "OldToken",
+      "networkName": "1-ethereum",
+      "chainId": 1,
+      "address": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+      "outcome": { "status": "unverifiable", "detail": "no sourcesHash — …" }
+    }
+  ]
+}
+```
+
+`counts` always carries all four keys, zeros included. Each entry in `results` is one deployment
+record's outcome: `status` is `verified`, `failed`, `unverifiable` or `skipped`, and it comes with
+`plugins` when verification ran, `failures` (`{ plugin, error }`) when it failed, and `detail`
+otherwise. The exit code is the same as without the flag.
+
+Stdout is the document and nothing else. Plugins keep streaming their progress lines
+(`[etherscan] … verified`), on stderr, so `npx deployoor verify --json > report.json` leaves a file
+that parses and a terminal you can still watch.
+
 ## Flags
 
 ```
@@ -159,10 +219,14 @@ Commands:
   generate   read compiled artifacts and write typed deployers
   verify     verify recorded deployments on a block explorer (no recompile)
 
+generate options:
+  --json              print the generated file list as JSON (never prompts)
+
 verify options:
   --network <key>     only records on this network — `11155111-sepolia`, `11155111`, or `sepolia`
   --contract <name>   only this deployment or contract name
   --plugin <name>     verify with only this configured plugin (repeatable)
+  --json              print the report as one JSON document on stdout, nothing else
 
 Options:
   -h, --help     show this help
