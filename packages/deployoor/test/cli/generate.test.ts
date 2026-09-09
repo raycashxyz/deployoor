@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { cpSync, mkdtempSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runGenerate } from "../../src/cli/generate";
+import { generatedFilesJson, runGenerate } from "../../src/cli/generate";
 import { runInit, isDeployoorInstalled } from "../../src/cli/init";
 
 const hhRoot = join(import.meta.dirname, "..", "fixtures", "hh");
@@ -106,6 +106,38 @@ describe("runGenerate", () => {
     expect(existsSync(join(out, "Counter.ts"))).toBe(true); // the matched contract still generates
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("Ghost")); // the missing one is surfaced
     warn.mockRestore();
+  });
+});
+
+describe("generatedFilesJson", () => {
+  it("emits the written files as one JSON document of root-relative paths", async () => {
+    const root = projectFromFixture();
+    const out = join(root, "deployers");
+    const files = await runGenerate({ root, out, configPath: join(root, "deployoor.config.ts") });
+
+    const document = JSON.parse(generatedFilesJson(root, files));
+
+    expect(Object.keys(document)).toEqual(["files"]);
+    expect(document.files).toContain("deployers/Counter.ts");
+    expect(document.files).toContain("deployers/types/Counter.ts");
+    expect(document.files).toHaveLength(files.length);
+    // relative to the project, so the same project prints the same document on any machine
+    expect(document.files.some((path: string) => path.startsWith("/") || path.includes(tmpdir()))).toBe(
+      false,
+    );
+  });
+
+  it("prints the paths without the file contents", async () => {
+    // A `GeneratedFile` carries its `contents` too, and an artifact module is thousands of lines —
+    // printing them would bury the answer in the question.
+    const root = projectFromFixture();
+    const out = join(root, "deployers");
+    const files = await runGenerate({ root, out, configPath: join(root, "deployoor.config.ts") });
+
+    const printed = generatedFilesJson(root, files);
+
+    expect(printed).not.toContain("defineDeployer");
+    expect(printed.length).toBeLessThan(files.reduce((total, file) => total + file.contents.length, 0));
   });
 });
 

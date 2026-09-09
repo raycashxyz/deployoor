@@ -2,9 +2,10 @@
 import { readFileSync } from "node:fs";
 import { generateDeployers } from "./generate";
 import { loadConfig } from "./cli/config-file";
+import { generatedFilesJson } from "./cli/generate";
 import { runInit, isDeployoorInstalled, missingDependencies } from "./cli/init";
 import { detectPackageManager, installCommandLine, offerInstall } from "./cli/install";
-import { reviewIgnoredOutput } from "./cli/gitignore";
+import { reviewIgnoredOutput, type GitignoreDeps } from "./cli/gitignore";
 import {
   jsonModePluginDeps,
   parseVerifyArgs,
@@ -29,6 +30,9 @@ Commands:
   generate   read compiled artifacts and write typed deployers
   verify     verify recorded deployments on a block explorer (no recompile)
 
+generate options:
+  --json              print the generated file list as JSON (never prompts)
+
 verify options:
 ${VERIFY_FLAG_HELP}
 
@@ -44,32 +48,45 @@ const version = (): string => {
 };
 
 /**
+ * `--json` is unattended by definition: whatever reads the document has nobody at a keyboard, and a
+ * prompt would land on the stream the document is on. So nothing is asked, and everything a prompt
+ * would have said goes to stderr instead — the same outcome a no-TTY run already produces.
+ */
+const nonInteractive: GitignoreDeps = {
+  isInteractive: () => false,
+  log: (message) => console.error(message),
+};
+
+/**
  * The generated deployers import `deployoor` and `viem`, so generating into a project that has not
  * declared them leaves a tree that cannot compile. Offer to add them rather than only naming the
  * command — and if the offer is declined, or there is no TTY to ask at, fail with that command.
  */
-const ensureDependencies = async (root: string): Promise<void> => {
+const ensureDependencies = async (root: string, json: boolean): Promise<void> => {
   const missing = missingDependencies(root);
   if (missing.length === 0) return;
 
   const commandLine = installCommandLine(detectPackageManager(root), missing);
-  console.log(
-    `deployoor: the generated deployers import ${missing.join(" and ")}, ${
-      missing.length === 1 ? "which is" : "which are"
-    } not in your package.json.`,
-  );
+  const note = `the generated deployers import ${missing.join(" and ")}, ${
+    missing.length === 1 ? "which is" : "which are"
+  } not in your package.json.`;
+  const remedy = `install ${missing.join(" and ")} first:\n  ${commandLine}`;
+  if (json) return fail(`${note}\n${remedy}`);
+
+  console.log(`deployoor: ${note}`);
   if (await offerInstall(root, missing)) return;
-  fail(`install ${missing.join(" and ")} first:\n  ${commandLine}`);
+  fail(remedy);
 };
 
-const generate = async (root: string): Promise<void> => {
-  await ensureDependencies(root);
+const generate = async (root: string, argv: ReadonlyArray<string>): Promise<void> => {
+  const json = argv.includes("--json");
+  await ensureDependencies(root, json);
   const files = await generateDeployers({ root });
-  console.log(`deployoor: generated ${files.length} file(s)`);
+  console.log(json ? generatedFilesJson(root, files) : `deployoor: generated ${files.length} file(s)`);
   // After writing, not before: the advice is about committing files that now exist, and the config is
   // read a second time here so that a `generate` failure never stops to ask about a `.gitignore`.
   const { config } = await loadConfig(root);
-  await reviewIgnoredOutput(root, config);
+  await reviewIgnoredOutput(root, config, json ? nonInteractive : {});
 };
 
 /**
@@ -154,7 +171,7 @@ const main = async (): Promise<void> => {
     console.log(version());
     return;
   }
-  if (command === "generate") return generate(root);
+  if (command === "generate") return generate(root, process.argv.slice(3));
   if (command === "init") return init(root);
   if (command === "verify") return verify(root, process.argv.slice(3));
   fail(`unknown command "${command}"\n${usage}`);

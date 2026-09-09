@@ -96,3 +96,23 @@ export const runGenerate = async (opts: RunGenerateOptions): Promise<ReadonlyArr
     importExtension,
   });
 };
+
+/** `deployoor generate --json` on stdout: what was written, and nothing else. */
+export interface GeneratedFilesJson {
+  /** Paths relative to the project root, forward-slashed, in the order they were emitted. */
+  readonly files: ReadonlyArray<string>;
+}
+
+/**
+ * The generated file list as one JSON document.
+ *
+ * Paths only — a `GeneratedFile` also carries its `contents`, and an artifact module is large enough
+ * that printing them would bury the answer in the question. Relative to the project root and always
+ * forward-slashed, so the same project produces the same document on any machine.
+ */
+export const generatedFilesJson = (root: string, files: ReadonlyArray<GeneratedFile>): string => {
+  const document: GeneratedFilesJson = {
+    files: files.map((file) => relative(root, file.path).replace(/\\/g, "/")),
+  };
+  return JSON.stringify(document, null, 2);
+};
