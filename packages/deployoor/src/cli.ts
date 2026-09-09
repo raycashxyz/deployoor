@@ -5,7 +5,17 @@ import { loadConfig } from "./cli/config-file";
 import { runInit, isDeployoorInstalled, missingDependencies } from "./cli/init";
 import { detectPackageManager, installCommandLine, offerInstall } from "./cli/install";
 import { reviewIgnoredOutput } from "./cli/gitignore";
-import { parseVerifyArgs, runVerify, VERIFY_FLAG_HELP, VERIFY_USAGE, type VerifyResult } from "./cli/verify";
+import {
+  jsonModePluginDeps,
+  parseVerifyArgs,
+  runVerify,
+  verifyCounts,
+  verifyJson,
+  VERIFY_FLAG_HELP,
+  VERIFY_USAGE,
+  type VerifyReport,
+  type VerifyResult,
+} from "./cli/verify";
 
 const fail = (message: string): never => {
   console.error(`deployoor: ${message}`);
@@ -83,30 +93,39 @@ const verifyLines = (result: VerifyResult): ReadonlyArray<string> => {
   return [`  ${label}  ${where}`, `                  ${outcome.detail}`];
 };
 
-const countOf = (results: ReadonlyArray<VerifyResult>, status: VerifyResult["outcome"]["status"]): number =>
-  results.filter((result) => result.outcome.status === status).length;
+/** The whole human report: what ran, one block per record, and the tally. */
+const verifySummary = (report: VerifyReport): ReadonlyArray<string> => {
+  const counts = verifyCounts(report.results);
+  const tally = [
+    `${counts.verified} verified`,
+    ...(counts.failed === 0 ? [] : [`${counts.failed} failed`]),
+    ...(counts.unverifiable === 0 ? [] : [`${counts.unverifiable} unverifiable`]),
+    ...(counts.skipped === 0 ? [] : [`${counts.skipped} skipped`]),
+  ];
+  return [
+    `deployoor: checked ${report.results.length} record(s) through ${report.plugins.join(", ")}`,
+    ...report.results.flatMap(verifyLines),
+    `deployoor: ${tally.join(", ")}`,
+  ];
+};
 
 const verify = async (root: string, argv: ReadonlyArray<string>): Promise<void> => {
   if (argv.includes("-h") || argv.includes("--help")) {
     console.log(VERIFY_USAGE);
     return;
   }
-  const args = parseVerifyArgs(argv);
+  const { json, ...filters } = parseVerifyArgs(argv);
   const { config } = await loadConfig(root);
-  const report = await runVerify({ root, config, ...args });
+  // Under --json the plugins keep streaming their progress, on stderr, so stdout is the document.
+  const report = await runVerify({
+    root,
+    config,
+    ...filters,
+    ...(json ? { deps: jsonModePluginDeps() } : {}),
+  });
 
-  console.log(`deployoor: checked ${report.results.length} record(s) through ${report.plugins.join(", ")}`);
-  report.results.flatMap(verifyLines).forEach((line) => console.log(line));
-
-  const counts = [
-    `${countOf(report.results, "verified")} verified`,
-    ...(countOf(report.results, "failed") === 0 ? [] : [`${countOf(report.results, "failed")} failed`]),
-    ...(countOf(report.results, "unverifiable") === 0
-      ? []
-      : [`${countOf(report.results, "unverifiable")} unverifiable`]),
-    ...(countOf(report.results, "skipped") === 0 ? [] : [`${countOf(report.results, "skipped")} skipped`]),
-  ];
-  console.log(`deployoor: ${counts.join(", ")}`);
+  const output = json ? [verifyJson(report)] : verifySummary(report);
+  output.forEach((line) => console.log(line));
   // Already reported per record, so this exits non-zero without a second error message.
   if (!report.ok) process.exitCode = 1;
 };

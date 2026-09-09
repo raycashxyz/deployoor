@@ -3,7 +3,14 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { encodeAbiParameters, keccak256, stringToBytes, type Hex } from "viem";
-import { parseVerifyArgs, runVerify, VerifyRequestError, type VerifyArgs } from "../../src/cli/verify";
+import {
+  jsonModePluginDeps,
+  parseVerifyArgs,
+  runVerify,
+  verifyJson,
+  VerifyRequestError,
+  type VerifyArgs,
+} from "../../src/cli/verify";
 import { definePlugin, type PluginDeps, type VerifyContext } from "../../src/plugin";
 import type { Config } from "../../src/config";
 import type { DeploymentRecord, SourcesSidecar } from "../../src/schemas";
@@ -437,17 +444,53 @@ describe("parseVerifyArgs", () => {
     expect(parseVerifyArgs(["--network", "8453-base", "--contract=Counter"])).toEqual({
       network: "8453-base",
       contract: "Counter",
+      json: false,
     });
   });
 
   it("collects a repeated --plugin into a list", () => {
     expect(parseVerifyArgs(["--plugin", "etherscan", "--plugin=sourcify"])).toEqual({
       plugins: ["etherscan", "sourcify"],
+      json: false,
     });
   });
 
   it("returns no filters for an empty argument list", () => {
-    expect(parseVerifyArgs([])).toEqual({});
+    expect(parseVerifyArgs([])).toEqual({ json: false });
+  });
+
+  it("reads --json as a switch that needs no value", () => {
+    expect(parseVerifyArgs(["--json"])).toEqual({ json: true });
+  });
+
+  it("parses filters on either side of --json", () => {
+    expect(parseVerifyArgs(["--json", "--network", "sepolia", "--contract=Counter"])).toEqual({
+      network: "sepolia",
+      contract: "Counter",
+      json: true,
+    });
+  });
+
+  it("throws a bad-usage VerifyRequestError for an argument after --json", () => {
+    // A boolean flag consumes nothing, so the token after it is a stray argument. Treating `--json`
+    // like a value flag would swallow `Counter` and silently verify every record instead of one.
+    const parse = () => parseVerifyArgs(["--json", "Counter"]);
+    expect(parse).toThrow(VerifyRequestError);
+    expect(parse).toThrow(/unexpected argument\(s\) Counter/);
+  });
+
+  it("throws a bad-usage VerifyRequestError when --json is given a value", () => {
+    const parse = () => parseVerifyArgs(["--json=true"]);
+    expect(parse).toThrow(VerifyRequestError);
+    expect(parse).toThrow(/--json takes no value/);
+  });
+
+  it("still rejects an unknown option when --json is present", () => {
+    expect(() => parseVerifyArgs(["--json", "--netwrok", "8453-base"])).toThrow(/--netwrok/);
+  });
+
+  it("still reports a value flag left without its value when --json follows it", () => {
+    expect(() => parseVerifyArgs(["--network", "--json"])).toThrow(/--network needs a value/);
   });
 
   it("throws a bad-usage VerifyRequestError for an unknown option", () => {
@@ -473,5 +516,120 @@ describe("parseVerifyArgs", () => {
     const parse = () => parseVerifyArgs(["Counter"]);
     expect(parse).toThrow(VerifyRequestError);
     expect(parse).toThrow(/unexpected argument/);
+  });
+});
+
+describe("verifyJson", () => {
+  it("emits one JSON document carrying ok, the plugins, the counts and the results", async () => {
+    const store = await seeded([
+      record(),
+      record({ deploymentName: "Legacy", schemaVersion: 1, sourcesHash: undefined }),
+      record({ deploymentName: "USDC", kind: "external", sourcesHash: undefined }),
+    ]);
+    const report = await run(store, { plugins: [stubVerifier("etherscan")] });
+
+    const document = JSON.parse(verifyJson(report));
+    expect(document.ok).toBe(false);
+    expect(document.plugins).toEqual(["etherscan"]);
+    expect(document.counts).toEqual({ verified: 1, failed: 0, unverifiable: 1, skipped: 1 });
+    // each result is the VerifyResult verbatim — same fields, same discriminated outcome
+    expect(document.results).toHaveLength(3);
+    expect(document.results[0]).toEqual({
+      deploymentName: "Counter",
+      contractName: "Counter",
+      networkName: "11155111-sepolia",
+      chainId: 11155111,
+      address: "0x00000000000000000000000000000000000000c0",
+      outcome: { status: "verified", plugins: ["etherscan"] },
+    });
+    expect(document.results[1]?.outcome.status).toBe("unverifiable");
+    expect(document.results[2]?.outcome.status).toBe("skipped");
+  });
+
+  it("carries a key for every status, including the ones no record landed in", async () => {
+    // A consumer reads `counts.failed` without checking it exists, so an all-verified run still
+    // spells out the three zeros.
+    const store = await seeded([record()]);
+    const report = await run(store, { plugins: [stubVerifier("etherscan")] });
+
+    expect(JSON.parse(verifyJson(report))).toEqual({
+      ok: true,
+      plugins: ["etherscan"],
+      counts: { verified: 1, failed: 0, unverifiable: 0, skipped: 0 },
+      results: [expect.objectContaining({ outcome: { status: "verified", plugins: ["etherscan"] } })],
+    });
+  });
+
+  it("reports which plugin failed and why, in the same shape the summary prints", async () => {
+    const store = await seeded([record()]);
+    const report = await run(store, {
+      plugins: [failingVerifier("etherscan", "Fail - Unable to verify"), stubVerifier("sourcify")],
+    });
+
+    const document = JSON.parse(verifyJson(report));
+    expect(document.ok).toBe(false);
+    expect(document.counts.failed).toBe(1);
+    expect(document.results[0].outcome).toEqual({
+      status: "failed",
+      plugins: ["etherscan", "sourcify"],
+      failures: [{ plugin: "etherscan", error: "Fail - Unable to verify" }],
+    });
+  });
+
+  it("emits a document that parses on its own, with no summary text around it", async () => {
+    const store = await seeded([record()]);
+    const report = await run(store, { plugins: [stubVerifier("etherscan")] });
+
+    const printed = verifyJson(report);
+    expect(() => JSON.parse(printed)).not.toThrow();
+    expect(printed).not.toContain("deployoor:");
+    expect(printed.trimStart().startsWith("{")).toBe(true);
+    expect(printed.trimEnd().endsWith("}")).toBe(true);
+  });
+});
+
+describe("verify --json plugin logging", () => {
+  /** A verifier that streams progress the way the real ones do (`[etherscan] … verified`). */
+  const chatty = (name: PluginName) =>
+    definePlugin<typeof name, Record<string, never>>({
+      name,
+      onVerify: (_ctx, deps) => deps.log.info(`[${name}] verified`),
+    });
+
+  it("routes a plugin's progress lines to stderr, leaving stdout for the document", async () => {
+    const store = await seeded([record()]);
+    const stdout = vi.spyOn(console, "log").mockImplementation(() => {});
+    // `console.info` is a separate property from `console.log` and also writes to stdout, so it is
+    // spied on in its own right — the default deps use it, which is exactly what --json must avoid.
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const stderr = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      await runVerify({
+        root: "/nowhere",
+        config: { plugins: [chatty("etherscan")] },
+        store,
+        deps: jsonModePluginDeps(),
+      });
+
+      expect(stderr).toHaveBeenCalledWith("[etherscan] verified");
+      expect(stdout).not.toHaveBeenCalled();
+      expect(info).not.toHaveBeenCalled();
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("leaves those lines on stdout without the override, which is the reason for it", async () => {
+    const store = await seeded([record()]);
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    try {
+      await runVerify({ root: "/nowhere", config: { plugins: [chatty("etherscan")] }, store });
+
+      expect(info).toHaveBeenCalledWith("[etherscan] verified");
+    } finally {
+      vi.restoreAllMocks();
+    }
   });
 });
