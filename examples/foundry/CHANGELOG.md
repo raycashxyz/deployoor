@@ -1,5 +1,12 @@
 # @example/foundry
 
+## 0.0.10
+
+### Patch Changes
+
+- Updated dependencies [8e761ba]
+  - deployoor@0.10.0
+
 ## 0.0.9
 
 ### Patch Changes
