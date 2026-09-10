@@ -100,6 +100,10 @@ Paths are relative to the project root. `--json` also means unattended: neither 
 asked, a missing `deployoor`/`viem` fails with the install command rather than offering to run it, and
 the `.gitignore` advice goes to stderr.
 
+`generate` accepts nothing else on its command line — an unknown option, a stray argument, or
+`--json=true` fails before anything is read or written, rather than silently generating in the wrong
+mode.
+
 ### `verify`
 
 Verify already-deployed contracts on a block explorer, reading only committed data. Nothing is

@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { generateDeployers } from "./generate";
 import { loadConfig } from "./cli/config-file";
-import { generatedFilesJson } from "./cli/generate";
+import { generatedFilesJson, parseGenerateArgs, GENERATE_FLAG_HELP, GENERATE_USAGE } from "./cli/generate";
 import { runInit, isDeployoorInstalled, missingDependencies } from "./cli/init";
 import { detectPackageManager, installCommandLine, offerInstall } from "./cli/install";
 import { reviewIgnoredOutput, type GitignoreDeps } from "./cli/gitignore";
@@ -31,7 +31,7 @@ Commands:
   verify     verify recorded deployments on a block explorer (no recompile)
 
 generate options:
-  --json              print the generated file list as JSON (never prompts)
+${GENERATE_FLAG_HELP}
 
 verify options:
 ${VERIFY_FLAG_HELP}
@@ -79,7 +79,11 @@ const ensureDependencies = async (root: string, json: boolean): Promise<void> =>
 };
 
 const generate = async (root: string, argv: ReadonlyArray<string>): Promise<void> => {
-  const json = argv.includes("--json");
+  if (argv.includes("-h") || argv.includes("--help")) {
+    console.log(GENERATE_USAGE);
+    return;
+  }
+  const { json } = parseGenerateArgs(argv);
   await ensureDependencies(root, json);
   const files = await generateDeployers({ root });
   console.log(json ? generatedFilesJson(root, files) : `deployoor: generated ${files.length} file(s)`);

@@ -31,4 +31,4 @@ Stdout stays a single JSON value. Verifier plugins keep streaming their progress
 
 `generate --json` prints `{ "files": [...] }`, the written paths relative to the project root. It implies unattended: neither the install offer nor the `.gitignore` question is asked, a missing `deployoor`/`viem` fails with the command to install them, and the `.gitignore` advice goes to stderr.
 
-`verify`'s argument parser now handles boolean flags as their own kind, so `--json` consumes no value and the token after it is still reported as an unexpected argument. `--json=true` is rejected as bad usage.
+`verify`'s argument parser now handles boolean flags as their own kind, so `--json` consumes no value and the token after it is still reported as an unexpected argument. `--json=true` is rejected as bad usage. `generate` validates its command line the same way — an unknown option, a positional argument, or `--json=true` fails before anything is read or written, where it used to be silently ignored.

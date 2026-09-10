@@ -2,7 +2,12 @@ import { describe, it, expect, vi } from "vitest";
 import { cpSync, mkdtempSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { generatedFilesJson, runGenerate } from "../../src/cli/generate";
+import {
+  generatedFilesJson,
+  parseGenerateArgs,
+  GenerateUsageError,
+  runGenerate,
+} from "../../src/cli/generate";
 import { runInit, isDeployoorInstalled } from "../../src/cli/init";
 
 const hhRoot = join(import.meta.dirname, "..", "fixtures", "hh");
@@ -138,6 +143,41 @@ describe("generatedFilesJson", () => {
 
     expect(printed).not.toContain("defineDeployer");
     expect(printed.length).toBeLessThan(files.reduce((total, file) => total + file.contents.length, 0));
+  });
+});
+
+describe("parseGenerateArgs", () => {
+  it("reads --json as a switch that needs no value", () => {
+    expect(parseGenerateArgs([])).toEqual({ json: false });
+    expect(parseGenerateArgs(["--json"])).toEqual({ json: true });
+  });
+
+  it("throws a GenerateUsageError when --json is given a value", () => {
+    // `--json=true` reads as asking for JSON, so parsing it as human mode would hand a machine
+    // consumer the summary — and possibly a prompt — instead of the document it asked for.
+    const parse = () => parseGenerateArgs(["--json=true"]);
+    expect(parse).toThrow(GenerateUsageError);
+    expect(parse).toThrow(/--json takes no value/);
+  });
+
+  it("throws a GenerateUsageError for an unknown option", () => {
+    const parse = () => parseGenerateArgs(["--jsno"]);
+    expect(parse).toThrow(GenerateUsageError);
+    expect(parse).toThrow(/unknown option\(s\) --jsno/);
+  });
+
+  it("throws a GenerateUsageError for a positional argument", () => {
+    // `generate` takes no contract names — `deployoor generate Counter` used to generate everything
+    // silently, which reads as filtering when it is not.
+    const parse = () => parseGenerateArgs(["Counter"]);
+    expect(parse).toThrow(GenerateUsageError);
+    expect(parse).toThrow(/unexpected argument\(s\) Counter/);
+  });
+
+  it("throws a GenerateUsageError for an argument after --json", () => {
+    const parse = () => parseGenerateArgs(["--json", "Counter"]);
+    expect(parse).toThrow(GenerateUsageError);
+    expect(parse).toThrow(/unexpected argument\(s\) Counter/);
   });
 });
 
