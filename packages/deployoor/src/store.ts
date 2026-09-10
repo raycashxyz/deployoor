@@ -19,7 +19,9 @@ import { DeploymentRecord, SourcesSidecar } from "./schemas";
 // repo). The only non-JSON value is bigint in `constructorArgs`; we stringify it on
 // write (standard replacer) and read it back as a string — we never need to revive
 // the bigint type (idempotency uses the address; verification re-encodes from the ABI).
-const bigintReplacer = (_key: string, value: unknown): unknown =>
+// Exported (not part of the package's public surface) so anything else that serialises a record —
+// `deployoor verify --json` prints them back out — treats a bigint the same way this file does.
+export const bigintReplacer = (_key: string, value: unknown): unknown =>
   typeof value === "bigint" ? value.toString() : value;
 
 /**

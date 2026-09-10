@@ -2,10 +2,21 @@
 import { readFileSync } from "node:fs";
 import { generateDeployers } from "./generate";
 import { loadConfig } from "./cli/config-file";
+import { generatedFilesJson, parseGenerateArgs, GENERATE_FLAG_HELP, GENERATE_USAGE } from "./cli/generate";
 import { runInit, isDeployoorInstalled, missingDependencies } from "./cli/init";
 import { detectPackageManager, installCommandLine, offerInstall } from "./cli/install";
-import { reviewIgnoredOutput } from "./cli/gitignore";
-import { parseVerifyArgs, runVerify, VERIFY_FLAG_HELP, VERIFY_USAGE, type VerifyResult } from "./cli/verify";
+import { reviewIgnoredOutput, type GitignoreDeps } from "./cli/gitignore";
+import {
+  jsonModePluginDeps,
+  parseVerifyArgs,
+  runVerify,
+  verifyCounts,
+  verifyJson,
+  VERIFY_FLAG_HELP,
+  VERIFY_USAGE,
+  type VerifyReport,
+  type VerifyResult,
+} from "./cli/verify";
 
 const fail = (message: string): never => {
   console.error(`deployoor: ${message}`);
@@ -18,6 +29,9 @@ Commands:
   init       write deployoor.config.ts (optional — generate defaults without one)
   generate   read compiled artifacts and write typed deployers
   verify     verify recorded deployments on a block explorer (no recompile)
+
+generate options:
+${GENERATE_FLAG_HELP}
 
 verify options:
 ${VERIFY_FLAG_HELP}
@@ -34,32 +48,49 @@ const version = (): string => {
 };
 
 /**
+ * `--json` is unattended by definition: whatever reads the document has nobody at a keyboard, and a
+ * prompt would land on the stream the document is on. So nothing is asked, and everything a prompt
+ * would have said goes to stderr instead — the same outcome a no-TTY run already produces.
+ */
+const nonInteractive: GitignoreDeps = {
+  isInteractive: () => false,
+  log: (message) => console.error(message),
+};
+
+/**
  * The generated deployers import `deployoor` and `viem`, so generating into a project that has not
  * declared them leaves a tree that cannot compile. Offer to add them rather than only naming the
  * command — and if the offer is declined, or there is no TTY to ask at, fail with that command.
  */
-const ensureDependencies = async (root: string): Promise<void> => {
+const ensureDependencies = async (root: string, json: boolean): Promise<void> => {
   const missing = missingDependencies(root);
   if (missing.length === 0) return;
 
   const commandLine = installCommandLine(detectPackageManager(root), missing);
-  console.log(
-    `deployoor: the generated deployers import ${missing.join(" and ")}, ${
-      missing.length === 1 ? "which is" : "which are"
-    } not in your package.json.`,
-  );
+  const note = `the generated deployers import ${missing.join(" and ")}, ${
+    missing.length === 1 ? "which is" : "which are"
+  } not in your package.json.`;
+  const remedy = `install ${missing.join(" and ")} first:\n  ${commandLine}`;
+  if (json) return fail(`${note}\n${remedy}`);
+
+  console.log(`deployoor: ${note}`);
   if (await offerInstall(root, missing)) return;
-  fail(`install ${missing.join(" and ")} first:\n  ${commandLine}`);
+  fail(remedy);
 };
 
-const generate = async (root: string): Promise<void> => {
-  await ensureDependencies(root);
+const generate = async (root: string, argv: ReadonlyArray<string>): Promise<void> => {
+  if (argv.includes("-h") || argv.includes("--help")) {
+    console.log(GENERATE_USAGE);
+    return;
+  }
+  const { json } = parseGenerateArgs(argv);
+  await ensureDependencies(root, json);
   const files = await generateDeployers({ root });
-  console.log(`deployoor: generated ${files.length} file(s)`);
+  console.log(json ? generatedFilesJson(root, files) : `deployoor: generated ${files.length} file(s)`);
   // After writing, not before: the advice is about committing files that now exist, and the config is
   // read a second time here so that a `generate` failure never stops to ask about a `.gitignore`.
   const { config } = await loadConfig(root);
-  await reviewIgnoredOutput(root, config);
+  await reviewIgnoredOutput(root, config, json ? nonInteractive : {});
 };
 
 /**
@@ -83,30 +114,39 @@ const verifyLines = (result: VerifyResult): ReadonlyArray<string> => {
   return [`  ${label}  ${where}`, `                  ${outcome.detail}`];
 };
 
-const countOf = (results: ReadonlyArray<VerifyResult>, status: VerifyResult["outcome"]["status"]): number =>
-  results.filter((result) => result.outcome.status === status).length;
+/** The whole human report: what ran, one block per record, and the tally. */
+const verifySummary = (report: VerifyReport): ReadonlyArray<string> => {
+  const counts = verifyCounts(report.results);
+  const tally = [
+    `${counts.verified} verified`,
+    ...(counts.failed === 0 ? [] : [`${counts.failed} failed`]),
+    ...(counts.unverifiable === 0 ? [] : [`${counts.unverifiable} unverifiable`]),
+    ...(counts.skipped === 0 ? [] : [`${counts.skipped} skipped`]),
+  ];
+  return [
+    `deployoor: checked ${report.results.length} record(s) through ${report.plugins.join(", ")}`,
+    ...report.results.flatMap(verifyLines),
+    `deployoor: ${tally.join(", ")}`,
+  ];
+};
 
 const verify = async (root: string, argv: ReadonlyArray<string>): Promise<void> => {
   if (argv.includes("-h") || argv.includes("--help")) {
     console.log(VERIFY_USAGE);
     return;
   }
-  const args = parseVerifyArgs(argv);
+  const { json, ...filters } = parseVerifyArgs(argv);
   const { config } = await loadConfig(root);
-  const report = await runVerify({ root, config, ...args });
+  // Under --json the plugins keep streaming their progress, on stderr, so stdout is the document.
+  const report = await runVerify({
+    root,
+    config,
+    ...filters,
+    ...(json ? { deps: jsonModePluginDeps() } : {}),
+  });
 
-  console.log(`deployoor: checked ${report.results.length} record(s) through ${report.plugins.join(", ")}`);
-  report.results.flatMap(verifyLines).forEach((line) => console.log(line));
-
-  const counts = [
-    `${countOf(report.results, "verified")} verified`,
-    ...(countOf(report.results, "failed") === 0 ? [] : [`${countOf(report.results, "failed")} failed`]),
-    ...(countOf(report.results, "unverifiable") === 0
-      ? []
-      : [`${countOf(report.results, "unverifiable")} unverifiable`]),
-    ...(countOf(report.results, "skipped") === 0 ? [] : [`${countOf(report.results, "skipped")} skipped`]),
-  ];
-  console.log(`deployoor: ${counts.join(", ")}`);
+  const output = json ? [verifyJson(report)] : verifySummary(report);
+  output.forEach((line) => console.log(line));
   // Already reported per record, so this exits non-zero without a second error message.
   if (!report.ok) process.exitCode = 1;
 };
@@ -135,7 +175,7 @@ const main = async (): Promise<void> => {
     console.log(version());
     return;
   }
-  if (command === "generate") return generate(root);
+  if (command === "generate") return generate(root, process.argv.slice(3));
   if (command === "init") return init(root);
   if (command === "verify") return verify(root, process.argv.slice(3));
   fail(`unknown command "${command}"\n${usage}`);

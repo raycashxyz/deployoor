@@ -2,7 +2,12 @@ import { describe, it, expect, vi } from "vitest";
 import { cpSync, mkdtempSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runGenerate } from "../../src/cli/generate";
+import {
+  generatedFilesJson,
+  parseGenerateArgs,
+  GenerateUsageError,
+  runGenerate,
+} from "../../src/cli/generate";
 import { runInit, isDeployoorInstalled } from "../../src/cli/init";
 
 const hhRoot = join(import.meta.dirname, "..", "fixtures", "hh");
@@ -106,6 +111,73 @@ describe("runGenerate", () => {
     expect(existsSync(join(out, "Counter.ts"))).toBe(true); // the matched contract still generates
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("Ghost")); // the missing one is surfaced
     warn.mockRestore();
+  });
+});
+
+describe("generatedFilesJson", () => {
+  it("emits the written files as one JSON document of root-relative paths", async () => {
+    const root = projectFromFixture();
+    const out = join(root, "deployers");
+    const files = await runGenerate({ root, out, configPath: join(root, "deployoor.config.ts") });
+
+    const document = JSON.parse(generatedFilesJson(root, files));
+
+    expect(Object.keys(document)).toEqual(["files"]);
+    expect(document.files).toContain("deployers/Counter.ts");
+    expect(document.files).toContain("deployers/types/Counter.ts");
+    expect(document.files).toHaveLength(files.length);
+    // relative to the project, so the same project prints the same document on any machine
+    expect(document.files.some((path: string) => path.startsWith("/") || path.includes(tmpdir()))).toBe(
+      false,
+    );
+  });
+
+  it("prints the paths without the file contents", async () => {
+    // A `GeneratedFile` carries its `contents` too, and an artifact module is thousands of lines —
+    // printing them would bury the answer in the question.
+    const root = projectFromFixture();
+    const out = join(root, "deployers");
+    const files = await runGenerate({ root, out, configPath: join(root, "deployoor.config.ts") });
+
+    const printed = generatedFilesJson(root, files);
+
+    expect(printed).not.toContain("defineDeployer");
+    expect(printed.length).toBeLessThan(files.reduce((total, file) => total + file.contents.length, 0));
+  });
+});
+
+describe("parseGenerateArgs", () => {
+  it("reads --json as a switch that needs no value", () => {
+    expect(parseGenerateArgs([])).toEqual({ json: false });
+    expect(parseGenerateArgs(["--json"])).toEqual({ json: true });
+  });
+
+  it("throws a GenerateUsageError when --json is given a value", () => {
+    // `--json=true` reads as asking for JSON, so parsing it as human mode would hand a machine
+    // consumer the summary — and possibly a prompt — instead of the document it asked for.
+    const parse = () => parseGenerateArgs(["--json=true"]);
+    expect(parse).toThrow(GenerateUsageError);
+    expect(parse).toThrow(/--json takes no value/);
+  });
+
+  it("throws a GenerateUsageError for an unknown option", () => {
+    const parse = () => parseGenerateArgs(["--jsno"]);
+    expect(parse).toThrow(GenerateUsageError);
+    expect(parse).toThrow(/unknown option\(s\) --jsno/);
+  });
+
+  it("throws a GenerateUsageError for a positional argument", () => {
+    // `generate` takes no contract names — `deployoor generate Counter` used to generate everything
+    // silently, which reads as filtering when it is not.
+    const parse = () => parseGenerateArgs(["Counter"]);
+    expect(parse).toThrow(GenerateUsageError);
+    expect(parse).toThrow(/unexpected argument\(s\) Counter/);
+  });
+
+  it("throws a GenerateUsageError for an argument after --json", () => {
+    const parse = () => parseGenerateArgs(["--json", "Counter"]);
+    expect(parse).toThrow(GenerateUsageError);
+    expect(parse).toThrow(/unexpected argument\(s\) Counter/);
   });
 });
 

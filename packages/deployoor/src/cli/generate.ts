@@ -96,3 +96,76 @@ export const runGenerate = async (opts: RunGenerateOptions): Promise<ReadonlyArr
     importExtension,
   });
 };
+
+/** `deployoor generate --json` on stdout: what was written, and nothing else. */
+export interface GeneratedFilesJson {
+  /** Paths relative to the project root, forward-slashed, in the order they were emitted. */
+  readonly files: ReadonlyArray<string>;
+}
+
+/**
+ * The generated file list as one JSON document.
+ *
+ * Paths only — a `GeneratedFile` also carries its `contents`, and an artifact module is large enough
+ * that printing them would bury the answer in the question. Relative to the project root and always
+ * forward-slashed, so the same project produces the same document on any machine.
+ */
+export const generatedFilesJson = (root: string, files: ReadonlyArray<GeneratedFile>): string => {
+  const document: GeneratedFilesJson = {
+    files: files.map((file) => relative(root, file.path).replace(/\\/g, "/")),
+  };
+  return JSON.stringify(document, null, 2);
+};
+
+/** The flag block on its own, so the top-level `deployoor --help` can list it without a second "usage:". */
+export const GENERATE_FLAG_HELP = `  --json              print the generated file list as JSON (never prompts)`;
+
+export const GENERATE_USAGE = `usage: deployoor generate [--json]
+
+${GENERATE_FLAG_HELP}`;
+
+/** What the command line parsed to. `generate` takes no filters; the output switch is all there is. */
+export interface GenerateCliArgs {
+  /** `--json`: one JSON document on stdout and nothing else, with nobody prompted. */
+  readonly json: boolean;
+}
+
+/** The `generate` command line could not be parsed. Nothing has been read or written when this throws. */
+export class GenerateUsageError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "GenerateUsageError";
+  }
+}
+
+/** Everything that looks like a flag, so a typo fails instead of being silently ignored. */
+const flagNames = (argv: ReadonlyArray<string>): ReadonlyArray<string> =>
+  argv
+    .filter((token) => token.startsWith("--"))
+    .map((token) => token.slice(2).split("=")[0] ?? "")
+    .filter((name) => name.length > 0);
+
+/**
+ * Parse `deployoor generate`'s own arguments (everything after the command word), before anything
+ * else runs. `generate` writes files and can offer to install packages, so a mistyped command line
+ * has to stop here with nothing read and nothing written: `--json=true` silently meaning human mode,
+ * or a stray `Counter` silently meaning everything, is exactly the unattended surprise `--json`
+ * exists to prevent. Same rejections, in the same words, as `parseVerifyArgs`.
+ */
+export const parseGenerateArgs = (argv: ReadonlyArray<string>): GenerateCliArgs => {
+  const unknown = flagNames(argv).filter((name) => name !== "json");
+  if (unknown.length > 0) {
+    throw new GenerateUsageError(
+      `unknown option(s) ${unknown.map((name) => `--${name}`).join(", ")}\n${GENERATE_USAGE}`,
+    );
+  }
+  // `--json=true` — a switch handed a value it has nowhere to put, so it is a typo rather than an intent.
+  if (argv.some((token) => token.startsWith("--json="))) {
+    throw new GenerateUsageError(`--json takes no value\n${GENERATE_USAGE}`);
+  }
+  const positional = argv.filter((token) => !token.startsWith("--"));
+  if (positional.length > 0) {
+    throw new GenerateUsageError(`unexpected argument(s) ${positional.join(", ")}\n${GENERATE_USAGE}`);
+  }
+  return { json: argv.includes("--json") };
+};

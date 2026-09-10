@@ -3,7 +3,7 @@ import type { Address, Hex } from "viem";
 import type { Config } from "../config";
 import type { AnyDeployPlugin, PluginDeps, VerifyContext } from "../plugin";
 import type { ContractMetadata, DeploymentRecord, SourcesSidecar } from "../schemas";
-import { fsStore, type StoreAdapter } from "../store";
+import { bigintReplacer, fsStore, type StoreAdapter } from "../store";
 
 /**
  * `deployoor verify` — verify already-deployed contracts on a block explorer after the fact,
@@ -99,6 +99,15 @@ export interface VerifyArgs {
   readonly plugins?: ReadonlyArray<string>;
 }
 
+/**
+ * What the command line parsed to: the record filters `runVerify` takes, plus the output switch,
+ * which is the CLI's business alone — `runVerify` returns a report and prints nothing.
+ */
+export interface VerifyCliArgs extends VerifyArgs {
+  /** `--json`: one JSON document on stdout and nothing else. */
+  readonly json: boolean;
+}
+
 export interface RunVerifyOptions extends VerifyArgs {
   /** Project root — the config's `deploymentsPath` is resolved against it. */
   readonly root: string;
@@ -112,13 +121,33 @@ export interface RunVerifyOptions extends VerifyArgs {
 /** The flag block on its own, so the top-level `deployoor --help` can list it without a second "usage:". */
 export const VERIFY_FLAG_HELP = `  --network <key>     only records on this network — \`11155111-sepolia\`, \`11155111\`, or \`sepolia\`
   --contract <name>   only this deployment or contract name
-  --plugin <name>     verify with only this configured plugin (repeatable)`;
+  --plugin <name>     verify with only this configured plugin (repeatable)
+  --json              print the report as one JSON document on stdout, nothing else`;
 
-export const VERIFY_USAGE = `usage: deployoor verify [--network <key>] [--contract <name>] [--plugin <name>]
+export const VERIFY_USAGE = `usage: deployoor verify [--network <key>] [--contract <name>] [--plugin <name>] [--json]
 
 ${VERIFY_FLAG_HELP}`;
 
-const VERIFY_FLAGS = ["network", "contract", "plugin"] as const;
+/** Flags that take a value, in either the `--flag value` or the `--flag=value` form. */
+const VERIFY_VALUE_FLAGS = ["network", "contract", "plugin"] as const;
+
+/** Flags that are on or off. Present means true; they take no value and consume no next token. */
+const VERIFY_BOOLEAN_FLAGS = ["json"] as const;
+
+const isValueFlag = (name: string): boolean => VERIFY_VALUE_FLAGS.some((flag) => flag === name);
+
+const isKnownFlag = (name: string): boolean =>
+  isValueFlag(name) || VERIFY_BOOLEAN_FLAGS.some((flag) => flag === name);
+
+/** Whether `token` is a flag whose value is the token after it — the only thing that is not positional. */
+const consumesNext = (token: string | undefined): boolean =>
+  token !== undefined && VERIFY_VALUE_FLAGS.some((flag) => token === `--${flag}`);
+
+const isSet = (argv: ReadonlyArray<string>, name: string): boolean => argv.includes(`--${name}`);
+
+/** `--json=true` — a switch handed a value it has nowhere to put, so it is a typo rather than an intent. */
+const valueGivenTo = (argv: ReadonlyArray<string>, name: string): boolean =>
+  argv.some((token) => token.startsWith(`--${name}=`));
 
 /** `--flag value` and `--flag=value`, with the value never allowed to be another flag. */
 const valuesOf = (argv: ReadonlyArray<string>, name: string): ReadonlyArray<string> =>
@@ -149,26 +178,31 @@ const flagNames = (argv: ReadonlyArray<string>): ReadonlyArray<string> =>
     .filter((name) => name.length > 0);
 
 /** Parse `deployoor verify`'s own arguments (everything after the command word). */
-export const parseVerifyArgs = (argv: ReadonlyArray<string>): VerifyArgs => {
-  const unknown = flagNames(argv).filter((name) => !VERIFY_FLAGS.some((flag) => flag === name));
+export const parseVerifyArgs = (argv: ReadonlyArray<string>): VerifyCliArgs => {
+  const unknown = flagNames(argv).filter((name) => !isKnownFlag(name));
   if (unknown.length > 0) {
     throw new VerifyRequestError(
       "bad-usage",
       `unknown option(s) ${unknown.map((name) => `--${name}`).join(", ")}\n${VERIFY_USAGE}`,
     );
   }
-  const missing = VERIFY_FLAGS.filter((flag) => missingValueFor(argv, flag));
+  const missing = VERIFY_VALUE_FLAGS.filter((flag) => missingValueFor(argv, flag));
   if (missing.length > 0) {
     throw new VerifyRequestError(
       "bad-usage",
       `${missing.map((flag) => `--${flag}`).join(", ")} needs a value\n${VERIFY_USAGE}`,
     );
   }
-  const positional = argv.filter((token, index) => {
-    if (token.startsWith("--")) return false;
-    const previous = argv[index - 1];
-    return previous === undefined || !VERIFY_FLAGS.some((flag) => previous === `--${flag}`);
-  });
+  const overfed = VERIFY_BOOLEAN_FLAGS.filter((flag) => valueGivenTo(argv, flag));
+  if (overfed.length > 0) {
+    throw new VerifyRequestError(
+      "bad-usage",
+      `${overfed.map((flag) => `--${flag}`).join(", ")} takes no value\n${VERIFY_USAGE}`,
+    );
+  }
+  // A boolean flag consumes nothing, so the token after `--json` is a stray argument rather than its
+  // value — otherwise `deployoor verify --json Counter` would swallow the name and verify everything.
+  const positional = argv.filter((token, index) => !token.startsWith("--") && !consumesNext(argv[index - 1]));
   if (positional.length > 0) {
     throw new VerifyRequestError(
       "bad-usage",
@@ -182,6 +216,7 @@ export const parseVerifyArgs = (argv: ReadonlyArray<string>): VerifyArgs => {
     ...(networks.length === 0 ? {} : { network: networks[networks.length - 1] }),
     ...(contracts.length === 0 ? {} : { contract: contracts[contracts.length - 1] }),
     ...(plugins.length === 0 ? {} : { plugins }),
+    json: isSet(argv, "json"),
   };
 };
 
@@ -470,3 +505,63 @@ export const runVerify = async (opts: RunVerifyOptions): Promise<VerifyReport> =
     ),
   };
 };
+
+/** How many records ended in each outcome. Every status is a key, zero included. */
+export type VerifyCounts = Readonly<Record<VerifyOutcome["status"], number>>;
+
+const countOf = (results: ReadonlyArray<VerifyResult>, status: VerifyOutcome["status"]): number =>
+  results.filter((result) => result.outcome.status === status).length;
+
+/**
+ * The tally both outputs report from. Written out status by status rather than folded, so every key
+ * is present whether or not anything landed in it — a consumer reads `counts.failed` without
+ * checking it exists first, and the printed key order is fixed.
+ */
+export const verifyCounts = (results: ReadonlyArray<VerifyResult>): VerifyCounts => ({
+  verified: countOf(results, "verified"),
+  failed: countOf(results, "failed"),
+  unverifiable: countOf(results, "unverifiable"),
+  skipped: countOf(results, "skipped"),
+});
+
+/** `deployoor verify --json` on stdout: the whole run, flat, as one document. */
+export interface VerifyJsonReport {
+  /** False when any selected record failed verification or could not be verified at all. */
+  readonly ok: boolean;
+  /** Which plugins the run asked to verify with. */
+  readonly plugins: ReadonlyArray<string>;
+  readonly counts: VerifyCounts;
+  /** The `VerifyResult` list verbatim, `outcome` union included. */
+  readonly results: ReadonlyArray<VerifyResult>;
+}
+
+/**
+ * The run as one JSON document, for a script or an agent that would otherwise have to scrape the
+ * human summary.
+ *
+ * `results` is the `VerifyResult` list as it is — same field names, same discriminated `outcome` —
+ * so the printed shape and the typed one cannot drift apart. Serialised through the same
+ * bigint→string replacer the deployment records are written with: nothing in a `VerifyResult` is a
+ * bigint today, and a field that becomes one later must not turn this into a throw.
+ */
+export const verifyJson = (report: VerifyReport): string => {
+  const document: VerifyJsonReport = {
+    ok: report.ok,
+    plugins: report.plugins,
+    counts: verifyCounts(report.results),
+    results: report.results,
+  };
+  return JSON.stringify(document, bigintReplacer, 2);
+};
+
+/**
+ * Plugin logging for `--json`.
+ *
+ * Verifiers stream progress as they go (`[etherscan] … verified`) through `PluginDeps.log`, whose
+ * default `info` writes to stdout — which under `--json` would interleave with the document and
+ * leave nothing parseable. Both channels go to stderr instead, so stdout carries exactly one JSON
+ * value and no progress line is lost: it is on the stream that was always meant for it.
+ */
+export const jsonModePluginDeps = (): Partial<PluginDeps> => ({
+  log: { info: (message) => console.error(message), warn: (message) => console.error(message) },
+});
