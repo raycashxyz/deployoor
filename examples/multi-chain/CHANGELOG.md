@@ -1,5 +1,12 @@
 # @example/multi-chain
 
+## 0.0.9
+
+### Patch Changes
+
+- Updated dependencies [5ef32ea]
+  - deployoor@0.10.1
+
 ## 0.0.8
 
 ### Patch Changes
