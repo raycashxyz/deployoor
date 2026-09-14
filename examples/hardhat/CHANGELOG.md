@@ -1,5 +1,12 @@
 # @example/hardhat
 
+## 0.0.11
+
+### Patch Changes
+
+- Updated dependencies [5ef32ea]
+  - deployoor@0.10.1
+
 ## 0.0.10
 
 ### Patch Changes
