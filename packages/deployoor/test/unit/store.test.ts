@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fsStore, networkKeyForChain } from "../../src/store";
@@ -42,6 +42,35 @@ describe("fsStore", () => {
       schemaVersion: 1,
       deploymentName: "Counter",
     });
+  });
+
+  it("writes a record indented and newline-terminated so it reads as a text file", async () => {
+    const root = mkdtempSync(join(tmpdir(), "deployoor-store-"));
+    const store = fsStore(root);
+    const { root: _root, ...deployment } = record(root);
+
+    await store.write(deployment);
+
+    const raw = readFileSync(join(root, "42161-arbitrum-one", "Counter.json"), "utf8");
+    expect(raw.startsWith('{\n  "schemaVersion": 1,\n')).toBe(true);
+    expect(raw.endsWith("}\n")).toBe(true);
+  });
+
+  it("writes a sources sidecar indented and newline-terminated too", async () => {
+    const root = mkdtempSync(join(tmpdir(), "deployoor-store-"));
+    const store = fsStore(root);
+    const hash = `0x${"cd".repeat(32)}` as const;
+
+    await store.writeSources?.(hash, {
+      schemaVersion: 1,
+      fullyQualifiedName: "src/Counter.sol:Counter",
+      compilerVersion: "0.8.35",
+      standardJsonInput: { language: "Solidity", sources: {}, settings: {} },
+    });
+
+    const raw = readFileSync(join(root, "sources", `${hash}.json`), "utf8");
+    expect(raw.startsWith('{\n  "schemaVersion": 1,\n')).toBe(true);
+    expect(raw.endsWith("}\n")).toBe(true);
   });
 
   it("rejects unsafe deployment names before touching paths", async () => {

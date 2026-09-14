@@ -24,6 +24,11 @@ import { DeploymentRecord, SourcesSidecar } from "./schemas";
 export const bigintReplacer = (_key: string, value: unknown): unknown =>
   typeof value === "bigint" ? value.toString() : value;
 
+// Two-space indent because a human reads and reviews these, and a trailing newline because they are
+// text files in a git repo: without it every record shows up as "\ No newline at end of file", and
+// the first `prettier --write` over the project rewrites each one into a diff nobody authored.
+const toJsonFile = (value: unknown): string => `${JSON.stringify(value, bigintReplacer, 2)}\n`;
+
 /**
  * Public store extension point. Plain (sync-or-async), no Effect — the engine
  * lifts it internally. Write a custom backend (DB, remote) by implementing this.
@@ -202,7 +207,7 @@ export const fsStore = (root: string): StoreAdapter => {
       assertSafeSegment(record.deploymentName, "deploymentName");
       const file = join(dir, `${record.deploymentName}.json`);
       const tmp = join(dir, `.${record.deploymentName}.${randomUUID()}.tmp`);
-      writeFileSync(tmp, JSON.stringify(record, bigintReplacer, 2));
+      writeFileSync(tmp, toJsonFile(record));
       renameSync(tmp, file);
     },
     list: (network) => {
@@ -225,7 +230,7 @@ export const fsStore = (root: string): StoreAdapter => {
       if (existsSync(file)) return;
       mkdirSync(sourcesDir, { recursive: true });
       const tmp = join(sourcesDir, `.${hash}.${randomUUID()}.tmp`);
-      writeFileSync(tmp, JSON.stringify(srcs, null, 2));
+      writeFileSync(tmp, toJsonFile(srcs));
       renameSync(tmp, file);
     },
     readSources: (hash) => {
