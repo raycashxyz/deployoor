@@ -118,4 +118,23 @@ describe("createEvmNode", () => {
     // nothing was broadcast
     expect(await publicClient.getTransactionCount({ address: account.address })).toBe(nonceBefore);
   });
+
+  it("refuses a block on its parent's timestamp unless allowBlocksWithSameTimestamp is on", async () => {
+    const pinToHead = async (node: Awaited<ReturnType<typeof createEvmNode>>) => {
+      const { timestamp } = await node.publicClient.getBlock({ blockTag: "latest" });
+      await node.provider.request({ method: "evm_setNextBlockTimestamp", params: [numberToHex(timestamp)] });
+      return timestamp;
+    };
+
+    await expect(pinToHead(await createEvmNode())).rejects.toThrow();
+
+    const node = await createEvmNode({ allowBlocksWithSameTimestamp: true });
+    const head = await pinToHead(node);
+    const hash = await node.walletClient.sendTransaction({
+      to: "0x0000000000000000000000000000000000000001",
+      value: 1n,
+    });
+    const { blockNumber } = await node.publicClient.waitForTransactionReceipt({ hash });
+    expect((await node.publicClient.getBlock({ blockNumber })).timestamp).toBe(head);
+  });
 });

@@ -50,6 +50,12 @@ export interface EvmOptions {
   readonly blockGasLimit?: bigint;
   /** Mine a block per transaction. On by default, as tests almost always want it. */
   readonly autoMine?: boolean;
+  /**
+   * Let a block carry its parent's timestamp. Off by default, as on a real chain, where every block
+   * is at least a second later. On, `evm_setNextBlockTimestamp` may pin the next block to the head's
+   * own timestamp, so a test can read state at `T` and land a transaction at that same `T`.
+   */
+  readonly allowBlocksWithSameTimestamp?: boolean;
 }
 
 const hdAccounts = Array.from({ length: ACCOUNT_COUNT }, (_unused, index) =>
@@ -145,7 +151,7 @@ export const createEvmProvider = async (options: EvmOptions = {}): Promise<Provi
         memPool: { order: MineOrdering.Priority },
       },
       coinbase: new Uint8Array(20),
-      allowBlocksWithSameTimestamp: false,
+      allowBlocksWithSameTimestamp: options.allowBlocksWithSameTimestamp ?? false,
       allowUnlimitedContractSize: false,
       // A reverting eth_call / eth_estimateGas fails with the revert data, as on a real node. With
       // `false`, EDR returns the revert data as a successful result, so a reverting `readContract`
