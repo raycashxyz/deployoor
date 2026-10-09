@@ -55,10 +55,11 @@ const { publicClient } = await createTestClients({
   chainId: 31337,
   blockGasLimit: 30_000_000n,
   autoMine: true,
+  allowBlocksWithSameTimestamp: false,
 });
 ```
 
-All optional. `autoMine` defaults to `true` (a block per transaction), `chainId` to `31337`. `fork.blockNumber` defaults to the latest safe block, and `fork.cacheDir` controls where remote RPC responses are cached between runs.
+All optional. `autoMine` defaults to `true` (a block per transaction), `chainId` to `31337`. `allowBlocksWithSameTimestamp` defaults to `false`, as on a real chain; turn it on to pin the next block to the head's own timestamp with `evm_setNextBlockTimestamp`, for a test that reads state at a deadline and must transact at that same second. `fork.blockNumber` defaults to the latest safe block, and `fork.cacheDir` controls where remote RPC responses are cached between runs.
 
 ### EVM controls
 

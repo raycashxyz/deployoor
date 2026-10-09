@@ -1,5 +1,28 @@
 import { describe, it, expect } from "vitest";
+import {
+  BaseError,
+  ContractFunctionRevertedError,
+  concatHex,
+  numberToHex,
+  parseAbi,
+  toFunctionSelector,
+} from "viem";
 import { createEvmNode } from "../src/index";
+
+const REVERTER_ABI = parseAbi(["function poke() view", "function push()", "error Nope(uint256 code)"]);
+
+/**
+ * Runtime code that reverts every call with `Nope(42)`: mstore the selector, mstore the argument,
+ * revert with the 36 bytes.
+ */
+const REVERTER_CODE = concatHex([
+  "0x63", // PUSH4 selector
+  toFunctionSelector("Nope(uint256)"),
+  "0x60e01b", // PUSH1 0xe0, SHL — left-align the selector in the word
+  "0x600052", // PUSH1 0, MSTORE
+  "0x602a600452", // PUSH1 42, PUSH1 4, MSTORE
+  "0x60246000fd", // PUSH1 36, PUSH1 0, REVERT
+]);
 
 describe("createEvmNode", () => {
   it("exposes a prefunded, ready EVM as viem clients", async () => {
@@ -56,5 +79,62 @@ describe("createEvmNode", () => {
     expect(await publicClient.getBalance({ address: account.address })).toBe(1n);
     // the id is spent by the revert above — a second one cannot restore anything
     expect(await cheatcodes.revert(id)).toBe(false);
+  });
+
+  it("surfaces a revert's data, so viem decodes the custom error", async () => {
+    const { publicClient, cheatcodes } = await createEvmNode();
+    const address = "0x00000000000000000000000000000000000000aa";
+    await cheatcodes.setAccount({ address, code: REVERTER_CODE });
+
+    const error = await publicClient
+      .readContract({ address, abi: REVERTER_ABI, functionName: "poke" })
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(BaseError);
+    const reverted = (error as BaseError).walk((e) => e instanceof ContractFunctionRevertedError);
+    expect(reverted).toBeInstanceOf(ContractFunctionRevertedError);
+    expect((reverted as ContractFunctionRevertedError).data).toMatchObject({
+      errorName: "Nope",
+      args: [42n],
+    });
+  });
+
+  it("decodes the custom error when a write reverts during gas estimation", async () => {
+    const { account, publicClient, walletClient, cheatcodes } = await createEvmNode();
+    const address = "0x00000000000000000000000000000000000000aa";
+    await cheatcodes.setAccount({ address, code: REVERTER_CODE });
+    const nonceBefore = await publicClient.getTransactionCount({ address: account.address });
+
+    const error = await walletClient
+      .writeContract({ address, abi: REVERTER_ABI, functionName: "push" })
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(BaseError);
+    const reverted = (error as BaseError).walk((e) => e instanceof ContractFunctionRevertedError);
+    expect((reverted as ContractFunctionRevertedError).data).toMatchObject({
+      errorName: "Nope",
+      args: [42n],
+    });
+    // nothing was broadcast
+    expect(await publicClient.getTransactionCount({ address: account.address })).toBe(nonceBefore);
+  });
+
+  it("refuses a block on its parent's timestamp unless allowBlocksWithSameTimestamp is on", async () => {
+    const pinToHead = async (node: Awaited<ReturnType<typeof createEvmNode>>) => {
+      const { timestamp } = await node.publicClient.getBlock({ blockTag: "latest" });
+      await node.provider.request({ method: "evm_setNextBlockTimestamp", params: [numberToHex(timestamp)] });
+      return timestamp;
+    };
+
+    await expect(pinToHead(await createEvmNode())).rejects.toThrow();
+
+    const node = await createEvmNode({ allowBlocksWithSameTimestamp: true });
+    const head = await pinToHead(node);
+    const hash = await node.walletClient.sendTransaction({
+      to: "0x0000000000000000000000000000000000000001",
+      value: 1n,
+    });
+    const { blockNumber } = await node.publicClient.waitForTransactionReceipt({ hash });
+    expect((await node.publicClient.getBlock({ blockNumber })).timestamp).toBe(head);
   });
 });
