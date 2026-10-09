@@ -43,7 +43,7 @@ export interface Config<P extends readonly AnyDeployPlugin[] = readonly AnyDeplo
   readonly importExtension?: ImportExtension;
   /**
    * Toolchain override for `deployoor generate`. Auto-detected from the project by default:
-   * Foundry (`foundry.toml`/`out/`) or Hardhat v2/v3 (`hardhat.config.*`/`artifacts/`). Set
+   * Foundry (`foundry.toml`) or Hardhat v2/v3 (`hardhat.config.*`). Set
    * explicitly only to disambiguate a project that has both, or one whose config file is not in
    * the project root.
    */
