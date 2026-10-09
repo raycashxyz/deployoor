@@ -29,7 +29,6 @@ type Page =
   | { path: '/guides/hardhat'; render: 'static' }
   | { path: '/guides/plugins'; render: 'static' }
   | { path: '/guides/testing'; render: 'static' }
-  | { path: '/guides/tevm'; render: 'static' }
   | { path: '/guides/upgrading'; render: 'static' }
   | { path: '/guides/verify'; render: 'static' }
   | { path: '/'; render: 'static' }

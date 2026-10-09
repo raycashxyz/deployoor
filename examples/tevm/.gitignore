@@ -1,5 +1,0 @@
-node_modules
-.env
-# tevm compiler cache
-.tevm
-# NOTE: deployers/ and deployments/ are both intentionally committed — see examples/hardhat/.gitignore.

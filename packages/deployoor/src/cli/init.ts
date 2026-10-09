@@ -34,15 +34,9 @@ const detect = async (root: string): Promise<Detected> => {
 const artifactsComment = ({ toolchain, artifactsPath }: Detected): ReadonlyArray<string> => {
   if (toolchain === null) {
     return [
-      "  // No Foundry, Hardhat or Solidity sources detected in this directory.",
+      "  // No Foundry or Hardhat project detected in this directory.",
       '  // framework: "hardhat",',
       '  // artifactsPath: "./artifacts",',
-    ];
-  }
-  if (toolchain.framework === "tevm") {
-    return [
-      `  // Detected: plain Solidity (${toolchain.marker}) — deployoor compiles the sources itself.`,
-      '  // sources: "./src",',
     ];
   }
   const where =

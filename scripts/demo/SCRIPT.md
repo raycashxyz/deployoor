@@ -32,9 +32,9 @@ Output: `assets/brand/dist/demo.gif`
 **One-line VO:**  
 _“Compile your Hardhat project, get typed deployers, deploy once — your team imports the record everywhere.”_
 
-## Optional second clip (Foundry + tevm tests)
+## Optional second clip (Foundry + in-memory tests)
 
-Same idea in `examples/foundry`: `pnpm generate` → vitest with `contract.read` / `contract.write` on tevm. Good as a follow-up GIF for the testing story.
+Same idea in `examples/foundry`: `pnpm generate` → vitest with `contract.read` / `contract.write` on the in-memory EVM (EDR). Good as a follow-up GIF for the testing story.
 
 ## Tips
 

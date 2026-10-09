@@ -9,6 +9,6 @@ pnpm --filter @example/foundry e2e   # forge build → deployoor generate → vi
 - `src/Counter.sol` — the contract (Foundry compiles it to `out/`)
 - no `deployoor.config.ts` — deployoor auto-detects the Foundry project and every path here is a default
 - `deployoor generate` writes `deployers/` (one typed `getOrDeploy<Name>` per contract)
-- `test/counter.test.ts` — `createTestClients()` (tevm) + the generated deployer
+- `test/counter.test.ts` — `createTestClients()` (EDR, in memory) + the generated deployer
 
 Requires the Foundry toolchain (`forge`) on your PATH.

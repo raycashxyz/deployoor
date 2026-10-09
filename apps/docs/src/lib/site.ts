@@ -11,7 +11,7 @@
 export const siteUrl = "https://deployoor.dev";
 
 export const siteDescription =
-  "Deploy EVM contracts from TypeScript with your own viem wallet. A deploy is an artifact plus a client, so scripts, tests, and your app share typed contract objects. Hardhat, Foundry, and tevm.";
+  "Deploy EVM contracts from TypeScript with your own viem wallet. A deploy is an artifact plus a client, so scripts, tests, and your app share typed contract objects. Hardhat and Foundry.";
 
 export const repoUrl = "https://github.com/raycashxyz/deployoor";
 export const issuesUrl = `${repoUrl}/issues`;
@@ -91,7 +91,8 @@ const softwareApplication = {
     "deployoor is spelled with a double o, the -oor agent noun of deploy. It is unrelated to Deployer, the PHP deployment tool, and to deployor.",
   downloadUrl: npmUrl,
   installUrl: npmUrl,
-  softwareRequirements: "Node.js 18 or newer, viem 2, and Hardhat, Foundry, or tevm for compilation",
+  softwareRequirements:
+    "Node.js 18 or newer (22 or newer for @deployoor/testing), viem 2, and Hardhat or Foundry for compilation",
   programmingLanguage: "TypeScript",
   license: licenseUrl,
   isAccessibleForFree: true,
@@ -101,7 +102,7 @@ const softwareApplication = {
     priceCurrency: "USD",
   },
   featureList: [
-    "Generate typed getOrDeploy functions from Hardhat, Foundry, or tevm artifacts",
+    "Generate typed getOrDeploy functions from Hardhat or Foundry artifacts",
     "Deploy with any viem wallet, including Privy, Turnkey, Coinbase CDP, Openfort, and hardware signers",
     "Record every deploy per chain as plain JSON in deployments/",
     "Reuse a recorded deployment instead of deploying twice, and redeploy on bytecode change",

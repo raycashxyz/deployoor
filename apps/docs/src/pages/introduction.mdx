@@ -34,7 +34,7 @@ import { WalletStrip } from "../components/WalletStrip";
 
 TypeScript and JavaScript teams. deployoor generates functions you call from `.ts`, and its output is consumed by [`viem`](https://viem.sh) and [`@wagmi/cli`](https://wagmi.sh/cli), so it earns its place when the code around your contracts is TypeScript.
 
-That is also why it reads Foundry artifacts. A Foundry-native project already has excellent Solidity tests and no good way to drive its contracts from TypeScript. Point deployoor at `out/` and you keep `forge build` and `forge test`, and additionally get typed deploy scripts and TS integration tests over the same artifacts, with no Hardhat required. Hardhat v2 and v3 work the same way, and plain `.sol` can be compiled directly with [tevm](https://tevm.sh).
+That is also why it reads Foundry artifacts. A Foundry-native project already has excellent Solidity tests and no good way to drive its contracts from TypeScript. Point deployoor at `out/` and you keep `forge build` and `forge test`, and additionally get typed deploy scripts and TS integration tests over the same artifacts, with no Hardhat required. Hardhat v2 and v3 work the same way.
 
 ## How it works
 
@@ -46,7 +46,7 @@ flowchart LR
   D --> E[Typed viem object everywhere]
 ```
 
-1. **Compile** with Hardhat (v2 or v3) or Foundry. deployoor reads your artifacts (or point it at plain `.sol` and it compiles them with tevm).
+1. **Compile** with Hardhat (v2 or v3) or Foundry. deployoor reads your artifacts.
 2. **Generate** typed `getOrDeploy<Name>` functions into `./deployers/`.
 3. **Deploy** with a plain TypeScript script. Each run records to `deployments/<chainId>-<network>/`.
 4. **Use** the result immediately: every `getOrDeploy` call returns a **typed viem contract object** (`contract.read.*`, `contract.write.*`) in deploy scripts, in your app via [`@wagmi/cli`](/guides/consumption), and in tests via [`@deployoor/testing`](/guides/testing).

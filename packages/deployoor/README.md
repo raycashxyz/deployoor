@@ -1,6 +1,6 @@
 # deployoor
 
-> A dead-simple, modular and extensible tool to deploy smart contracts and use them as fully-typed viem objects in your apps or tests. Works out-of-the-box with Hardhat (v2 and v3), Foundry, and plain-Solidity projects (compiled with tevm).
+> A dead-simple, modular and extensible tool to deploy smart contracts and use them as fully-typed viem objects in your apps or tests. Works out-of-the-box with Hardhat (v2 and v3) and Foundry.
 
 Run `npx deployoor generate`, write a deploy script, run it like a standalone node file (eg `tsx scripts/deploy.ts`). You get a single source of truth for every address, ABI, and chain — and contracts you can import as fully-typed viem objects, with no copied addresses, no stale ABIs, and no provider wiring.
 
@@ -36,7 +36,7 @@ That `deployments/` folder is the product: portable vanilla JSON, committed to y
 pnpm add -D deployoor viem
 ```
 
-One package. It detects whether you're in a Hardhat (v2 or v3), Foundry, or tevm project and reads (or, for tevm, compiles) the right artifacts.
+One package. It detects whether you're in a Hardhat (v2 or v3) or Foundry project and reads the right artifacts.
 
 ## Quick start
 
@@ -49,7 +49,7 @@ forge build              # or: npx hardhat compile
 npx deployoor generate   # reads artifacts, writes ./deployers
 ```
 
-`generate` auto-detects your project (`foundry.toml`/`out/`, `hardhat.config.*`/`artifacts/` for Hardhat v2 **and** v3, or `tevm.config.*`), reads (or, for tevm, compiles) the artifacts, and writes a `deployers/` folder: one typed deployer per deployable contract, plus the typed artifacts. Deploy-time modules import `deployoor`; the committed records and downstream viem/wagmi app output stay portable.
+`generate` auto-detects your project (`foundry.toml`/`out/`, or `hardhat.config.*`/`artifacts/` for Hardhat v2 **and** v3), reads the artifacts, and writes a `deployers/` folder: one typed deployer per deployable contract, plus the typed artifacts. Deploy-time modules import `deployoor`; the committed records and downstream viem/wagmi app output stay portable.
 
 **TypeScript-first:** generated deployers are `.ts` files. The CLI and `deployoor.config.ts` work in any project, but run deploy scripts with `tsx`, Bun, or vitest — not bare `node`.
 
@@ -182,7 +182,7 @@ await reset({ publicClient, deploymentName: "Token" }); // one record; omit it t
 
 ## Testing
 
-The generated deployers only need viem clients, so tests deploy exactly like production — against an in-memory EVM, no node. [`@deployoor/testing`](../deployoor-testing) gives you `createTestClients()` (tevm as viem clients + an in-memory store, so deploys never touch disk):
+The generated deployers only need viem clients, so tests deploy exactly like production — against an in-memory EVM, no node. [`@deployoor/testing`](../deployoor-testing) gives you `createTestClients()` (EDR, Hardhat's in-process EVM, as viem clients + an in-memory store, so deploys never touch disk; needs Node.js >= 22):
 
 ```ts
 import { createTestClients } from "@deployoor/testing";
@@ -223,13 +223,14 @@ await getOrDeployVault({ ...clients, args: [token.address], plugins: { etherscan
 
 Maintained plugins: [`@deployoor/etherscan`](../deployoor-etherscan) (Etherscan V2 — also Blockscout/Routescan via `apiUrl`), [`@deployoor/sourcify`](../deployoor-sourcify), [`@deployoor/slack`](../deployoor-slack). More ideas: Tenderly verification, Discord notifications, gas and cost reports, address-book and `.env` writers, IPFS source pinning, Safe / multisig proposals.
 
-## Hardhat, Foundry, and tevm
+## Hardhat and Foundry
 
 The only framework-specific input is where the compiled contracts come from, and `deployoor` detects it for you. Deploy and consumption are plain viem and identical whichever you use:
 
 - **Foundry** — reads `out/` + `out/build-info` (set `build_info = true` + `extra_output = ["metadata"]` in `foundry.toml` so the standard-json input needed for verification is emitted).
 - **Hardhat v2 and v3** — reads `artifacts/`. The one reader handles both majors: v2's `<Name>.dbg.json` → build-info, and v3's inline `buildInfoId` + split `build-info/<id>.json`.
-- **tevm** (no Hardhat/Foundry) — a plain-`.sol` project is auto-detected (no Foundry/Hardhat markers + `.sol` under `src/` or `contracts/`), and `deployoor generate` compiles it with tevm's compiler (`@tevm/compiler` + `solc`, installed as optional peers). No config needed for the common layout; set `framework: "tevm"` (or add a `tevm.config.*`) and `sources` only to be explicit or when your sources live elsewhere. Great for a contracts-light repo or a package that just needs typed deployers.
+
+deployoor never compiles Solidity itself: it reads what your toolchain already wrote. A plain-`.sol` project with neither a `foundry.toml` nor a `hardhat.config.*` needs one of them to compile it first.
 
 Hardhat users can skip the separate `deployoor generate` step with [`@deployoor/hardhat`](../deployoor-hardhat), which regenerates the deployers after every `hardhat compile`. It calls the programmatic `generateDeployers` (exported from `deployoor/generate`) — the same work the CLI does, so you can wire generation into any other build tool too. It ships two entry points for the two Hardhat majors: `import "@deployoor/hardhat"` (Hardhat 2, side-effect) and `plugins: [deployoor]` from `@deployoor/hardhat/v3` (Hardhat 3) — see [`examples/hardhat`](../../examples/hardhat) and [`examples/hardhat-v3`](../../examples/hardhat-v3).
 
@@ -255,14 +256,14 @@ export default defineConfig({
 
 Checked against each tool's July 2026 release. Full table, including what deployoor does **not** do yet: [Comparison](https://deployoor.dev/comparison).
 
-- **hardhat-deploy v2 / rocketh** — the closest relatives. v2 is viem-only (no ethers anywhere), targets Hardhat 3, is built on rocketh, and `rocketh-export` emits `as const` address + ABI for a frontend. Both default to redeploying when the compiled bytecode changed. deployoor differs in three deliberate ways: it reads **Foundry, Hardhat v2, Hardhat v3, and plain Solidity (via tevm)** rather than being a Hardhat plugin; a deployer takes viem clients only, so account and chain come from the client you pass, and it resolves to `{ contract, deployment, freshDeploy, receipt? }` — the typed viem contract **alongside** the record, where hardhat-deploy hands back the record and leaves writes to an environment `execute` and reads to a wrapper you request from it; and accounts stay in your own viem module rather than a tool config.
+- **hardhat-deploy v2 / rocketh** — the closest relatives. v2 is viem-only (no ethers anywhere), targets Hardhat 3, is built on rocketh, and `rocketh-export` emits `as const` address + ABI for a frontend. Both default to redeploying when the compiled bytecode changed. deployoor differs in three deliberate ways: it reads **Foundry, Hardhat v2, and Hardhat v3** artifacts rather than being a Hardhat plugin; a deployer takes viem clients only, so account and chain come from the client you pass, and it resolves to `{ contract, deployment, freshDeploy, receipt? }` — the typed viem contract **alongside** the record, where hardhat-deploy hands back the record and leaves writes to an environment `execute` and reads to a wrapper you request from it; and accounts stay in your own viem module rather than a tool config.
 - **Hardhat Ignition** — Hardhat's official tool: declarative modules, a write-ahead journal, resumable execution, reconciliation on re-run, viem **and** ethers. The difference that matters is the record — Ignition splits addresses (`deployed_addresses.json`) from ABIs (`artifacts/<Module>#<Future>.json`), joined by a `Module#Future` key, and ships no typed access outside the Hardhat process. deployoor puts address, ABI, chainId, args, and compiler in one file per contract that anything can read.
 - **`forge script` broadcasts** — `broadcast/<Script>.s.sol/<chainId>/<sig>-latest.json` is a transaction log, not a deployment record: no ABI at all, `contractName` may be `null`, and the documented way to read an address back is positional (`.transactions[0].contractAddress`). `--resume` retries interrupted transactions; it has no "already deployed, skip it" notion.
 - **`@wagmi/cli`** — not a competitor; deployoor feeds it. wagmi turns ABIs + addresses into typed access, but you supply the addresses. deployoor produces them as a byproduct of your own deploys — including local and testnet, which explorers never see.
 
 ## Status
 
-Early. The deploy core, the plugin model, and the wagmi bridge are stabilizing. `deployoor generate` reads Foundry (`out/`) and Hardhat v2 **and** v3 (`artifacts/`) artifacts, and can compile a plain-Solidity project directly with tevm — no Hardhat or Foundry required. The `@deployoor/hardhat` auto-generate plugin supports both Hardhat majors (`@deployoor/hardhat` for v2, `@deployoor/hardhat/v3` for v3).
+Early. The deploy core, the plugin model, and the wagmi bridge are stabilizing. `deployoor generate` reads Foundry (`out/`) and Hardhat v2 **and** v3 (`artifacts/`) artifacts. The `@deployoor/hardhat` auto-generate plugin supports both Hardhat majors (`@deployoor/hardhat` for v2, `@deployoor/hardhat/v3` for v3).
 
 Pre-1.0, minor releases may include breaking API changes. Deployment records carry `schemaVersion: 1`; record-format changes will be versioned and documented because committed JSON is the portability boundary.
 

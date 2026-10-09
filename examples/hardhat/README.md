@@ -72,7 +72,7 @@ Deploy to a second chain and `counterAddress` becomes a two-key map — same imp
 
 ## Test — no node, no disk
 
-The same generated `getOrDeployCounter` runs in a vitest test against an in-memory EVM ([tevm](https://tevm.sh), via [`@deployoor/testing`](../../packages/deployoor-testing)). Spreading `clients` passes the in-memory store, so **the test itself** touches neither a node nor `deployments/`:
+The same generated `getOrDeployCounter` runs in a vitest test against an in-memory EVM ([EDR](https://github.com/NomicFoundation/edr), via [`@deployoor/testing`](../../packages/deployoor-testing)). Spreading `clients` passes the in-memory store, so **the test itself** touches neither a node nor `deployments/`:
 
 ```bash
 pnpm --filter @example/hardhat test:memory   # hardhat compile → vitest

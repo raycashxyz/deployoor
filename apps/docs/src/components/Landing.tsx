@@ -81,7 +81,7 @@ export const Landing = () => {
         <div className="landing-hero-command">
           <CopyBlock code="npx deployoor generate" />
         </div>
-        <p className="landing-compat">Hardhat v2 &amp; v3 · Foundry · plain Solidity (tevm)</p>
+        <p className="landing-compat">Hardhat v2 &amp; v3 · Foundry</p>
         <div className="landing-links landing-hero-links">
           <Link to="/getting-started/installation" className="landing-cta">
             Read the docs

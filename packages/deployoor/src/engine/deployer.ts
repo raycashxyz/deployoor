@@ -179,7 +179,6 @@ export const defineDeployer = <A extends Abi, const P extends readonly AnyDeploy
       await resolveArtifact(artifact, {
         framework: config.framework,
         artifactsPath: config.artifactsPath,
-        sources: config.sources,
       }),
       {
         args: opts.args,

@@ -11,7 +11,7 @@ Deploy once. Use typed viem contract objects in your apps, scripts, and tests �
 
 [Documentation](https://deployoor.dev) · [Telegram](https://t.me/deployoor) · [npm](https://www.npmjs.com/package/deployoor) · [GitHub](https://github.com/raycashxyz/deployoor)
 
-Hardhat (v2 and v3), Foundry, and plain-Solidity via tevm. Idempotent deploys, plain-JSON records, zero lock-in.
+Hardhat (v2 and v3) and Foundry. Idempotent deploys, plain-JSON records, zero lock-in.
 
 <!-- Regenerate with `pnpm demo:record` (needs VHS + Foundry's anvil). assets/brand/dist is committed. -->
 
@@ -195,7 +195,7 @@ Generated deployers are **TypeScript** (`.ts`). The CLI and config work in JS pr
 
 ## Testing
 
-The generated deployers are just functions that take viem clients, so a test deploys exactly like production. [`@deployoor/testing`](packages/deployoor-testing)'s `createTestClients()` boots an in-memory EVM ([tevm](https://tevm.sh)) as viem clients **and an in-memory store** — no Hardhat test environment, no local node, and deploys never touch disk. Use any runner (vitest, `node:test`).
+The generated deployers are just functions that take viem clients, so a test deploys exactly like production. [`@deployoor/testing`](packages/deployoor-testing)'s `createTestClients()` boots an in-memory EVM ([EDR](https://github.com/NomicFoundation/edr), the Rust EVM behind Hardhat) as viem clients **and an in-memory store** — no Hardhat test environment, no local node, and deploys never touch disk. Use any runner (vitest, `node:test`); it needs Node.js >= 22.
 
 ```ts
 // token.test.ts — a smart-contract test in vitest. No Hardhat, no local node.
@@ -268,14 +268,14 @@ The difference isn't a feature list — it's where three decisions live: **who o
 
 Tool by tool:
 
-- **[hardhat-deploy](https://github.com/wighawag/hardhat-deploy) v2 / [rocketh](https://rocketh.dev)** — the closest relatives (v2 is viem-only, Hardhat 3, built on rocketh; `rocketh-export` emits typed address + ABI). They cover proxies, diamonds, deterministic addresses, named accounts, and bytecode-diff redeploys, which deployoor does not yet. deployoor's three deliberate differences: one tool across **Hardhat v2/v3, Foundry, and plain Solidity**; a deployer takes viem clients only, so account and chain come from the client, and it resolves to `{ contract, deployment, freshDeploy, receipt? }` — a ready-to-use typed viem contract **alongside** the record, where hardhat-deploy returns the record and you wrap it to get a contract; and accounts live in your own viem module, not a tool config.
+- **[hardhat-deploy](https://github.com/wighawag/hardhat-deploy) v2 / [rocketh](https://rocketh.dev)** — the closest relatives (v2 is viem-only, Hardhat 3, built on rocketh; `rocketh-export` emits typed address + ABI). They cover proxies, diamonds, deterministic addresses, named accounts, and bytecode-diff redeploys, which deployoor does not yet. deployoor's three deliberate differences: one tool across **Hardhat v2/v3 and Foundry**; a deployer takes viem clients only, so account and chain come from the client, and it resolves to `{ contract, deployment, freshDeploy, receipt? }` — a ready-to-use typed viem contract **alongside** the record, where hardhat-deploy returns the record and you wrap it to get a contract; and accounts live in your own viem module, not a tool config.
 - **[Hardhat Ignition](https://hardhat.org/ignition)** — Hardhat's official tool; declarative modules, a write-ahead journal, strong resumability, viem **and** ethers. It splits addresses (`deployed_addresses.json`) from ABIs (`artifacts/<Module>#<Future>.json`) and ships no typed access outside the Hardhat process; deployoor keeps address + ABI + chainId + args + compiler in one file per contract.
 - **`forge script` broadcasts** — a transaction log, not a deployment record: no ABI, `contractName` can be `null`, and `--resume` retries interrupted transactions rather than skipping what's already deployed. deployoor reads Foundry's `out/` directly, so the two pair well.
 - **[`@wagmi/cli`](https://wagmi.sh/cli)** — not a competitor; deployoor feeds it. wagmi needs addresses; deployoor produces them from your own deploys, including local and testnet chains explorers never see.
 
 ## Status
 
-Early. The deploy core, the plugin model, and the wagmi bridge are stabilizing. `deployoor generate` reads Foundry (`out/`) and Hardhat v2 **and** v3 (`artifacts/`) artifacts, and can compile a plain-Solidity project directly with tevm — no Hardhat or Foundry required.
+Early. The deploy core, the plugin model, and the wagmi bridge are stabilizing. `deployoor generate` reads Foundry (`out/`) and Hardhat v2 **and** v3 (`artifacts/`) artifacts.
 
 Pre-1.0, minor releases may include breaking API changes. Deployment records carry `schemaVersion: 1`; record-format changes will be versioned and documented because committed JSON is the portability boundary.
 
@@ -283,33 +283,33 @@ Pre-1.0, minor releases may include breaking API changes. Deployment records car
 
 Grouped **done → in progress → planned → backlog**. _In progress_ is actively being built; _planned_ is the committed near-term focus; _backlog_ is on the radar and feedback-driven — open an issue to pull something forward.
 
-| Area    | What                                                                                   | Status  |
-| ------- | -------------------------------------------------------------------------------------- | ------- |
-| Compat  | Foundry, Hardhat v2 & v3 artifacts, and tevm-compiled plain-Solidity sources           | Done    |
-| Deploy  | Idempotent `getOrDeploy`, `register` / `reset`, stale-reuse warning                    | Done    |
-| Deploy  | Atomic record writes, deploy lock, chainId record identity + mismatch guard            | Done    |
-| Stores  | Pluggable `StoreAdapter` + in-memory store                                             | Done    |
-| Verify  | Etherscan V2, Sourcify, Blockscout, and Routescan verifier plugins                     | Done    |
-| Testing | `@deployoor/testing` — same deployers on tevm, in-memory EVM, no node                  | Done    |
-| DX      | `@deployoor/wagmi` bridge, plugin SDK + Slack, Hardhat/Hardhat 3/Foundry/tevm examples | Done    |
-| Deploy  | Richer `getOrDeploy` return (`{ contract, freshDeploy, receipt, deployment }`)         | Done    |
-| DX      | `@deployoor/hardhat` — auto-generate deployers on `hardhat compile`                    | Done    |
-| Testing | First-class tevm targets (forks, fixtures, CI — beyond in-memory today)                | Planned |
-| DX      | Flagship end-to-end example (deploy → committed record → wagmi)                        | Done    |
-| DX      | Migration guide + comparison table (hardhat-deploy, Ignition, rocketh)                 | Done    |
-| Compat  | `@deployoor/hardhat` auto-generate on Hardhat 3 (`@deployoor/hardhat/v3`)              | Done    |
-| Verify  | `deployoor verify` from committed records, plus the `onVerify` plugin hook             | Done†   |
-| DX      | Committable `deployers/` — abi inline, the rest read from artifacts at deploy time     | Done    |
-| DX      | Zero-config `generate` — artifacts read from hardhat.config / foundry.toml             | Done    |
-| DX      | `generate` / `init` offer to remove a `.gitignore` rule hiding deployoor's output      | Done    |
-| Deploy  | Bytecode-diff redeploy — `redeploymentStrategy: 'on-change'`, now the default          | Done    |
-| Deploy  | Proxies & diamonds, deterministic addresses (CREATE2 / CREATE3), dry run               | Backlog |
-| Deploy  | Pending-transaction recovery from interrupted deploys                                  | Backlog |
-| Stores  | HTTP + browser store adapters                                                          | Backlog |
-| Verify  | More explorers (OKLink, custom per-chain endpoints), status recorded on the record     | Backlog |
-| DX      | `--watch`, `deployoor list` / `status`, import records, standalone scaffold            | Backlog |
-| Plugins | `onGenerated` hook, gas report, Tenderly, Discord, IPFS, Safe                          | Backlog |
-| AI      | Upgrade-safety diff, deployments MCP, deploy-script scaffolding (separate pkg)         | Backlog |
+| Area    | What                                                                               | Status  |
+| ------- | ---------------------------------------------------------------------------------- | ------- |
+| Compat  | Foundry and Hardhat v2 & v3 artifacts                                              | Done    |
+| Deploy  | Idempotent `getOrDeploy`, `register` / `reset`, stale-reuse warning                | Done    |
+| Deploy  | Atomic record writes, deploy lock, chainId record identity + mismatch guard        | Done    |
+| Stores  | Pluggable `StoreAdapter` + in-memory store                                         | Done    |
+| Verify  | Etherscan V2, Sourcify, Blockscout, and Routescan verifier plugins                 | Done    |
+| Testing | `@deployoor/testing` — same deployers on an in-memory EVM (EDR), no node           | Done    |
+| DX      | `@deployoor/wagmi` bridge, plugin SDK + Slack, Hardhat/Hardhat 3/Foundry examples  | Done    |
+| Deploy  | Richer `getOrDeploy` return (`{ contract, freshDeploy, receipt, deployment }`)     | Done    |
+| DX      | `@deployoor/hardhat` — auto-generate deployers on `hardhat compile`                | Done    |
+| Testing | EDR forks, snapshot fixtures, and committed records seeded onto a fork             | Done    |
+| DX      | Flagship end-to-end example (deploy → committed record → wagmi)                    | Done    |
+| DX      | Migration guide + comparison table (hardhat-deploy, Ignition, rocketh)             | Done    |
+| Compat  | `@deployoor/hardhat` auto-generate on Hardhat 3 (`@deployoor/hardhat/v3`)          | Done    |
+| Verify  | `deployoor verify` from committed records, plus the `onVerify` plugin hook         | Done†   |
+| DX      | Committable `deployers/` — abi inline, the rest read from artifacts at deploy time | Done    |
+| DX      | Zero-config `generate` — artifacts read from hardhat.config / foundry.toml         | Done    |
+| DX      | `generate` / `init` offer to remove a `.gitignore` rule hiding deployoor's output  | Done    |
+| Deploy  | Bytecode-diff redeploy — `redeploymentStrategy: 'on-change'`, now the default      | Done    |
+| Deploy  | Proxies & diamonds, deterministic addresses (CREATE2 / CREATE3), dry run           | Backlog |
+| Deploy  | Pending-transaction recovery from interrupted deploys                              | Backlog |
+| Stores  | HTTP + browser store adapters                                                      | Backlog |
+| Verify  | More explorers (OKLink, custom per-chain endpoints), status recorded on the record | Backlog |
+| DX      | `--watch`, `deployoor list` / `status`, import records, standalone scaffold        | Backlog |
+| Plugins | `onGenerated` hook, gas report, Tenderly, Discord, IPFS, Safe                      | Backlog |
+| AI      | Upgrade-safety diff, deployments MCP, deploy-script scaffolding (separate pkg)     | Backlog |
 
 † Since exercised against live Sepolia through Etherscan, Blockscout, and Routescan — the runs that surfaced two live-only Etherscan bugs, fixed in `@deployoor/etherscan` 0.3.1. Sourcify's live acceptance still rests on mock-`fetch` coverage.
 

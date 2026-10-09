@@ -34,7 +34,6 @@ const TOOLS = {
   foundry: { label: "Foundry", icon: true },
   viem: { label: "viem", icon: true },
   wagmi: { label: "wagmi", icon: true },
-  tevm: { label: "tevm" },
   vitest: { label: "Vitest", icon: true },
   jest: { label: "Jest", icon: true },
 } satisfies Readonly<Record<string, Tool>>;
@@ -200,7 +199,7 @@ reused 0x5FbDB2315678afecb367f032d93F642f64180aa3
     title: "Your tests can run standalone too",
     file: null,
     blurb:
-      "`@deployoor/testing` bundles an **in-memory EVM** (tevm) exposed as plain viem clients, so tests run with no Hardhat test environment and no node to start — under **any runner**: Vitest, Jest, `node:test`, `bun test`.",
+      "`@deployoor/testing` bundles an **in-memory EVM** (EDR, the Rust EVM behind Hardhat) exposed as plain viem clients, so tests run with no Hardhat test environment and no node to start — under **any runner**: Vitest, Jest, `node:test`, `bun test`.",
     leverages: ["vitest", "jest"],
     link: { href: "/guides/testing", label: "Testing guide" },
     code: `import { createTestClients } from "@deployoor/testing";

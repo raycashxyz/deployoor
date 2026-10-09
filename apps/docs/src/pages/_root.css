@@ -1263,11 +1263,6 @@
   mask-image: url("/icons/tools/wagmi.svg");
 }
 
-.tool-chip-icon[data-tool="tevm"]::before {
-  -webkit-mask-image: url("/icons/tools/tevm.svg");
-  mask-image: url("/icons/tools/tevm.svg");
-}
-
 .tool-chip-icon[data-tool="vitest"]::before {
   -webkit-mask-image: url("/icons/tools/vitest.svg");
   mask-image: url("/icons/tools/vitest.svg");

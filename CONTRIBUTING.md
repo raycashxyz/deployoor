@@ -39,7 +39,7 @@ packages/
   deployoor-evm/        private: the in-memory EVM (EDR) as viem clients
   deployoor-testing/    createTestClients() — @deployoor/evm + an in-memory store
 apps/docs/              Vocs v2 site for deployoor.dev
-examples/               dogfood projects (hardhat, hardhat-v3, foundry, tevm, multi-chain)
+examples/               dogfood projects (hardhat, hardhat-v3, foundry, multi-chain, custom-paths)
 ```
 
 Per-package work: `pnpm --filter @deployoor/etherscan test`.
@@ -145,7 +145,7 @@ Describe what changed and why. If it's user-facing, the changeset already carrie
 
 ## Reporting a bug
 
-The most useful bug report includes your framework and version (Hardhat 2/3, Foundry, tevm), the relevant slice of `deployoor.config.ts`, and the tagged error name if you got one — `DeploymentFailed`, `LibrariesUnlinked`, `ArtifactsNotFound`, `NoChainOnClient`, `InvalidDeploymentRecord`, `PluginFailed`. A failing test against the in-memory EVM is the gold standard, and `@deployoor/testing` makes that a few lines.
+The most useful bug report includes your framework and version (Hardhat 2/3, Foundry), the relevant slice of `deployoor.config.ts`, and the tagged error name if you got one — `DeploymentFailed`, `LibrariesUnlinked`, `ArtifactsNotFound`, `NoChainOnClient`, `InvalidDeploymentRecord`, `PluginFailed`. A failing test against the in-memory EVM is the gold standard, and `@deployoor/testing` makes that a few lines.
 
 ## License
 

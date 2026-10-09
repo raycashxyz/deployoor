@@ -1,21 +1,19 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { ArtifactsNotFound } from "../errors";
+import { ArtifactsNotFound, UnsupportedFramework } from "../errors";
 import type { Artifact } from "../schemas";
-import { DETECTION_MARKERS, detectFramework, detectToolchain, type Framework } from "./detect";
+import { DETECTION_MARKERS, detectFramework, detectToolchain, isFramework, type Framework } from "./detect";
 import { readFoundryOutPath, readHardhatArtifactsPath } from "./framework-config";
 import { readHardhatArtifacts } from "./hardhat";
 import { readFoundryArtifacts } from "./foundry";
-import { readTevmArtifacts, type ReadTevmOptions } from "./tevm";
 
 export { detectFramework, detectToolchain, type Framework } from "./detect";
 export { readFoundryOutPath, readHardhatArtifactsPath } from "./framework-config";
 export { readHardhatArtifacts } from "./hardhat";
 export { readFoundryArtifacts } from "./foundry";
-export { readTevmArtifacts, type ReadTevmOptions } from "./tevm";
 
-export interface ReadArtifactsOptions extends ReadTevmOptions {
-  /** Override toolchain auto-detection (e.g. `"tevm"` for a plain `.sol` project). */
+export interface ReadArtifactsOptions {
+  /** Override toolchain auto-detection (e.g. `"hardhat"` for a project with both markers). */
   readonly framework?: Framework;
   /** Artifacts directory, when it is not the framework default. See `Config.artifactsPath`. */
   readonly artifactsPath?: string;
@@ -111,17 +109,25 @@ export const readArtifacts = (root: string): Artifact[] => {
 };
 
 /**
+ * The configured `framework`, checked. It arrives from an evaluated config file that nothing has
+ * type-checked — a JavaScript config, or one written before a value was removed (`"tevm"`) — so the
+ * `Framework` type alone does not make it so.
+ */
+const configuredFramework = (framework: unknown): Framework | undefined => {
+  if (framework === undefined || isFramework(framework)) return framework;
+  throw new UnsupportedFramework({ framework });
+};
+
+/**
  * Detect the toolchain (or take the configured override) and read its compiled artifacts.
- * Async because the tevm adapter compiles `.sol` on demand; Hardhat/Foundry stay a plain
- * on-disk read.
+ * Async because honouring a moved output dir means loading hardhat.config.
  */
 export const readArtifactsAsync = async (
   root: string,
   opts: ReadArtifactsOptions = {},
 ): Promise<Artifact[]> => {
-  const framework = opts.framework ?? detectFramework(root);
+  const framework = configuredFramework(opts.framework) ?? detectFramework(root);
   if (framework === "hardhat") return readHardhatArtifacts(await resolveOutputDir(root, "hardhat", opts));
   if (framework === "foundry") return readFoundryArtifacts(await resolveOutputDir(root, "foundry", opts));
-  if (framework === "tevm") return readTevmArtifacts(root, opts);
   return noToolchain(root);
 };

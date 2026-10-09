@@ -43,23 +43,17 @@ export interface Config<P extends readonly AnyDeployPlugin[] = readonly AnyDeplo
   readonly importExtension?: ImportExtension;
   /**
    * Toolchain override for `deployoor generate`. Auto-detected from the project by default:
-   * Foundry (`foundry.toml`/`out/`), Hardhat v2/v3 (`hardhat.config.*`/`artifacts/`), or tevm —
-   * the last from a `tevm.config.*` or, as a zero-config fallback, a plain-`.sol` project with no
-   * Foundry/Hardhat markers and sources under `src/` or `contracts/`. Set explicitly only to
-   * disambiguate a mixed setup or when tevm sources live outside `src/`/`contracts/`.
+   * Foundry (`foundry.toml`) or Hardhat v2/v3 (`hardhat.config.*`). Set
+   * explicitly only to disambiguate a project that has both, or one whose config file is not in
+   * the project root.
    */
   readonly framework?: Framework;
-  /**
-   * For the `tevm` framework only: directory of `.sol` sources to compile. Default "./src".
-   * Ignored by the Hardhat/Foundry adapters (they read `artifacts/` / `out/`).
-   */
-  readonly sources?: string;
   /**
    * Where the compiled artifacts are, when they are not in the framework's default directory
    * (Hardhat `./artifacts`, Foundry `./out`). Set this to mirror a `paths.artifacts` in
    * hardhat.config or an `out` in foundry.toml. deployoor already reads both of those settings
    * automatically, so set this only to override the location it resolves, or when neither config
-   * states it. Ignored by the tevm adapter, which compiles `sources` instead.
+   * states it.
    */
   readonly artifactsPath?: string;
   /** Lifecycle plugins (verify, notify, …). */
