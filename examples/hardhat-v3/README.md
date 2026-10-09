@@ -37,7 +37,7 @@ pnpm --filter @example/hardhat-v3 deploy
 
 ## 3. Test — no node, no disk
 
-The same generated `getOrDeployCounter` runs in a vitest test against an in-memory EVM ([tevm](https://tevm.sh), via [`@deployoor/testing`](../../packages/deployoor-testing)). Spreading `clients` passes the in-memory store, so tests never touch `deployments/`.
+The same generated `getOrDeployCounter` runs in a vitest test against an in-memory EVM ([EDR](https://github.com/NomicFoundation/edr), via [`@deployoor/testing`](../../packages/deployoor-testing)). Spreading `clients` passes the in-memory store, so tests never touch `deployments/`.
 
 ```bash
 pnpm --filter @example/hardhat-v3 e2e   # hardhat compile (plugin generates) → vitest

@@ -7,7 +7,6 @@ deployoor is early. This is where it's heading, grouped by area. Have a use case
 ## Compatibility
 
 - **Hardhat v2 and v3** — _Done._ `deployoor generate` reads both Hardhat majors (v2's `.dbg.json` → build-info and v3's inline `buildInfoId` + split `build-info/<id>.json`) alongside Foundry `out/`. The `@deployoor/hardhat` auto-generate plugin supports both too, via two entry points in one package: `@deployoor/hardhat` (v2, side-effect registration) and `@deployoor/hardhat/v3` (v3, a `plugins: []` object that overrides the `compile` task). See `examples/hardhat` and `examples/hardhat-v3`.
-- **tevm (`generate`)** — _Done._ `deployoor generate` can compile a plain-Solidity project (no Hardhat/Foundry) directly with tevm's compiler (`@tevm/compiler` + `solc`, optional peers). It's auto-detected (no Foundry/Hardhat markers + `.sol` under `src/` or `contracts/`); `framework: "tevm"` or a `tevm.config.*` remain as explicit overrides. See `examples/tevm`. Not yet exposed: remappings/libs config passthrough and a pinned/remote solc selector.
 
 ## Deploy engine
 
@@ -21,8 +20,8 @@ deployoor is early. This is where it's heading, grouped by area. Have a use case
 
 ## Testing
 
-- **`@deployoor/testing` (tevm)** — _Done._ Run the same generated `getOrDeploy` functions against an in-memory EVM ([tevm](https://tevm.sh)) — no Hardhat network, no anvil, no disk writes. Spread `createTestClients()` and your deploy script code is your test code.
-- **First-class tevm targets** — _Planned._ Extend beyond in-memory: forked mainnet state, snapshot fixtures, and CI-friendly tevm configs as supported deploy/test targets (building on what `@deployoor/testing` already proves today).
+- **`@deployoor/testing` (EDR)** — _Done._ Run the same generated `getOrDeploy` functions against an in-memory EVM ([EDR](https://github.com/NomicFoundation/edr), the Rust EVM behind Hardhat) — no Hardhat network, no anvil, no disk writes. Spread `createTestClients()` and your deploy script code is your test code. Needs Node.js >= 22.
+- **Forks and fixtures** — _Done._ `createTestClients({ fork })` forks a live chain through EDR, `createFixture` restores a snapshot instead of redeploying, and committed records can be seeded onto the fork so `getOrDeploy` reuses production addresses.
 
 - **Pluggable store adapters** — _Planned._ Choose where the deployment record lives: filesystem (default), in-memory, or a remote HTTP API. The adapter interface already exists internally; this makes it selectable from `deployoor.config.ts`.
 - **Browser deploys** — _Exploring._ With an in-memory store, run `getOrDeploy` client-side — deploy from a web app, not just read deployments into one.

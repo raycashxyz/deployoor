@@ -28,8 +28,7 @@ export default defineConfig({
 | `out`                           | `./deployers`            | Where typed deployers are written                                                         |
 | `deploymentsPath`               | `./deployments`          | Where JSON records are read/written                                                       |
 | `artifactsPath`                 | framework default        | Compiled artifacts dir, if not `./artifacts` (Hardhat) or `./out` (Foundry)               |
-| `framework`                     | auto-detected            | `"hardhat"` \| `"foundry"` \| `"tevm"` — name the toolchain outright                      |
-| `sources`                       | `./src`                  | `tevm` only: the `.sol` directory to compile                                              |
+| `framework`                     | auto-detected            | `"hardhat"` \| `"foundry"` — name the toolchain outright                                  |
 | `importExtension`               | `"auto"`                 | `.js` on generated relative imports under node16/nodenext ([details](#import-extensions)) |
 | `plugins`                       | `[]`                     | Deploy-lifecycle hooks                                                                    |
 | `onPluginError`                 | `"warn"`                 | `"throw"` fails the run on plugin error                                                   |

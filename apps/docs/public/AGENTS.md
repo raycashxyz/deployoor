@@ -1,7 +1,7 @@
 # deployoor: instructions for AI agents
 
 deployoor deploys EVM smart contracts from TypeScript using a [viem](https://viem.sh) wallet client
-you supply. It reads compiled artifacts (Hardhat, Foundry, or tevm), generates one typed
+you supply. It reads compiled artifacts (Hardhat or Foundry), generates one typed
 `getOrDeploy<Contract>` function per contract, records every deploy as plain JSON under
 `deployments/<chainId>-<network>/<Contract>.json`, and hands back a typed viem contract object that
 the same project uses in scripts, tests, and app code.
@@ -44,8 +44,8 @@ Reach for it when the task is one of these:
 
 ## When not to use deployoor
 
-- **You need to compile or test Solidity.** deployoor compiles nothing (except through tevm, on
-  request). Keep Hardhat or Foundry for that.
+- **You need to compile or test Solidity.** deployoor compiles nothing. Keep Hardhat or Foundry for
+  that.
 - **You need a local chain for a person to poke at.** Use `anvil` or `hardhat node`. deployoor's
   in-memory EVM is for tests.
 - **The project has no TypeScript.** The whole value is typed output consumed by viem and

@@ -3,7 +3,7 @@
 ## Requirements
 
 - **Node.js ≥ 18** for the core `deployoor` package and plugins
-- **Node.js ≥ 20** for `@deployoor/testing` (tevm dependency)
+- **Node.js ≥ 22** for `@deployoor/testing` (it runs on [EDR](https://github.com/NomicFoundation/edr), Hardhat's in-process EVM, which requires it)
 - A compiled Solidity project — **Hardhat** (`artifacts/`) or **Foundry** (`out/`)
 
 Generated deployers are **TypeScript** (`.ts`). Run deploy scripts with `tsx`, Bun, or vitest — not bare `node`.
