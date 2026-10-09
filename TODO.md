@@ -7,6 +7,7 @@ deployoor is early. This is where it's heading, grouped by area. Have a use case
 ## Compatibility
 
 - **Hardhat v2 and v3** — _Done._ `deployoor generate` reads both Hardhat majors (v2's `.dbg.json` → build-info and v3's inline `buildInfoId` + split `build-info/<id>.json`) alongside Foundry `out/`. The `@deployoor/hardhat` auto-generate plugin supports both too, via two entry points in one package: `@deployoor/hardhat` (v2, side-effect registration) and `@deployoor/hardhat/v3` (v3, a `plugins: []` object that overrides the `compile` task). See `examples/hardhat` and `examples/hardhat-v3`.
+- **When no toolchain is detected** — _Considering._ Until 0.11, a project with bare `.sol` sources and no `foundry.toml` / `hardhat.config.*` fell through to the tevm framework, which compiled the sources itself. With tevm removed, `deployoor generate` now stops with `ArtifactsNotFound` (`no-toolchain`), naming the markers it looked for. Whether that is the right end state is open. The options: keep the error as is; compile bare sources directly with solc-js as an optional peer (what tevm's compiler wrapped, minus tevm, and still no remappings or linked libraries); have `deployoor init` offer to scaffold a Foundry or Hardhat 3 config instead; or keep the error but make it say exactly how to add each toolchain. To be decided from how often people actually hit it.
 
 ## Deploy engine
 
