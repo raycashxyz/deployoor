@@ -9,7 +9,7 @@ import type { Abi, Address, Hex } from "viem";
  *
  * Note: abitype ships zod schemas (`abitype/zod`), but its 1.2.x types are written
  * against zod 3 — e.g. its `Address` is `z.ZodEffects<...>`, and `ZodEffects` was removed
- * in zod 4. deployoor needs zod 4 (tevm requires it), so `z.infer` over those schemas
+ * in zod 4. deployoor is on zod 4, so `z.infer` over those schemas
  * collapses to `any` (runtime validation is fine; only the types break). These small
  * local validators infer precisely under zod 4; abitype's `Abi` *type* (via viem)
  * stays the source of truth for the abi shape.

@@ -2,7 +2,7 @@ import type { Abi } from "viem";
 import type { TypedArtifact } from "../src/index";
 
 /**
- * Real artifacts (compiled with solc 0.8.35) so they deploy on a real EVM (tevm).
+ * Real artifacts (compiled with solc 0.8.35) so they deploy on a real EVM (EDR, via @deployoor/evm).
  *   contract Counter  { uint256 public count; address public owner;
  *                       constructor(uint256 start, address owner_) {...} function increment() {...} }
  *   contract Reverter { constructor() { revert("boom"); } }   // exercises the failed-deploy path

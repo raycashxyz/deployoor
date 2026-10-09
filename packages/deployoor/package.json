@@ -85,23 +85,11 @@
     "zod": "^4.4.3"
   },
   "peerDependencies": {
-    "@tevm/compiler": ">=1.0.0-next.148 <2",
-    "solc": ">=0.8.0 <0.9.0",
     "viem": "^2"
-  },
-  "peerDependenciesMeta": {
-    "@tevm/compiler": {
-      "optional": true
-    },
-    "solc": {
-      "optional": true
-    }
   },
   "devDependencies": {
     "@deployoor/evm": "workspace:*",
-    "@tevm/compiler": "1.0.0-next.148",
     "@types/node": "catalog:",
-    "solc": "0.8.30",
     "tsdown": "^0.22.3",
     "typescript": "catalog:",
     "unrun": "^0.3.1",

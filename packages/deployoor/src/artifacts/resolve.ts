@@ -24,7 +24,6 @@ export interface ResolveArtifactOptions {
   readonly root?: string;
   readonly framework?: Framework;
   readonly artifactsPath?: string;
-  readonly sources?: string;
 }
 
 /**
@@ -49,14 +48,13 @@ const loadArtifacts = async (
   opts: ResolveArtifactOptions,
 ): Promise<ReadonlyArray<Artifact>> => {
   // Imported dynamically so the main `deployoor` entry — which generated deployers import — does not
-  // statically pull in the Node-only artifact readers (and, for tevm, a Solidity compiler). A deploy
+  // statically pull in the Node-only artifact readers. A deploy
   // that passes a full artifact never loads any of it. Same reasoning as the `deployoor/generate`
   // subpath existing at all.
   const mod = await import("./index");
   return mod.readArtifactsAsync(root, {
     framework: opts.framework,
     artifactsPath: opts.artifactsPath,
-    sources: opts.sources,
   });
 };
 

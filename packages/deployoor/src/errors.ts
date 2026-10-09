@@ -23,6 +23,10 @@ const describe = (cause: unknown): string => {
   }
 };
 
+/** A config value quoted back in a message: strings in quotes, anything else as it renders. */
+const describeValue = (value: unknown): string =>
+  typeof value === "string" ? JSON.stringify(value) : describe(value);
+
 const safeJson = (cause: unknown): string => {
   try {
     return JSON.stringify(cause) ?? "unknown cause";
@@ -63,7 +67,7 @@ export type ArtifactsNotFoundContext =
   | { readonly kind: "no-toolchain"; readonly markers: string }
   | {
       readonly kind: "missing-output-dir";
-      readonly framework: "hardhat" | "foundry" | "tevm";
+      readonly framework: "hardhat" | "foundry";
       /** The file/dir that identified the toolchain; absent when `framework` came from config. */
       readonly marker?: string;
       /** Where `dir` came from, which decides what is worth suggesting. */
@@ -73,17 +77,15 @@ export type ArtifactsNotFoundContext =
 const COMPILE_COMMAND = {
   hardhat: "npx hardhat compile",
   foundry: "forge build",
-  tevm: "npx deployoor generate",
 } as const;
 
 /** Where each toolchain's own config puts the output dir, so the fix names the right knob. */
 const OUTPUT_DIR_SETTING = {
   hardhat: "`paths.artifacts` in hardhat.config",
   foundry: "`out` in foundry.toml",
-  tevm: "the sources dir",
 } as const;
 
-const FRAMEWORK_LABEL = { hardhat: "Hardhat", foundry: "Foundry", tevm: "tevm" } as const;
+const FRAMEWORK_LABEL = { hardhat: "Hardhat", foundry: "Foundry" } as const;
 
 export class ArtifactsNotFound extends Data.TaggedError("ArtifactsNotFound")<{
   readonly dir: string;
@@ -141,6 +143,40 @@ export class ArtifactsNotFound extends Data.TaggedError("ArtifactsNotFound")<{
       `  2. The output lives elsewhere — deployoor reads ${OUTPUT_DIR_SETTING[context.framework]}`,
       `     when it can, so if that is set and this path is still wrong, name it directly:`,
       `       export default defineConfig({ artifactsPath: "./build/artifacts" })`,
+    ].join("\n");
+  }
+}
+
+/**
+ * `framework` in deployoor.config.ts names a toolchain deployoor does not read. The config is plain
+ * evaluated TypeScript with no runtime schema, so without this an unknown value fell through to the
+ * "could not tell what this project is built with" error, which blames detection for a typo.
+ *
+ * `"tevm"` gets its own message: it was a supported value until deployoor stopped compiling Solidity
+ * itself, so a config that still says it is a migration, not a typo.
+ */
+export class UnsupportedFramework extends Data.TaggedError("UnsupportedFramework")<{
+  readonly framework: unknown;
+}> {
+  override get message(): string {
+    const fix = [
+      `Compile with Hardhat (\`npx hardhat compile\`) or Foundry (\`forge build\`), then set`,
+      `\`framework: "hardhat"\` or \`framework: "foundry"\` in deployoor.config.ts — or remove \`framework\``,
+      `to auto-detect it from hardhat.config.* / foundry.toml.`,
+    ];
+    if (this.framework === "tevm") {
+      return [
+        `The "tevm" framework was removed: deployoor no longer compiles Solidity itself, it reads the`,
+        `artifacts Hardhat or Foundry write. The \`sources\` option went with it.`,
+        ``,
+        ...fix,
+      ].join("\n");
+    }
+    return [
+      `Unsupported framework ${describeValue(this.framework)} in deployoor.config.ts. deployoor reads`,
+      `Hardhat (v2/v3) and Foundry artifacts.`,
+      ``,
+      ...fix,
     ].join("\n");
   }
 }

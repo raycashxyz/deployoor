@@ -20,8 +20,6 @@ export interface RunGenerateOptions {
   readonly packageName?: string;
   /** Toolchain override (else auto-detected). */
   readonly framework?: Framework;
-  /** For the tevm framework: the `.sol` sources directory (relative to root). */
-  readonly sources?: string;
   /** Artifacts directory, when it is not the framework default. See `Config.artifactsPath`. */
   readonly artifactsPath?: string;
   /**
@@ -63,7 +61,6 @@ const configSpecifier = (
 export const runGenerate = async (opts: RunGenerateOptions): Promise<ReadonlyArray<GeneratedFile>> => {
   const all = await readArtifactsAsync(opts.root, {
     framework: opts.framework,
-    sources: opts.sources,
     artifactsPath: opts.artifactsPath,
   });
   const artifacts = all.filter((a) => matches(a.name, opts.include));

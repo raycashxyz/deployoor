@@ -73,6 +73,7 @@ export {
   DeploymentChainMismatch,
   LibrariesUnlinked,
   ArtifactsNotFound,
+  UnsupportedFramework,
   NoChainOnClient,
   InvalidDeploymentRecord,
   PluginFailed,

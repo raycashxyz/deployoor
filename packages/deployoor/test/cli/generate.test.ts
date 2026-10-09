@@ -232,7 +232,7 @@ describe("runInit + isDeployoorInstalled", () => {
 
     const contents = readFileSync((await runInit(root)).configPath, "utf8");
 
-    expect(contents).toContain("No Foundry, Hardhat or Solidity sources detected");
+    expect(contents).toContain("No Foundry or Hardhat project detected");
   });
 
   it("detects whether deployoor is a declared dependency", () => {
