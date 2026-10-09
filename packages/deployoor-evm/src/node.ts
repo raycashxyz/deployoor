@@ -9,7 +9,7 @@ import {
   MineOrdering,
   type Provider,
 } from "@nomicfoundation/edr";
-import { bytesToHex, defineChain, hexToBytes, type Account, type Chain, type Hex } from "viem";
+import { bytesToHex, defineChain, hexToBytes, isHex, type Account, type Chain, type Hex } from "viem";
 import { mnemonicToAccount } from "viem/accounts";
 
 /**
@@ -147,7 +147,11 @@ export const createEvmProvider = async (options: EvmOptions = {}): Promise<Provi
       coinbase: new Uint8Array(20),
       allowBlocksWithSameTimestamp: false,
       allowUnlimitedContractSize: false,
-      bailOnCallFailure: false,
+      // A reverting eth_call / eth_estimateGas fails with the revert data, as on a real node. With
+      // `false`, EDR returns the revert data as a successful result, so a reverting `readContract`
+      // or `simulateContract` resolves instead of throwing.
+      bailOnCallFailure: true,
+      // A sent transaction that reverts is mined with a reverted receipt, as on a real chain.
       bailOnTransactionFailure: false,
     },
     { enable: false, decodeConsoleLogInputsCallback: () => [], printLineCallback: () => {} },
@@ -165,6 +169,33 @@ export interface EvmProvider {
   readonly request: (args: { readonly method: string; readonly params?: unknown }) => Promise<unknown>;
 }
 
+/** The `error` member of a JSON-RPC response, as EDR returns it. */
+interface JsonRpcError {
+  readonly code: number;
+  readonly message: string;
+  /** For a revert, the return data (`0x…`): the custom error's selector and arguments. */
+  readonly data?: unknown;
+}
+
+/** EIP-1474's "execution reverted", which geth and anvil return for a revert. */
+const EXECUTION_REVERTED = 3;
+
+/** EDR nests a revert's return data as `{ data: "0x…", reason, transactionHash }`. */
+const revertDataOf = (data: unknown): Hex | undefined =>
+  typeof data === "object" && data !== null && "data" in data && isHex(data.data) ? data.data : undefined;
+
+/**
+ * The error a provider throws, shaped as geth shapes a revert: `{ code: 3, data: "0x…" }`. viem decodes
+ * a custom error only from that code (EDR says -32000, which viem reads as invalid input) and only
+ * from `data` (a bare `Error(message)` reaches it as an unknown RPC error with nothing to decode).
+ */
+const toProviderError = (error: JsonRpcError): Error => {
+  const revertData = revertDataOf(error.data);
+  if (revertData === undefined)
+    return Object.assign(new Error(error.message), { code: error.code, data: error.data });
+  return Object.assign(new Error(error.message), { code: EXECUTION_REVERTED, data: revertData });
+};
+
 /** EDR speaks JSON-RPC across a string boundary; viem wants EIP-1193. This is the seam. */
 export const requestFor =
   (provider: Provider): EvmProvider["request"] =>
@@ -173,8 +204,8 @@ export const requestFor =
       JSON.stringify({ jsonrpc: "2.0", id: 1, method, params: params ?? [] }),
     );
     const { data } = response;
-    const parsed: { result?: unknown; error?: { message: string } } =
+    const parsed: { result?: unknown; error?: JsonRpcError } =
       typeof data === "string" ? JSON.parse(data) : data;
-    if (parsed.error !== undefined) throw new Error(parsed.error.message);
+    if (parsed.error !== undefined) throw toProviderError(parsed.error);
     return parsed.result;
   };
