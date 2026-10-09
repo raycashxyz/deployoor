@@ -22,8 +22,6 @@ examples/multi-chain/deployers
 examples/multi-chain/out
 examples/custom-paths/generated
 examples/custom-paths/build
-examples/tevm/deployers
-examples/tevm/.tevm
 apps/docs/dist
 apps/docs/.waku
 apps/docs/.vercel
