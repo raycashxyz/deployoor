@@ -16,8 +16,8 @@
     "@deployoor/hardhat": "workspace:*",
     "@deployoor/testing": "workspace:*",
     "@types/node": "catalog:",
-    "hardhat": "^2.22.0",
-    "tsx": "^4.23.12",
+    "hardhat": "^2.29.2",
+    "tsx": "^4.23.15",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

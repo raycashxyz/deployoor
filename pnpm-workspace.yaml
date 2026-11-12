@@ -5,12 +5,12 @@ packages:
 
 # Self-contained catalog (no external monorepo dependency).
 catalog:
-  "@types/node": ^22.15.3
-  "@wagmi/cli": ^2.3.1
+  "@types/node": ^22.20.5
+  "@wagmi/cli": ^2.10.1
   effect: ^3.19.0
   typescript: ^5.9.3
-  viem: 2.57.4
-  vitest: ^4.0.17
+  viem: 2.57.19
+  vitest: ^4.1.12
 
 onlyBuiltDependencies:
   - esbuild

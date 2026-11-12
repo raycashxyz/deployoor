@@ -66,8 +66,8 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "deployoor": "workspace:*",
-    "hardhat": "^2.22.0",
-    "tsdown": "^0.22.3",
+    "hardhat": "^2.29.2",
+    "tsdown": "^0.22.14",
     "typescript": "catalog:",
     "unrun": "^0.3.1",
     "vitest": "catalog:"

@@ -35,12 +35,12 @@
     "release": "turbo run build && changeset publish"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.31.0",
-    "oxlint": "^1.78.0",
+    "@changesets/cli": "^2.31.1",
+    "oxlint": "^1.93.0",
     "png-to-ico": "^2.1.8",
-    "prettier": "^3.9.6",
-    "sharp": "^0.34.3",
-    "turbo": "^2.10.9",
+    "prettier": "^3.10.1",
+    "sharp": "^0.34.5",
+    "turbo": "^2.11.11",
     "typescript": "^5.9.3"
   }
 }
