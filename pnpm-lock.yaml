@@ -13,7 +13,7 @@ catalogs:
       specifier: ^2.10.1
       version: 2.10.1
     effect:
-      specifier: ^3.22.4
+      specifier: ^3.19.0
       version: 3.22.4
     typescript:
       specifier: ^5.9.3
