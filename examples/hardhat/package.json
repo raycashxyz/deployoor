@@ -20,9 +20,9 @@
     "@deployoor/wagmi": "workspace:*",
     "@types/node": "catalog:",
     "@wagmi/cli": "catalog:",
-    "@wagmi/core": "^2.21.1",
-    "hardhat": "^2.22.0",
-    "tsx": "^4.23.12",
+    "@wagmi/core": "^2.22.1",
+    "hardhat": "^2.29.2",
+    "tsx": "^4.23.15",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

@@ -11,20 +11,21 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "vocs": "^2.8.5"
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-server-dom-webpack": "^19.3.1",
+    "vocs": "^2.12.0"
   },
   "devDependencies": {
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "deployoor": "workspace:*",
-    "hono": "^4.12.14",
-    "mermaid": "^11.16.1",
+    "hono": "^4.13.18",
+    "mermaid": "^11.17.2",
     "typescript": "^5.9.3",
     "viem": "catalog:",
-    "vite": "^8.2.1",
+    "vite": "^8.3.8",
     "vitest": "catalog:",
-    "waku": "^1.0.0-beta.6"
+    "waku": "^1.0.0-rc.5"
   }
 }
